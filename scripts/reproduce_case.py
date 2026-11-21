@@ -30,7 +30,7 @@ class ReproductionError(RuntimeError):
 
 def read_publication(case_dir: Path) -> dict[str, Any]:
     manifest = json.loads((case_dir / "publication-manifest.json").read_bytes())
-    if not isinstance(manifest, dict) or manifest.get("manifest_version") != "1":
+    if not isinstance(manifest, dict) or manifest.get("manifest_version") not in {"1", "2"}:
         raise ReproductionError("unsupported publication manifest")
     files = manifest.get("files")
     if not isinstance(files, dict) or "case.json" not in files:
@@ -49,6 +49,8 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
     if re.fullmatch(r"python@sha256:[0-9a-f]{64}", base) is None:
         raise ReproductionError("reproduction requires an immutable official Python base")
     case = json.loads((case_dir / "case.json").read_bytes())
+    if manifest["manifest_version"] == "2":
+        _v2_allowlist(case_dir, manifest, case)
     if case.get("repair_derivation") is not None:
         proof = case["repair_derivation"]
         expected = {
@@ -67,6 +69,9 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
             "official-unittest/summary.json",
             "historical-production.diff",
         }
+        if manifest["manifest_version"] == "2":
+            expected -= {f"official-unittest/{role}.json" for role in (*_ROLES, "summary")}
+            expected |= {f"upstream-suite/{role}.json" for role in (*_ROLES, "summary")}
         historical = proof.get("historical_diff") if isinstance(proof, dict) else None
         actual = {
             path.relative_to(case_dir).as_posix()
@@ -84,6 +89,288 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
         ):
             raise ReproductionError("derived repair publication has an invalid artifact allowlist")
     return manifest
+
+
+_ROLES = ("base", "bad", "repaired")
+_UPSTREAM_PROFILES = {
+    "boltons_upstream_default_behavior_v1",
+    "pydash_upstream_default_behavior_v1",
+}
+_IDENTITY_FIELDS = (
+    "environment_python",
+    "grader_sha256",
+    "policy_sha256",
+    "dependency_lock_sha256",
+)
+_SUITE_FIELDS = (
+    "collected",
+    "passed",
+    "failed",
+    "errors",
+    "skipped",
+    "xfailed",
+    "xpassed",
+    "deselected",
+    "node_ids",
+    "collection_errors",
+    "extra_skip_node_ids",
+)
+
+
+def _upstream_scope(profile: str) -> dict[str, Any]:
+    if profile not in _UPSTREAM_PROFILES:
+        raise ReproductionError("unsupported upstream suite profile")
+    excluded = ["coverage_quality_gate", "documentation_build", "lint", "package_build"]
+    if profile == "pydash_upstream_default_behavior_v1":
+        excluded.insert(0, "opt_in_typing_tests")
+    return {"behavior": "upstream_default_unit_and_package_doctests", "excluded_checks": excluded}
+
+
+def _v2_allowlist(case_dir: Path, manifest: dict[str, Any], case: dict[str, Any]) -> None:
+    expected = {
+        "case.json",
+        "candidate.json",
+        "reference.py",
+        "repair.patch",
+        "bad.diff",
+        "historical_fix.diff",
+        "validation.json",
+        "upstream-license.txt",
+        "upstream-reference-header.txt",
+        *(f"upstream-suite/{role}.json" for role in (*_ROLES, "summary")),
+    }
+    if case.get("repair_derivation") is not None:
+        expected.add("historical-production.diff")
+    actual = {
+        path.relative_to(case_dir).as_posix()
+        for path in case_dir.rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
+    if (
+        set(manifest["files"]) != expected
+        or actual != expected | {"publication-manifest.json"}
+        or manifest.get("case_id") != case.get("id")
+    ):
+        raise ReproductionError("version-2 publication has an invalid artifact allowlist")
+    report = json.loads((case_dir / "validation.json").read_bytes())
+    # Only the later pinned interpreter may check the command registry.
+    _upstream_evidence(case_dir, case, report)
+
+
+def _matching_suite(
+    result: dict[str, Any],
+    approved: dict[str, Any],
+    *,
+    profile: str,
+    command: list[str],
+    pids: int,
+    identity: dict[str, Any],
+) -> None:
+    nodes = result.get("node_ids")
+    counts: list[Any] = [
+        result.get(key) for key in ("passed", "failed", "errors", "skipped", "xfailed", "xpassed")
+    ]
+    if (
+        result.get("status") != "passed"
+        or result.get("exit_code") != 0
+        or result.get("failed") != 0
+        or result.get("errors") != 0
+        or result.get("collection_errors")
+        or result.get("extra_skip_node_ids")
+        or any(type(count) is not int or count < 0 for count in counts)
+        or sum(counts) != result.get("collected")
+        or result.get("profile") != profile
+        or result.get("command") != command
+        or type(result.get("pids_limit")) is not int
+        or result["pids_limit"] != pids
+        or any(result.get(key) != identity.get(key) for key in _IDENTITY_FIELDS)
+        or any(result.get(key) != approved.get(key) for key in _SUITE_FIELDS)
+        or not isinstance(nodes, list)
+        or not nodes
+        or any(not isinstance(node, str) or not node for node in nodes)
+        or len(set(nodes)) != len(nodes)
+        or result.get("collected") != len(nodes)
+        or result.get("deselected") != 0
+    ):
+        raise ReproductionError("upstream suite result differs from approved scope or identities")
+
+
+# Distinguish the outer source-only check from an unavailable pinned API.
+_OUTER_CHECK = object()
+
+
+def _upstream_evidence(
+    case_dir: Path,
+    case: dict[str, Any],
+    report: dict[str, Any],
+    registry: Any = _OUTER_CHECK,
+) -> dict[str, Any]:
+    summary = json.loads((case_dir / "upstream-suite/summary.json").read_bytes())
+    if not isinstance(summary, dict):
+        raise ReproductionError("invalid upstream suite summary")
+    profile = report.get("baseline_profile")
+    command, pids = summary.get("command"), report.get("baseline_pids_limit")
+    if profile not in _UPSTREAM_PROFILES:
+        raise ReproductionError("unsupported upstream suite profile")
+    if registry is not _OUTER_CHECK:
+        if not callable(registry):
+            raise ReproductionError("pinned baseline command registry is unavailable")
+        try:
+            canonical = list(registry(profile))
+        except (ValueError, TypeError) as error:
+            raise ReproductionError("pinned registry does not support upstream profile") from error
+        if command != canonical:
+            raise ReproductionError("upstream command differs from pinned registry")
+    if (
+        summary.get("version") != "1"
+        or summary.get("status") != "passed"
+        or summary.get("evidence_kind") != "structured_baseline_repeat"
+        or summary.get("independent_instrumentation") is not False
+        or summary.get("case_id") != case.get("id")
+        or summary.get("profile") != profile
+        or summary.get("scope") != _upstream_scope(profile)
+        or not isinstance(command, list)
+        or command != case["env"].get("test_cmd")
+        or command != report.get("baseline_command")
+        or type(pids) is not int
+        or not 8 <= pids <= 256
+        or type(summary.get("pids_limit")) is not int
+        or summary["pids_limit"] != pids
+        or summary.get("image") != case["env"].get("image")
+        or report.get("image") != case["env"].get("image")
+        or report.get("case_id") != case.get("id")
+        or summary.get("validation_report_sha256")
+        != hashlib.sha256((case_dir / "validation.json").read_bytes()).hexdigest()
+        or summary.get("source_hashes") != case.get("source_hashes")
+        or report.get("source_hashes") != case.get("source_hashes")
+        or report.get("status") != "machine_validated"
+        or any(summary.get(key) != report.get(key) for key in _IDENTITY_FIELDS)
+        or summary.get("environment_python") != case["env"].get("python")
+        or summary.get("dependency_lock_sha256") != case["env"].get("dependency_lock_sha256")
+        or not isinstance(summary.get("roles"), dict)
+        or set(summary["roles"]) != set(_ROLES)
+        or not isinstance(report.get("baseline_reports"), dict)
+        or set(report["baseline_reports"]) != set(_ROLES)
+    ):
+        raise ReproductionError("upstream suite summary binding mismatch")
+    for role in _ROLES:
+        descriptor = summary["roles"][role]
+        path = f"upstream-suite/{role}.json"
+        raw = (case_dir / path).read_bytes()
+        if (
+            descriptor.get("path") != path
+            or descriptor.get("sha256") != hashlib.sha256(raw).hexdigest()
+            or descriptor.get("bytes") != len(raw)
+            or descriptor.get("source_sha256") != case["source_hashes"][role]
+        ):
+            raise ReproductionError("upstream suite role binding mismatch")
+        approved = report["baseline_reports"][role]
+        for result in (approved, json.loads(raw)):
+            _matching_suite(
+                result, approved, profile=profile, command=command, pids=pids, identity=report
+            )
+    return summary
+
+
+def _upstream_repeat(
+    baseline_module: Any,
+    built: Any,
+    image: str,
+    client: Any,
+    report: dict[str, Any],
+    output: Path,
+) -> dict[str, Any]:
+    from revertbench.sandbox.worker import SandboxLimits
+
+    profile, pids = report["baseline_profile"], report["baseline_pids_limit"]
+    command = list(baseline_module.baseline_command(profile))
+    backend = baseline_module.DockerBaselineRunner(
+        image, client=client, profile=profile, limits=SandboxLimits(pids=pids)
+    )
+    results = {}
+    (output / "upstream-suite").mkdir()
+    for role in _ROLES:
+        result = backend(getattr(built, f"{role}_tree")).model_dump(mode="json")
+        _matching_suite(
+            result,
+            report["baseline_reports"][role],
+            profile=profile,
+            command=command,
+            pids=pids,
+            identity=report,
+        )
+        results[role] = result
+        (output / f"upstream-suite/{role}.json").write_text(json.dumps(result, indent=2) + "\n")
+    return results
+
+
+def _check_fresh_upstream(fresh: dict[str, Any], approved: dict[str, Any]) -> None:
+    profile = approved["baseline_profile"]
+    command, pids = approved["baseline_command"], approved["baseline_pids_limit"]
+    if fresh.get("baseline_profile") != profile or fresh.get("baseline_command") != command:
+        raise ReproductionError("fresh upstream suite selection differs")
+    for role in _ROLES:
+        _matching_suite(
+            fresh["baseline_reports"][role],
+            approved["baseline_reports"][role],
+            profile=profile,
+            command=command,
+            pids=pids,
+            identity=approved,
+        )
+
+
+def _reproduce_suites(
+    version: str,
+    baseline_module: Any,
+    built: Any,
+    image: str,
+    client: Any,
+    case: dict[str, Any],
+    report: dict[str, Any],
+    output: Path,
+    case_dir: Path,
+) -> dict[str, Any]:
+    pids = report.get("baseline_pids_limit", 64)
+    if version == "1":
+        original = json.loads((case_dir / "official-unittest/summary.json").read_bytes())
+        suites = {}
+        for role in _ROLES:
+            suites[role] = _official_suite(
+                getattr(built, f"{role}_tree"),
+                image,
+                tuple(case["env"]["test_cmd"]),
+                client,
+                baseline_pids_limit=pids,
+            )
+            if suites[role]["tests_run"] != original["roles"][role]["tests_run"]:
+                raise ReproductionError("official suite count differs from approved evidence")
+        return {"official_command": case["env"]["test_cmd"], "official_suites": suites}
+    original = _upstream_evidence(
+        case_dir, case, report, getattr(baseline_module, "baseline_command", None)
+    )
+    suites = _upstream_repeat(baseline_module, built, image, client, report, output)
+    summary = {**original, "image": image, "roles": {}}
+    fresh_report_path = output / "validation.json"
+    # The caller persisted the normal fresh report before starting this repeat.
+    summary["validation_report_sha256"] = hashlib.sha256(fresh_report_path.read_bytes()).hexdigest()
+    for role in _ROLES:
+        path = f"upstream-suite/{role}.json"
+        raw = (output / path).read_bytes()
+        summary["roles"][role] = {
+            "path": path,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "bytes": len(raw),
+            "source_sha256": report["source_hashes"][role],
+        }
+    (output / "upstream-suite/summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    return {
+        "suite_evidence_kind": "structured_baseline_repeat",
+        "independent_instrumentation": False,
+        "upstream_command": original["command"],
+        "upstream_scope": original["scope"],
+        "upstream_suites": suites,
+    }
 
 
 def _run(command: list[str], *, cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
@@ -298,6 +585,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
     from revertbench.mine.models import candidate_from_json
     from revertbench.review import _machine_passed, build_review_packet, load_case
     from revertbench.sandbox import image as image_module
+    from revertbench.validate import baseline as baseline_module
     from revertbench.validate import validate_built_candidate
     from revertbench.validate.identity import host_code_identity
 
@@ -320,7 +608,11 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
     candidate = candidate_from_json((case_dir / case.candidate_artifact.path).read_text())
     repository = GitRepository.clone(case.repo, cache / "repos")
     original_report = json.loads((case_dir / "validation.json").read_bytes())
-    original_official = json.loads((case_dir / "official-unittest/summary.json").read_bytes())
+    raw_case = json.loads((case_dir / "case.json").read_bytes())
+    if publication["manifest_version"] == "2":
+        _upstream_evidence(
+            case_dir, raw_case, original_report, getattr(baseline_module, "baseline_command", None)
+        )
     image_module._BASE_IMAGE = publication["build"]["base_image"]
     # Quiet official suites can emit nothing until completion. The transport
     # timeout must exceed their independent 60-second command wall budget.
@@ -366,19 +658,21 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 raise ReproductionError(
                     "fresh validation did not reproduce approved identities and behavior"
                 )
-            official = {}
-            for role, tree in (
-                ("base", built.base_tree),
-                ("bad", built.bad_tree),
-                ("repaired", built.repaired_tree),
-            ):
-                official[role] = _official_suite(
-                    tree, image, case.env.test_cmd, client, baseline_pids_limit=baseline_pids
-                )
-                if official[role]["tests_run"] != original_official["roles"][role]["tests_run"]:
-                    raise ReproductionError("official suite count differs from approved evidence")
+            if publication["manifest_version"] == "2":
+                _check_fresh_upstream(fresh.model_dump(mode="json"), original_report)
+            suites = _reproduce_suites(
+                publication["manifest_version"],
+                baseline_module,
+                built,
+                image,
+                client,
+                raw_case,
+                original_report,
+                output,
+                case_dir,
+            )
             result = {
-                "reproduction_version": "1",
+                "reproduction_version": publication["manifest_version"],
                 "status": "reproduced",
                 "case_id": case.id,
                 "implementation_commit": case.global_suite_evidence.implementation_commit
@@ -397,8 +691,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 "baseline_pids_limit": baseline_pids,
                 "repair_derivation_sha256": expected_proof,
                 "reference_score": fresh.reference.score,
-                "official_command": case.env.test_cmd,
-                "official_suites": official,
+                **suites,
                 "approved_case_sha256": hashlib.sha256(
                     (case_dir / "case.json").read_bytes()
                 ).hexdigest(),
