@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 import docker
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from revertbench import __version__
 from revertbench.build import BuildError, BuiltCandidate, canonical_tree_digest
@@ -18,10 +18,11 @@ from revertbench.grade.policy import POLICY_VERSION, check_submission
 from revertbench.grade.rules import grade_submission
 from revertbench.grade.validation import validate_reference
 from revertbench.sandbox.agent import AgentSandbox
-from revertbench.sandbox.worker import DockerRunner, SandboxError
+from revertbench.sandbox.worker import DockerRunner, SandboxError, SandboxLimits
 from revertbench.schema import ContentDigest, EvidenceModel, GradeResult
 from revertbench.validate.baseline import (
     BaselineBackend,
+    BaselinePidsLimit,
     BaselineProfile,
     BaselineResult,
     DockerBaselineRunner,
@@ -50,6 +51,7 @@ class MachineValidationReport(EvidenceModel):
     policy_version: str = POLICY_VERSION
     validator_version: Literal["1"] = "1"
     baseline_profile: BaselineProfile = "pytest"
+    baseline_pids_limit: BaselinePidsLimit = 64
     baseline_command: tuple[str, ...] = ()
     probe_scope: Literal["case_specific"] = "case_specific"
     global_suite_evidence: Literal["separate_ci_required"] = "separate_ci_required"
@@ -60,6 +62,14 @@ class MachineValidationReport(EvidenceModel):
     reference: GradeResult | None = None
     probes: dict[str, ProbeResult] = Field(default_factory=dict)
     human_review: Literal["pending"] = "pending"
+
+    @model_validator(mode="after")
+    def check_baseline_resources(self) -> MachineValidationReport:
+        if self.status == "machine_validated" and any(
+            value.pids_limit != self.baseline_pids_limit for value in self.baseline_reports.values()
+        ):
+            raise ValueError("validated baseline resource limits must match the selected limit")
+        return self
 
 
 class TransferBackend(Protocol):
@@ -153,9 +163,11 @@ def validate_built_candidate(
     execution_backend: ExecutionBackend | None = None,
     transfer_backend: TransferBackend | None = None,
     baseline_profile: BaselineProfile = "pytest",
+    baseline_pids_limit: int = 64,
 ) -> MachineValidationReport:
     """Require existing suites, differential reference, and explicit adversarial probes."""
     command = baseline_command(baseline_profile)
+    baseline_limits = SandboxLimits(pids=baseline_pids_limit)
     baselines: dict[str, BaselineResult] = {}
     probes: dict[str, ProbeResult] = {}
     reference: GradeResult | None = None
@@ -169,6 +181,7 @@ def validate_built_candidate(
             case_id=built.case_id,
             image=image,
             baseline_profile=baseline_profile,
+            baseline_pids_limit=baseline_pids_limit,
             baseline_command=command,
             environment_python=next(
                 (value.environment_python for value in baselines.values()), None
@@ -205,10 +218,12 @@ def validate_built_candidate(
         if not policy.allowed:
             return report("rejected", "reference_policy_rejected")
         baseline = baseline_backend or DockerBaselineRunner(
-            image, client=client, profile=baseline_profile
+            image, client=client, profile=baseline_profile, limits=baseline_limits
         )
         for role in ("base", "bad", "repaired"):
             baselines[role] = baseline(trees[role])
+        if any(value.pids_limit != baseline_pids_limit for value in baselines.values()):
+            return report("pending_infrastructure", "baseline_resource_mismatch")
         if any(value.status == "invalid_run" for value in baselines.values()):
             return report("pending_infrastructure", "baseline_infrastructure")
         if any(value.status != "passed" for value in baselines.values()):

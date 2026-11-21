@@ -156,6 +156,7 @@ def _process_candidate(
     good_commit: str | None,
     validate: bool,
     baseline_profile: Literal["pytest", "unittest"] = "pytest",
+    baseline_pids_limit: int = 64,
 ) -> Path:
     from dataclasses import replace
     from tempfile import TemporaryDirectory
@@ -301,7 +302,12 @@ def _process_candidate(
                 raise ValueError("validation requires an immutable --image")
             from revertbench.validate import validate_built_candidate
 
-            report = validate_built_candidate(built, image=image, baseline_profile=baseline_profile)
+            report = validate_built_candidate(
+                built,
+                image=image,
+                baseline_profile=baseline_profile,
+                baseline_pids_limit=baseline_pids_limit,
+            )
             report_artifact = _save_artifact(
                 root, "validation.json", report.model_dump_json(indent=2).encode("utf-8")
             )
@@ -343,6 +349,7 @@ def _pipeline_command(
     *,
     validate: bool,
     baseline_profile: Literal["pytest", "unittest"] = "pytest",
+    baseline_pids_limit: int = 64,
 ) -> None:
     try:
         destination = _process_candidate(
@@ -355,6 +362,7 @@ def _pipeline_command(
             good_commit=good_commit,
             validate=validate,
             baseline_profile=baseline_profile,
+            baseline_pids_limit=baseline_pids_limit,
         )
     except (OSError, ValueError, RuntimeError) as error:
         raise typer.BadParameter(
@@ -395,6 +403,17 @@ def validate(
             help="Fixed upstream suite profile; unittest includes load_tests and doctests."
         ),
     ] = "pytest",
+    baseline_pids_limit: Annotated[
+        int,
+        typer.Option(
+            min=8,
+            max=256,
+            help=(
+                "PID capacity for trusted existing suites only; "
+                "scored submissions retain their limits."
+            ),
+        ),
+    ] = 64,
 ) -> None:
     """Prove baseline, reference and adversarial checks in Docker; retain explicit review."""
     _pipeline_command(
@@ -407,6 +426,7 @@ def validate(
         good_commit,
         validate=True,
         baseline_profile=baseline_profile,
+        baseline_pids_limit=baseline_pids_limit,
     )
 
 

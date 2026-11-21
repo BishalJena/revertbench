@@ -36,6 +36,24 @@ uv run revertbench validate artifacts/candidates/CANDIDATE.json \
   --image sha256:IMAGE_ID --baseline-profile unittest
 ```
 
+Trusted existing suites default to a PID limit of 64. If a supported upstream
+suite requires more simultaneous threads, select the existing bounded capacity
+explicitly with `--baseline-pids-limit 256` (strict range 8–256). The same selected
+limit applies to base, bad and repaired baseline trees. `validation.json` records
+the top-level `baseline_pids_limit` and each baseline's effective `pids_limit`;
+they must agree before machine validation can pass. The immutable report hash
+binds this choice without changing `Case.env` or legacy case input digests.
+Memory, CPU, command wall time and output bounds remain fixed. Scored reference
+tests and adversarial probes retain their default PID limit of 64.
+
+When no Docker client is supplied, each baseline invocation owns a client with a
+70-second transport timeout and closes it after cleanup. Its independent command
+wall budget remains 60 seconds, including for a quiet suite. Caller-supplied
+clients keep their existing timeout and ownership. Reproduction replays the
+recorded baseline limit for both validation and its official-suite supplement;
+legacy reports default to 64, and an older pinned engine cannot silently ignore
+a nondefault recorded limit.
+
 The unittest profile uses the equivalent of `python -m unittest -q` from the
 repository root, honors `load_tests`, and includes doctests added by that hook.
 The report records `baseline_profile`, `baseline_command`, complete executed

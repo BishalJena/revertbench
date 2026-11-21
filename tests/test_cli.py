@@ -428,3 +428,25 @@ def test_validate_selects_explicit_fixed_baseline_profile(
     )
     assert bad.exit_code != 0
     assert len(calls) == 1
+
+
+def test_validate_selects_bounded_upstream_pid_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+
+    calls: list[dict[str, Any]] = []
+
+    def capture(**kwargs: Any) -> Path:
+        calls.append(kwargs)
+        return tmp_path / "case.json"
+
+    monkeypatch.setattr(cli, "_process_candidate", capture)
+    base = ["validate", str(tmp_path / "candidate.json"), "--image", "sha256:" + "a" * 64]
+    for extra, expected in (([], 64), (["--baseline-pids-limit", "256"], 256)):
+        result = CliRunner().invoke(app, base + extra)
+        assert result.exit_code == 0, result.output
+        assert calls[-1]["baseline_pids_limit"] == expected
+    for value in ["7", "257", "3.5"]:
+        assert CliRunner().invoke(app, [*base, "--baseline-pids-limit", value]).exit_code != 0
+    assert len(calls) == 2

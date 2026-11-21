@@ -203,13 +203,16 @@ def reproduce(case_dir: Path, *, output: Path, cache: Path) -> dict[str, Any]:
 
 
 def _official_suite(
-    tree: Path, image: str, command: tuple[str, ...], client: Any
+    tree: Path, image: str, command: tuple[str, ...], client: Any, *, baseline_pids_limit: int = 64
 ) -> dict[str, Any]:
     from revertbench.sandbox.agent import AgentSandbox
+    from revertbench.sandbox.worker import SandboxLimits
 
     if command != ("/usr/local/bin/python", "-m", "unittest", "-q"):
         raise ReproductionError("unsupported version-1 official suite command")
-    with AgentSandbox(image, tree, client=client) as box:
+    with AgentSandbox(
+        image, tree, client=client, limits=SandboxLimits(pids=baseline_pids_limit)
+    ) as box:
         result = box.exec(list(command), timeout_seconds=60, output_limit_bytes=65536)
     stderr = result.stderr.decode("utf-8", errors="replace")
     counts = re.findall(r"^Ran (\d+) tests? in [0-9.]+s$", stderr, re.MULTILINE)
@@ -222,11 +225,33 @@ def _official_suite(
         raise ReproductionError("official unittest suite did not pass cleanly")
     return {
         "status": "passed",
+        "pids_limit": baseline_pids_limit,
         "tests_run": int(counts[0]),
         "exit_code": result.exit_code,
         "stdout": result.stdout.decode("utf-8", errors="replace"),
         "stderr": stderr,
     }
+
+
+def _baseline_options(validate: Any, report: dict[str, Any]) -> dict[str, Any]:
+    """Replay recorded options without requiring additions in legacy pinned APIs."""
+    profile = report.get("baseline_profile", "pytest")
+    pids = report.get("baseline_pids_limit", 64)
+    if type(pids) is not int or not 8 <= pids <= 256:
+        raise ReproductionError("recorded baseline PID resource limit is invalid")
+    options: dict[str, Any] = {}
+    parameters = inspect.signature(validate).parameters
+    if "baseline_profile" in parameters:
+        options["baseline_profile"] = profile
+    elif profile != "pytest":
+        raise ReproductionError("pinned grader does not support the recorded baseline profile")
+    if "baseline_pids_limit" in parameters:
+        options["baseline_pids_limit"] = pids
+    elif pids != 64:
+        raise ReproductionError(
+            "pinned grader does not support the recorded baseline PID resource limit"
+        )
+    return options
 
 
 def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root: Path) -> None:
@@ -281,12 +306,8 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 raise ReproductionError("reconstructed immutable case inputs differ")
             kwargs: dict[str, Any] = {"image": image, "client": client}
             profile = original_report.get("baseline_profile", "pytest")
-            if "baseline_profile" in inspect.signature(validate_built_candidate).parameters:
-                kwargs["baseline_profile"] = profile
-            elif profile != "pytest":
-                raise ReproductionError(
-                    "pinned grader does not support the recorded baseline profile"
-                )
+            kwargs.update(_baseline_options(validate_built_candidate, original_report))
+            baseline_pids = original_report.get("baseline_pids_limit", 64)
             fresh = validate_built_candidate(built, **kwargs)
             (output / "validation.json").write_text(fresh.model_dump_json(indent=2) + "\n")
             if (
@@ -299,6 +320,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 or fresh.source_hashes != case.source_hashes
                 or fresh.patch_sha256 != case.repair.patch_sha256
                 or fresh.reference_sha256 != case.reference_test.source_sha256
+                or getattr(fresh, "baseline_pids_limit", 64) != baseline_pids
             ):
                 raise ReproductionError(
                     "fresh validation did not reproduce approved identities and behavior"
@@ -309,7 +331,9 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 ("bad", built.bad_tree),
                 ("repaired", built.repaired_tree),
             ):
-                official[role] = _official_suite(tree, image, case.env.test_cmd, client)
+                official[role] = _official_suite(
+                    tree, image, case.env.test_cmd, client, baseline_pids_limit=baseline_pids
+                )
                 if official[role]["tests_run"] != original_official["roles"][role]["tests_run"]:
                     raise ReproductionError("official suite count differs from approved evidence")
             result = {
@@ -329,6 +353,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 "policy_sha256": fresh.policy_sha256,
                 "source_hashes": fresh.source_hashes,
                 "baseline_profile": profile,
+                "baseline_pids_limit": baseline_pids,
                 "reference_score": fresh.reference.score,
                 "official_command": case.env.test_cmd,
                 "official_suites": official,
