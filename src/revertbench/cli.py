@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, cast
 
 if TYPE_CHECKING:
     from revertbench.mine.git import GitRepository
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 import typer
 
 from revertbench import __version__
+from revertbench.harness.prompt import CompletionPolicy, prompt_version
 from revertbench.review import (
     ReviewError,
     build_review_packet,
@@ -502,6 +503,7 @@ def _run_experiment(
     experiment_id: str,
     budget_usd: float,
     resume: bool,
+    completion_policy: CompletionPolicy = "explicit_submit",
 ) -> dict[str, object]:
     from revertbench.harness.experiment import run_experiment
 
@@ -514,6 +516,7 @@ def _run_experiment(
         experiment_id=experiment_id,
         budget_usd=budget_usd,
         resume=resume,
+        completion_policy=completion_policy,
     )
 
 
@@ -534,8 +537,16 @@ def run(
     resume: Annotated[
         bool, typer.Option(help="Reuse completed calls and exact saved state.")
     ] = False,
+    completion_policy: Annotated[
+        str, typer.Option(help="explicit_submit or saved_test_on_stop_v1 (requires auto tools).")
+    ] = "explicit_submit",
 ) -> None:
     """Evaluate one hosted model with bad-only tools and pinned case graders."""
+    selected_policy = cast(CompletionPolicy, completion_policy)
+    try:
+        prompt_version(selected_policy)
+    except ValueError as error:
+        raise typer.BadParameter("unsupported completion policy") from error
     case_dirs = [path.parent for path in sorted(cases_root.glob("*/case.json"))]
     if not case_dirs:
         raise typer.BadParameter("no case directories found beneath cases-root")
@@ -549,6 +560,7 @@ def run(
             experiment_id=experiment_id,
             budget_usd=budget_usd,
             resume=resume,
+            completion_policy=selected_policy,
         )
     except (OSError, ValueError, RuntimeError) as error:
         raise typer.BadParameter(

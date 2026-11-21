@@ -53,6 +53,7 @@ def test_run_dispatches_explicit_model_identity_and_budget(
     assert calls[0]["experiment_id"] == "pilot-1"
     assert calls[0]["budget_usd"] == 0.25
     assert calls[0]["resume"] is True
+    assert calls[0]["completion_policy"] == "explicit_submit"
     assert calls[0]["output"] == output
     assert calls[0]["cache"] == Path("cache")
 
@@ -133,3 +134,84 @@ def test_report_rejects_missing_metrics_without_printing_private_data(tmp_path: 
     result = CliRunner().invoke(cli.app, ["report", str(tmp_path)])
     assert result.exit_code != 0
     assert "SYNTHETIC_SECRET" not in result.output
+
+
+@pytest.mark.parametrize("policy", ["explicit_submit", "saved_test_on_stop_v1"])
+def test_run_dispatches_explicit_completion_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, policy: str
+) -> None:
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "case.json").write_text("{}")
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(cli, "_run_experiment", lambda **kwargs: calls.append(kwargs))
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "run",
+            str(tmp_path),
+            "--model",
+            "selected",
+            "--experiment-id",
+            "pilot",
+            "--output",
+            str(tmp_path / "out"),
+            "--completion-policy",
+            policy,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0]["completion_policy"] == policy
+
+
+def test_run_rejects_unknown_completion_policy_before_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "case.json").write_text("{}")
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(cli, "_run_experiment", lambda **kwargs: calls.append(kwargs))
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "run",
+            str(tmp_path),
+            "--model",
+            "selected",
+            "--experiment-id",
+            "pilot",
+            "--output",
+            str(tmp_path / "out"),
+            "--completion-policy",
+            "unknown",
+        ],
+    )
+    assert result.exit_code != 0
+    assert not calls
+
+
+def test_cli_wrapper_passes_completion_policy_to_experiment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from revertbench.harness import experiment
+
+    calls: list[dict[str, Any]] = []
+
+    def run(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return {}
+
+    monkeypatch.setattr(experiment, "run_experiment", run)
+    cli._run_experiment(
+        case_dirs=[],
+        config_path=tmp_path / "config",
+        model_id="selected",
+        output=tmp_path / "out",
+        cache=tmp_path / "cache",
+        experiment_id="pilot",
+        budget_usd=0.25,
+        resume=False,
+        completion_policy="saved_test_on_stop_v1",
+    )
+    assert calls[0]["completion_policy"] == "saved_test_on_stop_v1"
