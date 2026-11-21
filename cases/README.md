@@ -41,6 +41,26 @@ The full upstream suites pass 857/863/863 tests respectively. The report records
 a 256-PID upstream-suite budget; scored references retain their existing limits.
 This case has an authorized agent review and its own pinned policy3 environment.
 
+The fourth case is
+[more-itertools distinct-permutations regression](more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf/case.json).
+PR423 made mixed, unsortable inputs raise `TypeError`; the later PR834 integration
+restored them. All 13 original input sequences remain unchanged. Reference runs
+pass on base, fail on bad and pass on repair three times; all 494 upstream tests
+pass on each tree. Its explicit function-body repair derivation records complete
+before/after AST identities and the original historical production diff.
+
+The fifth case is
+[more-itertools large numeric-range equality regression](more-itertools-f9cdcb990dbb-f42daddf-9f00df42/case.json).
+PR1216 made equality overflow for ranges larger than the platform size limit;
+PR1345 restores comparison using the cached length. The original six comparison
+rows remain unchanged. Reference runs pass/fail/pass three times and upstream
+suites pass 897/896/896 tests. The canonical related hashing repair is retained
+and is not claimed as directly covered by the equality reference.
+
+Both cases record authorized agent reviews and pin their policy4 environment.
+Lifted `subTest` contexts retain one pytest node and propagate the first failing
+input; individual input rows are not reported as independently failing nodes.
+
 Inspect the packet without executing its historical code on the host:
 
 ```bash

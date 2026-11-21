@@ -340,7 +340,7 @@ def test_review_requires_machine_report_to_bind_case_repair_proof(tmp_path: Path
         record_review(
             path,
             decision="accept",
-            reviewer="Codex",
+            reviewer="agent:regression-reviewer-a",
             notes="Checked",
             reviewer_kind="agent",
             authorization_note="Delegated",
@@ -357,7 +357,7 @@ def test_review_requires_machine_report_to_bind_case_repair_proof(tmp_path: Path
     accepted = record_review(
         path,
         decision="accept",
-        reviewer="Codex",
+        reviewer="agent:regression-reviewer-a",
         notes="Checked historical derivation",
         reviewer_kind="agent",
         authorization_note="Delegated",

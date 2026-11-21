@@ -215,7 +215,7 @@ its own decision when the user has explicitly delegated case review:
 
 ```bash
 uv run revertbench review PATH/case.json --accept --reviewer-kind agent \
-  --reviewer 'Codex regression reviewer' \
+  --reviewer 'agent:regression-reviewer-a' \
   --authorization-note 'User explicitly delegated case review for this project' \
   --notes 'Inspected the complete original test, minimal repair and bound evidence'
 ```

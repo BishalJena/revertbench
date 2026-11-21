@@ -165,13 +165,16 @@ def test_authorized_agent_decisions_are_separate_and_keep_cross_kind_history(
     agent = record_review(
         path,
         decision="reject",
-        reviewer="Codex reviewer",
+        reviewer="agent:regression-reviewer-a",
         notes="Found a mismatch",
         reviewer_kind="agent",
         authorization_note="User delegated review.",
     )
     assert agent.validation.status == "rejected" and agent.human_review is None
-    assert agent.agent_review is not None and agent.agent_review.reviewer == "Codex reviewer"
+    assert (
+        agent.agent_review is not None
+        and agent.agent_review.reviewer == "agent:regression-reviewer-a"
+    )
     assert agent.review_history == human.review_history
     assert agent.agent_review_history == (agent.agent_review,)
     noted = record_review(
@@ -181,7 +184,7 @@ def test_authorized_agent_decisions_are_separate_and_keep_cross_kind_history(
     accepted = record_review(
         path,
         decision="accept",
-        reviewer="Codex reviewer",
+        reviewer="agent:regression-reviewer-a",
         notes="Checked all evidence",
         reviewer_kind="agent",
         authorization_note="User delegated review.",
@@ -193,7 +196,7 @@ def test_authorized_agent_decisions_are_separate_and_keep_cross_kind_history(
     preview = render_review_packet(build_review_packet(path))
     assert (
         "Agent review" in preview
-        and "Codex reviewer" in preview
+        and "agent:regression-reviewer-a" in preview
         and "User delegated review." in preview
     )
     switched = record_review(
@@ -215,7 +218,7 @@ def test_agent_notes_preserve_active_human_and_archive_legacy_active_record(tmp_
     noted = record_review(
         path,
         decision="notes",
-        reviewer="Codex",
+        reviewer="agent:regression-reviewer-a",
         notes="Independent observation",
         reviewer_kind="agent",
         authorization_note="User delegated review",
@@ -245,7 +248,7 @@ def test_agent_notes_require_an_actual_report_and_human_cannot_claim_agent_autho
         record_review(
             path,
             decision="notes",
-            reviewer="Codex",
+            reviewer="agent:regression-reviewer-a",
             notes="Observed",
             reviewer_kind="agent",
             authorization_note="Delegated",
@@ -264,7 +267,7 @@ def test_agent_requires_authorization_and_cannot_attest_as_human(
         record_review(
             path,
             decision="accept",
-            reviewer="Codex",
+            reviewer="agent:regression-reviewer-a",
             notes="Checked",
             reviewer_kind="agent",
             authorization_note=authorization,
@@ -296,7 +299,7 @@ def test_agent_acceptance_preserves_machine_and_provenance_gates(
         record_review(
             path,
             decision="accept",
-            reviewer="Codex",
+            reviewer="agent:regression-reviewer-a",
             notes="Checked",
             reviewer_kind="agent",
             authorization_note="User delegated review",

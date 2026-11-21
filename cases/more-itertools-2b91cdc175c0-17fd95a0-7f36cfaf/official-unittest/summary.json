@@ -1,0 +1,94 @@
+{
+  "profile": "official_unittest_discovery",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "unittest",
+    "-q"
+  ],
+  "cwd": "/workspace/repo",
+  "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+  "case_id": "more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf",
+  "validation_report_sha256": "735de5b23f559f15587bd44f586596b8fe0a74839df9d4d1b4bb9ccf0c11f2aa",
+  "base_commit": "ddd95c09d9876175f4f22d191b2e3f9b9499cc85",
+  "bad_commit": "2b91cdc175c0f3a5d03290fca64b9c8783a91ec2",
+  "fix_commit": "17fd95a0c34763c34853f3a89048d60733815dc4",
+  "baseline_pids_limit": 64,
+  "docker_api_timeout_seconds": 70,
+  "repair_derivation_sha256": "e2b50ae0a36ed1fc767230daf19a21a6f771d191cea3b659900f3ffb8bb34db9",
+  "roles": {
+    "base": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "8798b8fd4c2c64d2cdebf47fb8bf98ffd34d4db7fc33984496ed88869c4c808d",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:401: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 494 tests in 0.553s\n\nOK\n",
+      "tests_run": 494,
+      "status": "passed",
+      "pids_limit": 64,
+      "observed_container_limits": {
+        "PidsLimit": 64,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 494
+    },
+    "bad": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "7d805526ddd6656a41f2d155564c7dd516aae8d5bd86f1dce682a4d1917e7c8d",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:401: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 494 tests in 0.552s\n\nOK\n",
+      "tests_run": 494,
+      "status": "passed",
+      "pids_limit": 64,
+      "observed_container_limits": {
+        "PidsLimit": 64,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 494
+    },
+    "repaired": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "4c2788a47655818bf5c51308a69d019d9708c8cf972ee6c54d8feb1a9c4c67d8",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:401: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 494 tests in 0.548s\n\nOK\n",
+      "tests_run": 494,
+      "status": "passed",
+      "pids_limit": 64,
+      "observed_container_limits": {
+        "PidsLimit": 64,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 494
+    }
+  },
+  "status": "passed"
+}

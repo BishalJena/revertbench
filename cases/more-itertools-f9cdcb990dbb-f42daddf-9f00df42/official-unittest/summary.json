@@ -1,0 +1,104 @@
+{
+  "status": "passed",
+  "observed_at": "2026-11-21T08:24:37.649949+00:00",
+  "case_id": "more-itertools-f9cdcb990dbb-f42daddf-9f00df42",
+  "validation_report_sha256": "9448d877875d535bfd1bda4f62270b26b999d22a56d90fc41d0b0a1981ad432b",
+  "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+  "python": "3.12.16",
+  "dependency_lock_sha256": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+  "grader_sha256": "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+  "policy_sha256": "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd",
+  "baseline_profile": "unittest",
+  "baseline_pids_limit": 256,
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "unittest",
+    "-q"
+  ],
+  "transport_timeout_seconds": 70,
+  "wall_timeout_seconds": 60,
+  "output_limit_bytes": 65536,
+  "build": {
+    "base_image": "python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df",
+    "architecture": "amd64",
+    "base_layers_match_worker_prefix": true
+  },
+  "roles": {
+    "base": {
+      "status": "passed",
+      "tests_run": 897,
+      "source_sha256": "31ba9f3dce97e841071e4c082dc15932a6ac4663a6e17df7c7d17983f048cdee",
+      "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+      "pids_limit": 256,
+      "container_bounds": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "NanoCpus": 1000000000,
+        "ReadonlyRootfs": true,
+        "NetworkMode": "none"
+      },
+      "observed_environment": {
+        "python": "3.12.16",
+        "lock": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+        "identities": [
+          "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+          "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd"
+        ]
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 897 tests in 14.057s\n\nOK\n"
+    },
+    "bad": {
+      "status": "passed",
+      "tests_run": 896,
+      "source_sha256": "0d7b0a6a8382adfb8c67a1231010e568ea167be3e127f0fba6b6ef3ec74e544c",
+      "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+      "pids_limit": 256,
+      "container_bounds": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "NanoCpus": 1000000000,
+        "ReadonlyRootfs": true,
+        "NetworkMode": "none"
+      },
+      "observed_environment": {
+        "python": "3.12.16",
+        "lock": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+        "identities": [
+          "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+          "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd"
+        ]
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 896 tests in 15.297s\n\nOK\n"
+    },
+    "repaired": {
+      "status": "passed",
+      "tests_run": 896,
+      "source_sha256": "4a333013e7ba86396f7c54964b2a1290774e4f05f62311444921c149ed86177b",
+      "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+      "pids_limit": 256,
+      "container_bounds": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "NanoCpus": 1000000000,
+        "ReadonlyRootfs": true,
+        "NetworkMode": "none"
+      },
+      "observed_environment": {
+        "python": "3.12.16",
+        "lock": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+        "identities": [
+          "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+          "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd"
+        ]
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 896 tests in 14.373s\n\nOK\n"
+    }
+  }
+}

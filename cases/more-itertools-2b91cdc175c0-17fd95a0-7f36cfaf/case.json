@@ -1,0 +1,209 @@
+{
+  "schema_version": "2",
+  "id": "more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf",
+  "repo": "more-itertools/more-itertools",
+  "base_commit": "ddd95c09d9876175f4f22d191b2e3f9b9499cc85",
+  "bad_commit": "2b91cdc175c0f3a5d03290fca64b9c8783a91ec2",
+  "fix_commit": "17fd95a0c34763c34853f3a89048d60733815dc4",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "3828f92ea7e689402877189d144232b52aa3880cbb130f5c68999d13a1fa20c3",
+    "repaired_tree_sha256": "4c2788a47655818bf5c51308a69d019d9708c8cf972ee6c54d8feb1a9c4c67d8"
+  },
+  "repair_derivation": {
+    "version": "historical_function_body_v1",
+    "path": "more_itertools/more.py",
+    "function": "distinct_permutations",
+    "signature_sha256": "3a47bc3523c3fbbdaceb6f74b90333289fd40047d813fcb391c6c4e684906008",
+    "before_body_sha256": "53cfa83235baa6ace0c98f0fbc617832003f914fb342a3f9d620c275c45b6f70",
+    "after_body_sha256": "a0fb12e35afed9821d710b07f807da4a14792dcee9c5389faba10bfc3a63b77d",
+    "derived_patch_sha256": "3828f92ea7e689402877189d144232b52aa3880cbb130f5c68999d13a1fa20c3",
+    "historical_diff": {
+      "path": "historical-production.diff",
+      "sha256": "9b9d15a5f9ce6f7a6dc2d0d69f4bf34fd904ee0dd3bb25507c3e21d57d1c562b"
+    }
+  },
+  "changed_lines": {
+    "more_itertools/more.py": [
+      573,
+      574,
+      576,
+      579,
+      580,
+      581,
+      584,
+      587,
+      588,
+      589,
+      593,
+      594,
+      597,
+      599,
+      600,
+      601,
+      603,
+      605,
+      609,
+      610,
+      611,
+      612,
+      613,
+      615,
+      619,
+      620,
+      621,
+      622,
+      626,
+      627,
+      628,
+      632,
+      633,
+      634,
+      636,
+      638,
+      639,
+      640,
+      642,
+      643,
+      645
+    ]
+  },
+  "source_hashes": {
+    "base": "8798b8fd4c2c64d2cdebf47fb8bf98ffd34d4db7fc33984496ed88869c4c808d",
+    "bad": "7d805526ddd6656a41f2d155564c7dd516aae8d5bd86f1dce682a4d1917e7c8d",
+    "historical_fix": "4fa1c4ea526ab2ff89f983fa81359b9fa3935d105d5e3010294dc7768ca8356d",
+    "repaired": "4c2788a47655818bf5c51308a69d019d9708c8cf972ee6c54d8feb1a9c4c67d8"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44884290444",
+    "implementation_commit": "4c3d1e4ef9db2177410942d8aa2021d1892bee80",
+    "applies_to_image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+    "grader_sha256": "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+    "policy_sha256": "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd",
+    "observed_at": "2026-11-21T08:31:48.383665Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "more-itertools/more-itertools:2b91cdc175c0f3a5d03290fca64b9c8783a91ec2",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 423,
+    "title": "Distinct permutations updates",
+    "body": "This PR brings in the algorithm changes to `distinct_permutations` from PR #399.\r\n\r\nI've given up some micro-optimizations for algorithm clarity. This version keeps the memory usage reductions.",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/423",
+    "published_at": "2020-05-15T01:04:05Z",
+    "merged_at": "2020-05-15T01:06:08Z",
+    "observed_at": "2026-11-21T08:17:38.789835Z",
+    "updated_at": "2020-05-15T01:06:09Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "2b91cdc175c0f3a5d03290fca64b9c8783a91ec2"
+  },
+  "fix_pr": {
+    "number": 834,
+    "title": "Distinct permutations of incomparable items",
+    "body": "### Issue reference\r\n#832\r\n\r\n### Changes\r\nExtends distinct_permutations to support iterables whose items cannot form a partial ordering.\r\n\r\n### Checks and tests\r\n```\r\n\\.local\\pipx\\venvs\\tox\\Lib\\site-packages\\pyproject_api\\_backend.py True flit_core.buildapi\r\n  py38: SKIP (1.48 seconds)\r\n  py39: OK (53.61=setup[49.55]+cmd[4.06] seconds)\r\n  py310: SKIP (0.05 seconds)\r\n  py311: OK (17.26=setup[14.01]+cmd[3.25] seconds)\r\n  py312: OK (40.24=setup[36.33]+cmd[3.91] seconds)\r\n  congratulations :) (113.05 seconds)\r\n```\r\n\r\n```\r\n\\more-itertools>pyenv exec python -m unittest\r\n.......................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s................................................................................................................................................................................................................................s...................................................\r\n----------------------------------------------------------------------\r\nRan 780 tests in 3.137s\r\n\r\nOK (skipped=2)\r\n\r\n\\more-itertools>pyenv exec python --version\r\nPython 3.8.10\r\n\r\n\\more-itertools>pyenv local 3.10.11\r\n\r\n\\more-itertools>pyenv exec python -m unittest\r\n........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................\\more-itertools\\more_itertools\\more.py:1708: DeprecationWarning: zip_equal will be removed in a future version of more-itertools. Use the builtin zip function with strict=True instead.\r\n  warnings.warn(\r\n...............................................................................................................................................................................................................................s.....................................................\r\n----------------------------------------------------------------------\r\nRan 781 tests in 2.802s\r\n\r\nOK (skipped=1)\r\n\r\n\\more-itertools>pyenv exec python --version\r\nPython 3.10.11\r\n```",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/834",
+    "published_at": "2024-05-02T17:17:02Z",
+    "merged_at": "2024-06-17T15:36:07Z",
+    "observed_at": "2026-11-21T08:17:38.789835Z",
+    "updated_at": "2024-06-17T15:36:08Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "92829c47cd5711fe0c2b97c15301dd4e02a0de07"
+  },
+  "reference_test": {
+    "path": "tests/test_more.py",
+    "node_ids": [
+      "tests/test_more.py::DistinctPermutationsTests::test_unsortable_hashables"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "1ac023f65d57b0fa1ced2c449ac4abef9050e0958b917f28eb805543ccecec73"
+  },
+  "changed_files": [
+    "more_itertools/more.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2024-06-17T09:35:15-05:00",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/423",
+      "published_at": "2020-05-15T01:04:05Z",
+      "observed_at": "2026-11-21T08:17:38.789835Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/834",
+      "published_at": "2024-05-02T17:17:02Z",
+      "observed_at": "2026-11-21T08:17:38.789835Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "unittest",
+      "-q"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "735de5b23f559f15587bd44f586596b8fe0a74839df9d4d1b4bb9ccf0c11f2aa",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "4",
+    "grader_sha256": "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+    "policy_sha256": "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "agent:regression-reviewer-a",
+    "authorization_note": "Owner explicitly delegated autonomous case review and resulting actions to project agents.",
+    "notes": "Reviewed the complete historical test, all13 inputs, deterministic unittest lift, source lineage and explicit function-body proof. The introducing PR423 changes distinct_permutations to sort every input unconditionally; the original mixed None/int/string, bytes and tuple cases are hashable but need not be mutually orderable, so sorted raises the observed TypeError. The public parent passes the same full method. The repair copies the exact historical fallback algorithm: try sorting, then on TypeError form equality-index groups and permute their indices while preserving equivalent items. It changes34 diff lines within the verified body span and leaves the surrounding bad-tree bytes/header unchanged. Complete bad body matches historical fix-parent AST; complete repaired body matches the historical fixed AST. Original historical production diff and before/after/signature digests are bound to the machine report. Verified all9 outcomes and each bad call own introduced-line coverage, all494-test baselines, independent494x3 official suites, required probes and matching source/image/lock/CI. Fix-side PR merge92829 is honestly recorded as the second parent of integration17fd. The fix adds no public symbol, so the case-specific fix-only-symbol probe is not applicable; global tests cover that policy class. Accept this distinct regression group under the documented bounded policy. This is my authorized project-agent review, not human approval.",
+    "reviewed_at": "2026-11-21T08:31:50.568261Z",
+    "validation_report_sha256": "735de5b23f559f15587bd44f586596b8fe0a74839df9d4d1b4bb9ccf0c11f2aa",
+    "case_inputs_sha256": "404ffd41c871c4004d20bfce3b3d027dc777e80eab7f608e303edcf103422b18"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "agent:regression-reviewer-a",
+      "authorization_note": "Owner explicitly delegated autonomous case review and resulting actions to project agents.",
+      "notes": "Reviewed the complete historical test, all13 inputs, deterministic unittest lift, source lineage and explicit function-body proof. The introducing PR423 changes distinct_permutations to sort every input unconditionally; the original mixed None/int/string, bytes and tuple cases are hashable but need not be mutually orderable, so sorted raises the observed TypeError. The public parent passes the same full method. The repair copies the exact historical fallback algorithm: try sorting, then on TypeError form equality-index groups and permute their indices while preserving equivalent items. It changes34 diff lines within the verified body span and leaves the surrounding bad-tree bytes/header unchanged. Complete bad body matches historical fix-parent AST; complete repaired body matches the historical fixed AST. Original historical production diff and before/after/signature digests are bound to the machine report. Verified all9 outcomes and each bad call own introduced-line coverage, all494-test baselines, independent494x3 official suites, required probes and matching source/image/lock/CI. Fix-side PR merge92829 is honestly recorded as the second parent of integration17fd. The fix adds no public symbol, so the case-specific fix-only-symbol probe is not applicable; global tests cover that policy class. Accept this distinct regression group under the documented bounded policy. This is my authorized project-agent review, not human approval.",
+      "reviewed_at": "2026-11-21T08:31:50.568261Z",
+      "validation_report_sha256": "735de5b23f559f15587bd44f586596b8fe0a74839df9d4d1b4bb9ccf0c11f2aa",
+      "case_inputs_sha256": "404ffd41c871c4004d20bfce3b3d027dc777e80eab7f608e303edcf103422b18"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "4d66074e7aa6d78df291b7e8a02e937da3ce2a924ad205294ac8b26ec1ce43d4"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "650c14a7bfc63f86436da9014fb0930a665143e6582271f9aeb22ab723bb7558"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "e2b0d785aad0c7e932f6138662fd38d37db17e053cb176cf36475ede811487f9"
+  },
+  "notes": "Complete original DistinctPermutationsTests.test_unsortable_hashables body and all13 mixed built-in literal inputs are unchanged. Explicit historical_function_body_v1 proof binds the exact historical algorithm, signature/body digests, scored derived patch and historical-production.diff. Base/bad/repaired full suites each passed494 tests; normal scored reference passed9 differential runs, with bad TypeError and own introducing-line CALL coverage. Independent official-unittest/summary.json SHA256 169e78d69b0f1c96a594f599140534e0ab350cca31d0eca8f24d8e1f07bb3475 records494 passed per tree at baselinePID64/client70/wall60. Fix PR834 recorded merge92829c47cd5711fe0c2b97c15301dd4e02a0de07 is the second parent of integration historical fix17fd95a0c34763c34853f3a89048d60733815dc4; they are distinct commits. Current observed PR body timestamps remain distinct from public merge and Git times. CI binding uses exact matching implementation fingerprints rather than a claim that CI ran this platform-specific image. Review is an explicitly delegated project-agent decision, not human attestation."
+}

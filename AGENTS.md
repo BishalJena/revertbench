@@ -69,3 +69,10 @@ A change is ready only when lint, format check, mypy and pytest all pass.
 - Never commit secrets, real model configs, run outputs, mined repos or caches. They are gitignored; keep it that way.
 - Never put anything from `context/` into committed files.
 - Keep functions small and typed. No broad `except Exception` in `grade/` or `sandbox/`.
+
+## Branches and contribution identity
+
+- Name branches `feat/<feature>`, `fix/<issue>` or `chore/<maintenance>` according to the work.
+- Use neutral project role IDs such as `agent:regression-reviewer-a` for agent reviews. Keep agent and human review kinds accurate; never manufacture a human attestation.
+- Keep contribution text, reviewer labels and commit trailers free of tool or model branding. Preserve the configured contributor identity and actual delegated authorization.
+- Preserve historical commit IDs and pinned case/CI evidence. Display-label maintenance must retain review decisions, timestamps and reviewed-input digests, and refresh only affected publication manifest entries.

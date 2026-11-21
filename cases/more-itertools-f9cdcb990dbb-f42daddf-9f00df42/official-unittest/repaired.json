@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "tests_run": 896,
+  "source_sha256": "4a333013e7ba86396f7c54964b2a1290774e4f05f62311444921c149ed86177b",
+  "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+  "pids_limit": 256,
+  "container_bounds": {
+    "PidsLimit": 256,
+    "Memory": 268435456,
+    "NanoCpus": 1000000000,
+    "ReadonlyRootfs": true,
+    "NetworkMode": "none"
+  },
+  "observed_environment": {
+    "python": "3.12.16",
+    "lock": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+    "identities": [
+      "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+      "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd"
+    ]
+  },
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "----------------------------------------------------------------------\nRan 896 tests in 14.373s\n\nOK\n"
+}
