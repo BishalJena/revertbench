@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from revertbench.harness.prompt import TOOL_DEFINITIONS, TaskPrompt, build_messages
+from revertbench.harness.prompt import PROMPT_VERSION, TOOL_DEFINITIONS, TaskPrompt, build_messages
 
 
 def test_prompt_contains_only_explicit_bad_task_fields() -> None:
@@ -81,3 +81,13 @@ def test_tool_contract_is_small_and_requires_explicit_arguments() -> None:
         assert set(schema["properties"]) == expected[function["name"]]
         assert schema["additionalProperties"] is False
     assert "shell" not in json.dumps(TOOL_DEFINITIONS)
+
+
+def test_policy_feedback_contract_is_versioned_and_preserves_saved_test_semantics() -> None:
+    assert PROMPT_VERSION == "bad-only-policy-feedback-v2"
+    system = build_messages(TaskPrompt("episode-001", "Title", "diff"))[0]["content"]
+    assert "saved successfully" in system
+    assert "policy.allowed" in system
+    assert "ineligible" in system and "before pytest" in system
+    assert "does not predict" in system
+    assert "submit" in system

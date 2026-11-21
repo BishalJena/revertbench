@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-PROMPT_VERSION = "bad-only-common-policy-v1"
+PROMPT_VERSION = "bad-only-policy-feedback-v2"
 PR_BODY_POLICY = "omitted_all_cases_v1"
 MAX_MODEL_CALLS = 15
 
@@ -57,6 +57,12 @@ Tests outside this conservative subset may be rejected by a case's pinned policy
 Tools provide bounded directory listings, line-based reads and literal text search.
 Paths are relative to the repository, with '.' denoting its root. read_file start/end
 are inclusive one-based line numbers. write_test replaces the single submission.
+Its ok=true means the test was saved successfully, independently of eligibility.
+The separate policy.allowed, reason and details report the pinned static policy
+using only your saved test and the bad source. Review this feedback and revise
+ineligible source. run_tests checks eligibility again before pytest; an ineligible
+test is reported as policy_rejected with executed=false and no preview execution.
+Static eligibility does not predict a behavioral grade or reveal the repair.
 run_tests accepts [] for the whole submission or explicit node IDs within it. Test
 runs use a fresh bad workspace; only the saved test persists, never process state
 or incidental changes. Only submit ends the episode successfully; a plain final
@@ -111,10 +117,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "Find literal text in a repository file or directory; results are bounded.",
         {"pattern": {"type": "string"}, "path": _PATH},
     ),
-    _tool("write_test", "Replace the single saved test file.", {"content": {"type": "string"}}),
+    _tool(
+        "write_test",
+        "Save the test and report separate bad-only policy feedback.",
+        {"content": {"type": "string"}},
+    ),
     _tool(
         "run_tests",
-        "Run only the saved submission on fresh buggy code, with bounded output.",
+        "Check static eligibility, then preview eligible saved tests on buggy code only.",
         {"node_ids": {"type": "array", "items": {"type": "string"}}},
     ),
     _tool("submit", "Finish the episode with the saved submission.", {}),
