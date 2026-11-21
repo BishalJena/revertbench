@@ -7,10 +7,21 @@ import builtins
 import re
 from pathlib import Path
 from textwrap import dedent, indent
+from unittest import TestCase as _StandardTestCase
 
 from revertbench.grade.policy import check_submission
 
 _COOKIE = re.compile(r"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)")
+# Trusted stdlib only: include inherited methods and instance state as well as
+# public assertions, so an apparently unused helper cannot override framework work.
+_TESTCASE_RESERVED = frozenset(dir(_StandardTestCase())) | {
+    "setup",
+    "teardown",
+    "setup_method",
+    "teardown_method",
+    "setup_class",
+    "teardown_class",
+}
 
 
 class ReferenceError(ValueError):
@@ -273,6 +284,64 @@ def _additive_doctest_loader(tree: ast.Module, bindings: list[ast.AST]) -> bool:
     )
 
 
+def _inert_class_method(member: ast.FunctionDef) -> None:
+    arguments = member.args
+    if (
+        member.decorator_list
+        or member.type_params
+        or member.returns
+        or any(
+            arg.annotation
+            for arg in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
+        )
+    ):
+        raise ReferenceError("unsupported_unittest_method_context")
+    if member.name.startswith("test_"):
+        _parameters(member, test=False)
+        if len(arguments.args) != 1 or arguments.args[0].arg != "self" or arguments.posonlyargs:
+            raise ReferenceError("unsupported_unittest_method_parameters")
+        return
+    if (
+        member.name in _TESTCASE_RESERVED
+        or member.name.startswith(("__", "pytest_"))
+        or arguments.posonlyargs
+        or arguments.vararg
+        or arguments.kwarg
+        or arguments.kwonlyargs
+        or not arguments.args
+        or arguments.args[0].arg != "self"
+    ):
+        raise ReferenceError("unsupported_unittest_class_context")
+    for default in arguments.defaults:
+        _literal(default)
+
+
+def _approved_self_access(node: ast.Name, parents: dict[ast.AST, ast.AST]) -> bool:
+    member = parents.get(node)
+    call = parents.get(member) if member is not None else None
+    if (
+        not isinstance(node.ctx, ast.Load)
+        or not isinstance(member, ast.Attribute)
+        or not isinstance(call, ast.Call)
+        or call.func is not member
+    ):
+        return False
+    if member.attr == "assertEqual":
+        return True
+    if member.attr != "subTest" or call.args or not 1 <= len(call.keywords) <= 2:
+        return False
+    labels = [keyword.arg for keyword in call.keywords]
+    if any(label is None or label == "msg" for label in labels) or len(set(labels)) != len(labels):
+        return False
+    item = parents.get(call)
+    return (
+        isinstance(item, ast.withitem)
+        and item.context_expr is call
+        and item.optional_vars is None
+        and isinstance(parents.get(item), ast.With)
+    )
+
+
 def _unittest_method(tree: ast.Module, qualified: str) -> ast.FunctionDef:
     parts = qualified.split("::")
     if len(parts) != 2 or not parts[1].startswith("test_"):
@@ -295,26 +364,11 @@ def _unittest_method(tree: ast.Module, qualified: str) -> ast.FunctionDef:
             and isinstance(member.value.value, str)
         ):
             continue
-        if not isinstance(member, ast.FunctionDef) or not member.name.startswith("test_"):
+        if not isinstance(member, ast.FunctionDef):
             raise ReferenceError("unsupported_unittest_class_context")
-        if (
-            member.name in methods
-            or member.decorator_list
-            or member.type_params
-            or member.returns
-            or any(
-                arg.annotation
-                for arg in (*member.args.posonlyargs, *member.args.args, *member.args.kwonlyargs)
-            )
-        ):
+        if member.name in methods:
             raise ReferenceError("unsupported_unittest_method_context")
-        _parameters(member, test=False)
-        if (
-            len(member.args.args) != 1
-            or member.args.args[0].arg != "self"
-            or member.args.posonlyargs
-        ):
-            raise ReferenceError("unsupported_unittest_method_parameters")
+        _inert_class_method(member)
         methods[member.name] = member
     method = methods.get(method_name)
     if method is None:
@@ -332,17 +386,12 @@ def _unittest_method(tree: ast.Module, qualified: str) -> ast.FunctionDef:
             node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
         ):
             raise ReferenceError("unsupported_unittest_helper_dependency")
-        if isinstance(node, ast.Name) and node.id == "self":
-            parent = parents.get(node)
-            call = parents.get(parent) if parent is not None else None
-            if (
-                not isinstance(node.ctx, ast.Load)
-                or not isinstance(parent, ast.Attribute)
-                or parent.attr != "assertEqual"
-                or not isinstance(call, ast.Call)
-                or call.func is not parent
-            ):
-                raise ReferenceError("unsupported_unittest_self_access")
+        if (
+            isinstance(node, ast.Name)
+            and node.id == "self"
+            and not _approved_self_access(node, parents)
+        ):
+            raise ReferenceError("unsupported_unittest_self_access")
     global_helpers = {
         node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }

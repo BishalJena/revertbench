@@ -64,7 +64,7 @@ def test_accepts_supported_behavioral_tests(bad_tree: Path, source: str) -> None
 
     assert result.allowed, result
     assert result.reason is None
-    assert POLICY_VERSION == "3"
+    assert POLICY_VERSION == "4"
 
 
 @pytest.mark.parametrize(
@@ -981,3 +981,296 @@ def test_project_export_lists_stay_call_free_literals_not_comprehensions(bad_tre
         bad_tree,
     )
     assert not result.allowed and result.reason == "unresolved_symbol", result
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "with case.subTest(value=1):\n        case.assertEqual(normalize('x'), 'x')",
+        "with case.subTest(left=1, right=2):\n        assert normalize('x') == 'x'",
+    ],
+)
+def test_direct_subtest_context_preserves_existing_observations(bad_tree: Path, body: str) -> None:
+    result = check_submission(
+        "from unittest import TestCase\nfrom toy import normalize\n"
+        f"def test_behavior():\n    case = TestCase()\n    {body}\n",
+        bad_tree,
+    )
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "with case.subTest():\n        assert True",
+        "with case.subTest('message', value=1):\n        assert True",
+        "with case.subTest(msg='message'): \n        assert True",
+        "with case.subTest(a=1, b=2, c=3):\n        assert True",
+        "with case.subTest(**{'value': 1}):\n        assert True",
+        "with case.subTest(value=1) as captured:\n        assert True",
+        "context = case.subTest\n    with context(value=1):\n        assert True",
+        "case.subTest(value=1)\n    assert True",
+        "with case.subTest(value=1), case.subTest(other=2):\n        assert True",
+        "with case.subTest(value=1):\n        pass",
+        "with case.subTest(value=toy.added_in_fix()):\n        assert True",
+        "with case.subTest(value=toy.VERSION):\n        assert True",
+        "with case.subTest(__version__=1):\n        assert True",
+    ],
+)
+def test_subtest_does_not_admit_arbitrary_context_or_observation_capabilities(
+    bad_tree: Path, body: str
+) -> None:
+    source = (
+        "import toy\nfrom unittest import TestCase\ndef test_cheat():\n"
+        f"    case = TestCase()\n    {body}\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+@pytest.mark.parametrize(
+    "declaration,expression",
+    [
+        ("args = (0, 3, 1)", "range(*args)"),
+        ("args = [0, 3]", "range(*args)"),
+        ("args = ('x',)", "normalize(*args)"),
+        ("args = (1,)", "toy.Counter(*args)"),
+        ("cases = [(3,), (0, 3), (0, 3, 1)]\n    for args in cases", "range(*args)"),
+        ("cases = [((3,), 1), ((0, 3, 1), 2)]\n    for args, expected in cases", "range(*args)"),
+    ],
+)
+def test_source_built_bounded_packs_support_single_named_star_calls(
+    bad_tree: Path, declaration: str, expression: str
+) -> None:
+    body = (
+        declaration + f":\n        assert list({expression})"
+        if "\n    for" in declaration
+        else declaration + f"\n    assert {expression} is not None"
+    )
+    source = f"import toy\nfrom toy import normalize\ndef test_behavior():\n    {body}\n"
+    result = check_submission(source, bad_tree)
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "args = ()\n    assert range(*args)",
+        "args = (0, 1, 2, 3)\n    assert range(*args)",
+        "args = iter([0, 3])\n    assert range(*args)",
+        "args = normalize('x')\n    assert range(*args)",
+        "args = (0, 3)\n    args = normalize('x')\n    assert range(*args)",
+        "args = (0, 3)\n    assert range(*args, 1)",
+        "args = (0, 3)\n    assert range(*args, *args)",
+        "args = (0, 3)\n    assert range(*args, stop=4)",
+        "assert range(*(0, 3))",
+        "args = (0, 3)\n    assert iter(*args)",
+        "args = (0, 3)\n    assert TestCase(*args)",
+        "args = (0, 3)\n    TestCase().assertEqual(*args)",
+        "args = ('version',)\n    assert {}.get(*args)",
+        "args = ('x',)\n    assert helper(*args)",
+        "cases = [(3,), (0, 1, 2, 3)]\n    for args in cases:\n        assert range(*args)",
+        "cases = [(3,), normalize('x')]\n    for args in cases:\n        assert range(*args)",
+        "args = [0, 3]\n    alias = args\n    alias.append(4)\n    assert range(*args)",
+        "args = [0, 3]\n    normalize(args)\n    assert range(*args)",
+        "args = [0, 3]\n    helper()\n    assert range(*args)",
+        "for callback in [normalize]:\n        assert callback('x')",
+        "for value in ['x']:\n        assert value.lower()",
+        "args = (toy.added_in_fix(),)\n    assert range(*args)",
+        "cases = [(3,), (toy.VERSION,)]\n    for args in cases:\n        assert range(*args)",
+    ],
+)
+def test_star_calls_need_complete_current_pack_proof_and_safe_targets(
+    bad_tree: Path, body: str
+) -> None:
+    source = (
+        "import toy\nfrom toy import normalize\nfrom unittest import TestCase\n"
+        "def helper():\n    return 1\n"
+        f"def test_cheat():\n    {body}\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_pack_shape_proofs_are_bounded_even_with_repeated_alias_doubling(bad_tree: Path) -> None:
+    body = "    packed = (1,)\n" + "    packed = (packed, packed)\n" * 15
+    result = check_submission(
+        "def test_cheat():\n" + body + "    assert range(*packed)\n", bad_tree
+    )
+    assert not result.allowed
+
+
+def test_original_numeric_range_six_case_body_is_admitted_without_rewrite(bad_tree: Path) -> None:
+    with (bad_tree / "toy" / "__init__.py").open("a") as output:
+        output.write("\ndef numeric_range(*args):\n    return range(*args)\n")
+    source = (
+        "from unittest import TestCase\nimport toy as mi\ndef test_eq_above_maxsize():\n"
+        "    self = TestCase()\n    stop = 10**30\n"
+        "    cases = [\n"
+        "        ((0, stop, 1), (0, stop, 1), True),\n"
+        "        ((0, stop, 2), (0, stop - 1, 2), True),\n"
+        "        ((stop, 0, -2), (stop, 1, -2), True),\n"
+        "        ((0, stop, 1), (0, stop + 1, 1), False),\n"
+        "        ((0, stop, 1), (1, stop + 1, 1), False),\n"
+        "        ((0, stop, 1), (0, stop * 2, 2), False),\n"
+        "    ]\n"
+        "    for args1, args2, expected in cases:\n"
+        "        with self.subTest(args1=args1, args2=args2):\n"
+        "            range1 = mi.numeric_range(*args1)\n"
+        "            range2 = mi.numeric_range(*args2)\n"
+        "            self.assertEqual(range(*args1) == range(*args2), expected)\n"
+        "            self.assertEqual(range1 == range2, expected)\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize(
+    "binding,call",
+    [
+        ("import itertools as it", "it.permutations"),
+        ("from itertools import permutations as permute", "permute"),
+    ],
+)
+def test_only_one_argument_permutations_is_admitted(
+    bad_tree: Path, binding: str, call: str
+) -> None:
+    result = check_submission(
+        f"{binding}\ndef test_behavior():\n    assert set({call}([1, 2])) == {{(1, 2), (2, 1)}}\n",
+        bad_tree,
+    )
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize(
+    "call",
+    ["permutations()", "permutations([1], 1)", "permutations(iterable=[1])", "permutations(*args)"],
+)
+def test_permutations_keeps_exact_call_contract(bad_tree: Path, call: str) -> None:
+    assert not check_submission(
+        "from itertools import permutations\ndef test_cheat():\n"
+        f"    args = ([1],)\n    assert {call}\n",
+        bad_tree,
+    ).allowed
+
+
+@pytest.mark.parametrize("path", ["itertools.py", "src/itertools/__init__.py"])
+def test_itertools_project_shadow_is_never_imported(bad_tree: Path, path: str) -> None:
+    target = bad_tree / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("raise RuntimeError('must not run')\n")
+    assert not check_submission(
+        "from itertools import permutations\ndef test_cheat():\n"
+        "    assert list(permutations([1]))\n",
+        bad_tree,
+    ).allowed
+
+
+def test_permutations_materialization_retains_project_metadata_origin(bad_tree: Path) -> None:
+    (bad_tree / "toy" / "data.py").write_text("INFO = [1, 2]\n")
+    result = check_submission(
+        "from itertools import permutations\nfrom toy.data import INFO\ndef test_cheat():\n"
+        "    assert list(permutations(INFO))['version'] == 'new'\n",
+        bad_tree,
+    )
+    assert not result.allowed and result.reason == "introspection", result
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "args = [0, 3]\n    mutate = args.append\n    mutate(4)\n    assert range(*args)",
+        "cases = [(0, 3)]\n    alias = cases\n    alias.clear()\n"
+        "    for args in cases:\n        assert range(*args)",
+        "for range in [(0, 3)]:\n        assert range(*range)",
+        "args = (((((1,),),),),)\n    assert range(*args)",
+        "args = ([" + ",".join("1" for _ in range(127)) + "],)\n    assert range(*args)",
+        "cases = ["
+        + ",".join("(3,)" for _ in range(17))
+        + "]\n    for args in cases:\n        assert range(*args)",
+        "for value in []:\n        with TestCase().subTest(value=toy.added_in_fix()):\n"
+        "            assert True",
+        "with toy.Counter(1).subTest(value=1):\n        assert True",
+    ],
+)
+def test_aliases_shape_budgets_and_empty_contexts_cannot_weaken_admission(
+    bad_tree: Path, body: str
+) -> None:
+    source = f"import toy\nfrom unittest import TestCase\ndef test_cheat():\n    {body}\n"
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_fresh_pack_can_restore_proof_after_an_alias_mutation(bad_tree: Path) -> None:
+    source = (
+        "def test_behavior():\n    args = [0, 3]\n    alias = args\n    alias.clear()\n"
+        "    args = (0, 3)\n    selected = range\n    assert list(selected(*args)) == [0, 1, 2]\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize("name", ["cycle", "product", "islice", "tee"])
+def test_itertools_does_not_expose_other_apis(bad_tree: Path, name: str) -> None:
+    assert not check_submission(
+        f"from itertools import {name}\ndef test_cheat():\n    assert {name}([1])\n", bad_tree
+    ).allowed
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "args = [0, 3]\n    cases = [args, (helper(),)]\n"
+        "    for packed in cases:\n        assert range(*packed)",
+        "args = [0, 3]\n    alias = args\n    alias += [1, 2]\n    assert range(*args)",
+        "cases = [(0, 3)]\n    for args in cases:\n        assert range(*args)\n"
+        "        cases.append((0, 1, 2, 3))",
+    ],
+)
+def test_pack_proof_cannot_survive_effects_within_a_literal_or_between_loop_iterations(
+    bad_tree: Path, body: str
+) -> None:
+    source = f"def helper():\n    return 1\ndef test_cheat():\n    {body}\n"
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_passing_a_local_mutating_callback_discards_pack_proof(bad_tree: Path) -> None:
+    source = (
+        "from toy import normalize\ndef test_cheat():\n    args = [0, 3]\n"
+        "    callback = args.append\n    sorted(normalize('x'), key=callback)\n"
+        "    assert range(*args)\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_itertools_submodule_spelling_cannot_bypass_stdlib_shadow_guard(bad_tree: Path) -> None:
+    package = bad_tree / "itertools"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "fake.py").write_text("def run():\n    return 1\n")
+    source = "import itertools.fake as fake\ndef test_cheat():\n    assert fake.run() == 1\n"
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_comprehension_effects_cannot_leave_outer_pack_proofs_alive(bad_tree: Path) -> None:
+    source = (
+        "def helper(values):\n    return 1\n"
+        "def test_cheat():\n    args = [0, 3]\n"
+        "    observed = [helper(args) for value in [1]]\n"
+        "    assert range(*args)\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+def test_module_pack_certificate_cannot_reset_between_test_functions(bad_tree: Path) -> None:
+    source = (
+        "ARGS = [0, 3]\ndef test_mutate():\n    ARGS.extend([1, 2])\n    assert True\n"
+        "def test_star():\n    assert range(*ARGS)\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+@pytest.mark.parametrize("literal", ["(0, 3)", "[0, 3]"])
+@pytest.mark.parametrize("binding", ["ARGS", "local"])
+def test_module_literals_and_local_aliases_never_gain_pack_certificates(
+    bad_tree: Path, literal: str, binding: str
+) -> None:
+    source = f"ARGS = {literal}\ndef test_star():\n    local = ARGS\n    assert range(*{binding})\n"
+    assert not check_submission(source, bad_tree).allowed
