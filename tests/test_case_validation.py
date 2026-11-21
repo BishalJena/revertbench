@@ -516,7 +516,11 @@ def test_code_identity_is_location_independent_and_tracks_python_sources(tmp_pat
     assert all(new != old for new, old in zip(package_identity(roots[1]), renamed, strict=True))
 
 
-def test_explicit_unittest_profile_is_preserved_and_matches_backend(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "profile",
+    ["unittest", "boltons_upstream_default_behavior_v1", "pydash_upstream_default_behavior_v1"],
+)
+def test_explicit_profile_is_preserved_and_matches_backend(tmp_path: Path, profile: Any) -> None:
     from revertbench.grade.runner import run_tree
     from revertbench.validate import validate_built_candidate
     from revertbench.validate.baseline import baseline_command
@@ -525,20 +529,27 @@ def test_explicit_unittest_profile_is_preserved_and_matches_backend(tmp_path: Pa
 
     def baseline(tree: Path) -> BaselineResult:
         return _passing_baseline(tree).model_copy(
-            update={"profile": "unittest", "command": baseline_command("unittest")}
+            update={"profile": profile, "command": baseline_command(profile), "pids_limit": 256}
         )
 
     report = validate_built_candidate(
         built,
         image="sha256:" + "a" * 64,
-        baseline_profile="unittest",
+        baseline_profile=profile,
+        baseline_pids_limit=256,
         baseline_backend=baseline,
         execution_backend=run_tree,
         transfer_backend=lambda tree, source: source,
     )
     assert report.status == "machine_validated", report.model_dump_json()
-    assert report.baseline_profile == "unittest"
-    assert report.baseline_command == ("/usr/local/bin/python", "-m", "unittest", "-q")
+    assert report.baseline_profile == profile
+    assert report.baseline_command == baseline_command(profile)
+    assert report.baseline_pids_limit == 256
+    assert all(result.profile == profile for result in report.baseline_reports.values())
+    assert all(
+        result.command == baseline_command(profile) for result in report.baseline_reports.values()
+    )
+    assert all(result.pids_limit == 256 for result in report.baseline_reports.values())
 
 
 def test_backend_cannot_silently_run_a_different_baseline_profile(tmp_path: Path) -> None:

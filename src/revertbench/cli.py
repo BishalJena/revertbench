@@ -29,6 +29,7 @@ from revertbench.schema import (
     ReferenceTest,
     RepairSpec,
 )
+from revertbench.validate.baseline import BaselineProfile
 
 app = typer.Typer(help="RevertBench: validate historical regressions and evaluate models.")
 
@@ -155,7 +156,7 @@ def _process_candidate(
     image: str | None,
     good_commit: str | None,
     validate: bool,
-    baseline_profile: Literal["pytest", "unittest"] = "pytest",
+    baseline_profile: BaselineProfile = "pytest",
     baseline_pids_limit: int = 64,
 ) -> Path:
     from dataclasses import replace
@@ -361,7 +362,7 @@ def _pipeline_command(
     good_commit: str | None,
     *,
     validate: bool,
-    baseline_profile: Literal["pytest", "unittest"] = "pytest",
+    baseline_profile: BaselineProfile = "pytest",
     baseline_pids_limit: int = 64,
 ) -> None:
     try:
@@ -411,10 +412,8 @@ def validate(
     local_repo: Annotated[Path | None, typer.Option()] = None,
     good_commit: Annotated[str | None, typer.Option()] = None,
     baseline_profile: Annotated[
-        Literal["pytest", "unittest"],
-        typer.Option(
-            help="Fixed upstream suite profile; unittest includes load_tests and doctests."
-        ),
+        BaselineProfile,
+        typer.Option(help="Fixed upstream runtime-suite selection; see the profile documentation."),
     ] = "pytest",
     baseline_pids_limit: Annotated[
         int,
