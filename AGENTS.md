@@ -15,6 +15,13 @@
 - Stop when scope and acceptance criteria are sufficiently clear. The user's self-answering instruction overrides the skill's repeated live-interview and explicit-yes loop for already-authorized routine decisions; do not create a fresh approval ritual. Escalate only material unresolved questions that require the user, one at a time with a best guess where appropriate, while continuing independent authorized work.
 - The orchestrator records a concise scope summary, supporting evidence, assumptions and unresolved questions in local-only `context/PROGRESS.md`, then delegates with the resulting scope and acceptance contracts. Keep user-facing output to that concise decision summary rather than a full interview transcript. A self-interview never expands authorization, changes the budget or bypasses milestone, security or verification gates.
 
+## Delegated case review
+
+- The owner explicitly delegated case reviews and resulting actions to the orchestrator. Review cases autonomously and record the evidence, reasoning, decision and remaining limitations in local-only `context/decisions.md` for later learning.
+- Keep the five-case milestone gate and every machine-validation, CI, provenance and immutable-input check. Review decisions cannot substitute for missing validation.
+- Record agent reviews with the actual agent identity, delegated authorization and exact reviewed report/input digests. Never label agent review as human review or create a human attestation on the owner's behalf. Preserve existing real human approvals unchanged.
+- Do not repeatedly request human approval for routine case decisions within this delegation. Escalate only a material unresolved issue beyond the authorized scope.
+
 ## Orchestration and parallel work
 
 - The main agent in the user's conversation is the orchestrator. Keep it available for conversation by delegating substantial implementation, testing and research to capable subagents. Handle user questions and steering promptly while delegated work continues.

@@ -1,4 +1,4 @@
-"""Source-only mining, controlled Docker validation and explicit human review."""
+"""Source-only mining, controlled Docker validation and explicit case review."""
 
 import hashlib
 import json
@@ -275,11 +275,26 @@ def _process_candidate(
                 "notes",
                 "eligibility",
                 "review_history",
+                "agent_review_history",
                 "global_suite_evidence",
             ):
                 data[field] = getattr(previous_case, field)
             # Old decisions remain historical; the new report requires a fresh decision.
+            if (
+                previous_case.human_review is not None
+                and previous_case.human_review not in previous_case.review_history
+            ):
+                data["review_history"] = (*previous_case.review_history, previous_case.human_review)
+            if (
+                previous_case.agent_review is not None
+                and previous_case.agent_review not in previous_case.agent_review_history
+            ):
+                data["agent_review_history"] = (
+                    *previous_case.agent_review_history,
+                    previous_case.agent_review,
+                )
             data["human_review"] = None
+            data["agent_review"] = None
             case = Case.model_validate(data)
         if validate:
             if image is None:
@@ -290,9 +305,7 @@ def _process_candidate(
             report_artifact = _save_artifact(
                 root, "validation.json", report.model_dump_json(indent=2).encode("utf-8")
             )
-            status = (
-                "pending_human_review" if report.status == "machine_validated" else report.status
-            )
+            status = "pending_review" if report.status == "machine_validated" else report.status
             data = case.model_dump(mode="python")
             data["validation"] = CaseValidation(
                 status=status,
@@ -383,7 +396,7 @@ def validate(
         ),
     ] = "pytest",
 ) -> None:
-    """Prove baseline, reference and adversarial checks in Docker; retain human review."""
+    """Prove baseline, reference and adversarial checks in Docker; retain explicit review."""
     _pipeline_command(
         candidate,
         cache_dir,
@@ -404,14 +417,26 @@ def review(
     accept: Annotated[bool, typer.Option()] = False,
     reject: Annotated[bool, typer.Option()] = False,
     reviewer: Annotated[str | None, typer.Option()] = None,
+    reviewer_kind: Annotated[Literal["human", "agent"], typer.Option()] = "human",
+    authorization_note: Annotated[str | None, typer.Option()] = None,
     notes: Annotated[str | None, typer.Option()] = None,
     attest_human_review: Annotated[bool, typer.Option()] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Show evidence by default; record a human decision only through explicit flags."""
+    """Show evidence by default; explicitly record a human or authorized agent review."""
     if (accept and reject) or (show_only and (accept or reject or notes is not None)):
         raise typer.BadParameter("choose one decision or --show-only")
-    if accept and not attest_human_review:
+    if reviewer_kind == "agent" and attest_human_review:
+        raise typer.BadParameter("agent review cannot use --attest-human-review")
+    if reviewer_kind == "human" and authorization_note is not None:
+        raise typer.BadParameter("--authorization-note requires --reviewer-kind agent")
+    if (
+        reviewer_kind == "agent"
+        and (accept or reject or notes is not None)
+        and (not authorization_note or not authorization_note.strip())
+    ):
+        raise typer.BadParameter("agent decisions require --authorization-note")
+    if reviewer_kind == "human" and accept and not attest_human_review:
         raise typer.BadParameter("--accept requires --attest-human-review")
     if (accept or reject or notes is not None) and (not reviewer or not notes):
         raise typer.BadParameter("a decision requires --reviewer and --notes")
@@ -424,6 +449,8 @@ def review(
                 reviewer=reviewer,
                 notes=notes,
                 attested=attest_human_review,
+                reviewer_kind=reviewer_kind,
+                authorization_note=authorization_note,
             )
         packet = build_review_packet(case)
         typer.echo(

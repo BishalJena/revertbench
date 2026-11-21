@@ -141,6 +141,101 @@ def _reviewable_case() -> Case:
     )
 
 
+def test_agent_acceptance_has_separate_authorization_and_no_human_attestation() -> None:
+    from revertbench.schema import AgentReview
+
+    case = _reviewable_case()
+    assert case.validation.report_sha256 is not None
+    review = AgentReview(
+        decision="accept",
+        reviewer="Codex regression reviewer",
+        authorization_note="User explicitly delegated case review.",
+        notes="Inspected the original test and controlled repair.",
+        reviewed_at=datetime.now(UTC),
+        validation_report_sha256=case.validation.report_sha256,
+        case_inputs_sha256=case.review_input_digest(),
+    )
+    data = case.model_dump(mode="python")
+    data.update(
+        validation=case.validation.model_copy(update={"status": "accepted"}), agent_review=review
+    )
+    accepted = Case.model_validate(data)
+    assert accepted.human_review is None
+    assert accepted.agent_review == review
+    assert "attested" not in review.model_dump()
+    assert Case.model_validate_json(accepted.model_dump_json()) == accepted
+    for mutation in ({"bad_commit": "4" * 40}, {"global_suite_evidence": None}):
+        with pytest.raises(ValidationError):
+            Case.model_validate({**data, **mutation})
+    with pytest.raises(ValidationError, match=r"one|both"):
+        Case.model_validate(
+            {
+                **data,
+                "human_review": HumanReview(
+                    decision="accept",
+                    reviewer="Real human",
+                    notes="Reviewed",
+                    reviewed_at=datetime.now(UTC),
+                    attested=True,
+                    validation_report_sha256=case.validation.report_sha256,
+                    case_inputs_sha256=case.review_input_digest(),
+                ),
+            }
+        )
+    for field in ("validation_report_sha256", "case_inputs_sha256"):
+        with pytest.raises(ValidationError, match=r"report|inputs"):
+            Case.model_validate(
+                {**data, "agent_review": review.model_copy(update={field: "0" * 64})}
+            )
+
+
+def test_agent_review_has_no_human_attestation_and_requires_aware_time() -> None:
+    from revertbench.schema import AgentReview
+
+    values = dict(
+        decision="accept",
+        reviewer="Codex",
+        notes="Checked",
+        authorization_note="User delegated review",
+        reviewed_at=datetime.now(UTC),
+        validation_report_sha256="a" * 64,
+        case_inputs_sha256="b" * 64,
+    )
+    for change in ({"attested": True}, {"reviewed_at": datetime(2026, 11, 21)}):
+        with pytest.raises(ValidationError):
+            AgentReview.model_validate({**values, **change})
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["reviewer", "notes", "authorization_note", "validation_report_sha256", "case_inputs_sha256"],
+)
+def test_agent_review_requires_identity_authorization_and_bound_inputs(field: str) -> None:
+    from revertbench.schema import AgentReview
+
+    data: dict[str, object] = dict(
+        decision="notes",
+        reviewer="Codex",
+        notes="Observed",
+        authorization_note="Delegated by user",
+        reviewed_at=datetime.now(UTC),
+        validation_report_sha256="a" * 64,
+        case_inputs_sha256="b" * 64,
+    )
+    data[field] = " " if field in {"reviewer", "notes", "authorization_note"} else None
+    with pytest.raises(ValidationError):
+        AgentReview.model_validate(data)
+
+
+def test_generic_pending_review_requires_machine_evidence_and_legacy_stays_readable() -> None:
+    case = _reviewable_case()
+    data = case.validation.model_dump(mode="python")
+    assert CaseValidation.model_validate({**data, "status": "pending_review"}).machine_passed
+    assert CaseValidation.model_validate(data).status == "pending_human_review"
+    with pytest.raises(ValidationError):
+        CaseValidation.model_validate({**data, "status": "pending_review", "machine_passed": False})
+
+
 def test_full_case_round_trips_unknown_publication_dates_and_dataset_group() -> None:
     case = _reviewable_case()
     data = case.model_dump(mode="python")

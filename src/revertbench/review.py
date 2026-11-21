@@ -11,7 +11,14 @@ from typing import Literal
 
 from pydantic import ValidationError
 
-from revertbench.schema import Case, EvidenceModel, HumanReview, ReviewDecision
+from revertbench.schema import (
+    AgentReview,
+    Case,
+    EvidenceModel,
+    HumanReview,
+    ReviewDecision,
+    ReviewerKind,
+)
 
 
 class ReviewError(ValueError):
@@ -225,6 +232,25 @@ def build_review_packet(path: Path, *, max_preview_bytes: int = 65536) -> Review
             f"published={evidence.published_at} observed={evidence.observed_at}\n"
         )
     sections.insert(0, ReviewSection(label="Provenance", content=_escape(metadata)))
+    for label, active, history in (
+        ("Human review", case.human_review, case.review_history),
+        ("Agent review", case.agent_review, case.agent_review_history),
+    ):
+        if active is not None or history:
+            content = "Active decision: " + (
+                "none" if active is None else active.model_dump_json(indent=2)
+            )
+            content += "\nHistorical records:\n" + "\n".join(
+                record.model_dump_json(indent=2) for record in history
+            )
+            raw = content.encode("utf-8")
+            sections.append(
+                ReviewSection(
+                    label=label,
+                    content=_escape(raw[:max_preview_bytes].decode("utf-8", errors="replace")),
+                    truncated=len(raw) > max_preview_bytes,
+                )
+            )
     return ReviewPacket(
         case_id=_escape(case.id),
         status=case.validation.status,
@@ -299,28 +325,59 @@ def _machine_passed(case: Case, root: Path) -> None:
 
 
 def record_review(
-    path: Path, *, decision: ReviewDecision, reviewer: str, notes: str, attested: bool = False
+    path: Path,
+    *,
+    decision: ReviewDecision,
+    reviewer: str,
+    notes: str,
+    attested: bool = False,
+    reviewer_kind: ReviewerKind = "human",
+    authorization_note: str | None = None,
 ) -> Case:
     case = load_case(path)
-    if decision == "accept" and not attested:
+    if reviewer_kind not in {"human", "agent"}:
+        raise ReviewError("reviewer kind must be human or agent")
+    if reviewer_kind == "agent" and (
+        attested or not authorization_note or not authorization_note.strip()
+    ):
+        raise ReviewError("agent review requires explicit authorization and cannot attest as human")
+    if reviewer_kind == "human" and authorization_note is not None:
+        raise ReviewError("authorization notes apply only to agent reviews")
+    if reviewer_kind == "human" and decision == "accept" and not attested:
         raise ReviewError("acceptance requires explicit human attestation")
     build_review_packet(path)
     if decision == "accept":
         _machine_passed(case, path.parent)
     try:
-        review = HumanReview(
+        data = case.model_dump(mode="python")
+        values = dict(
             decision=decision,
             reviewer=reviewer,
             notes=notes,
             reviewed_at=datetime.now(UTC),
-            attested=attested,
             validation_report_sha256=case.validation.report_sha256,
             case_inputs_sha256=case.review_input_digest(),
         )
-        data = case.model_dump(mode="python")
-        data["review_history"] = (*case.review_history, review)
+        # Preserve active legacy decisions even when their optional history was absent.
+        human_history, agent_history = case.review_history, case.agent_review_history
+        if case.human_review is not None and case.human_review not in human_history:
+            human_history = (*human_history, case.human_review)
+        if case.agent_review is not None and case.agent_review not in agent_history:
+            agent_history = (*agent_history, case.agent_review)
+        review: HumanReview | AgentReview
+        if reviewer_kind == "agent":
+            review = AgentReview.model_validate(
+                {**values, "authorization_note": authorization_note}
+            )
+            agent_history = (*agent_history, review)
+        else:
+            review = HumanReview.model_validate({**values, "attested": attested})
+            human_history = (*human_history, review)
+        data["review_history"] = human_history
+        data["agent_review_history"] = agent_history
         if decision != "notes":
-            data["human_review"] = review
+            data["human_review"] = review if reviewer_kind == "human" else None
+            data["agent_review"] = review if reviewer_kind == "agent" else None
             validation = case.validation.model_dump(mode="python")
             validation["status"] = "accepted" if decision == "accept" else "rejected"
             data["validation"] = validation

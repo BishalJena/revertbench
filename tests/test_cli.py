@@ -104,6 +104,46 @@ def test_review_is_read_only_by_default_and_human_flags_are_explicit(
     assert calls[0]["attested"] is True
 
 
+def test_agent_review_cli_requires_explicit_kind_and_authorization(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+    from revertbench.review import ReviewPacket
+
+    path = tmp_path / "case.json"
+    path.write_text("{}")
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(cli, "record_review", lambda *args, **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(
+        cli,
+        "build_review_packet",
+        lambda path: ReviewPacket(
+            case_id="toy", status="pending_review", case_inputs_sha256="a" * 64, sections=()
+        ),
+    )
+    base = [
+        "review",
+        str(path),
+        "--accept",
+        "--reviewer-kind",
+        "agent",
+        "--reviewer",
+        "Codex reviewer",
+        "--notes",
+        "Inspected",
+    ]
+    for extra in ([], ["--authorization-note", "User delegated review", "--attest-human-review"]):
+        result = CliRunner().invoke(app, base + extra)
+        assert result.exit_code != 0 and not calls
+    result = CliRunner().invoke(app, [*base, "--authorization-note", "User delegated review"])
+    assert result.exit_code == 0, result.output
+    assert (
+        calls[0]["reviewer_kind"] == "agent"
+        and calls[0]["authorization_note"] == "User delegated review"
+    )
+    assert calls[0]["attested"] is False
+
+
 def test_cli_errors_do_not_print_untrusted_exception_payload(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -118,8 +158,10 @@ def test_cli_errors_do_not_print_untrusted_exception_payload(
     assert "SYNTHETIC_PRIVATE_SENTINEL" not in result.output
 
 
-def test_pipeline_persists_machine_pending_packet_without_human_approval(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("reviewer_kind", ["human", "agent"])
+@pytest.mark.parametrize("legacy_history", ["present", "empty", "missing"])
+def test_pipeline_persists_machine_pending_packet_without_review_decision(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reviewer_kind: str, legacy_history: str
 ) -> None:
     import hashlib
 
@@ -213,8 +255,9 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
         baseline_profile="unittest",
     )
     case = load_case(path)
-    assert case.validation.status == "pending_human_review"
-    assert case.human_review is None and case.eligibility == "pending_metadata"
+    assert case.validation.status == "pending_review"
+    assert case.human_review is None and case.agent_review is None
+    assert case.eligibility == "pending_metadata"
     assert case.lineage_verified is True
     assert case.env is not None and case.env.python == "3.12.15"
     assert case.env.test_cmd == baseline_command("unittest")
@@ -224,13 +267,28 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
     from datetime import UTC, datetime
 
     from revertbench.review import write_case
-    from revertbench.schema import HumanReview, PublicationEvidence, PullRequestMetadata
+    from revertbench.schema import (
+        AgentReview,
+        HumanReview,
+        PublicationEvidence,
+        PullRequestMetadata,
+    )
 
     prior = HumanReview(
-        decision="notes",
+        decision="reject",
         reviewer="Actual reviewer",
         notes="Historical note.",
         reviewed_at=datetime.now(UTC),
+    )
+    assert case.validation.report_sha256 is not None
+    agent_prior = AgentReview(
+        decision="reject",
+        reviewer="Codex",
+        notes="Historical agent observation.",
+        authorization_note="User delegated review",
+        reviewed_at=datetime.now(UTC),
+        validation_report_sha256=case.validation.report_sha256,
+        case_inputs_sha256=case.review_input_digest(),
     )
     original = Case.model_validate(
         {
@@ -245,11 +303,20 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
             ),
             "dataset_split": "validation",
             "notes": "User-maintained provenance note",
-            "human_review": prior,
-            "review_history": (prior,),
+            "human_review": prior if reviewer_kind == "human" else None,
+            "agent_review": agent_prior if reviewer_kind == "agent" else None,
+            "review_history": (prior,) if legacy_history == "present" else (),
+            "agent_review_history": (agent_prior,) if legacy_history == "present" else (),
         }
     )
     write_case(original, path)
+    if legacy_history == "missing":
+        import json
+
+        old_data = json.loads(path.read_text())
+        old_data.pop("review_history")
+        old_data.pop("agent_review_history")
+        path.write_text(json.dumps(old_data))
     revalidated_path = cli._process_candidate(
         candidate_path=path,
         cache_dir=tmp_path / "cache",
@@ -265,9 +332,18 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
     assert revalidated.publication_evidence == original.publication_evidence
     assert revalidated.dataset_split == "validation" and revalidated.notes == original.notes
     assert (
-        revalidated.human_review is None and revalidated.validation.status == "pending_human_review"
+        revalidated.human_review is None
+        and revalidated.agent_review is None
+        and revalidated.validation.status == "pending_review"
     )
-    assert revalidated.review_history == original.review_history
+    expected_human = original.review_history
+    expected_agent = original.agent_review_history
+    if reviewer_kind == "human" and prior not in expected_human:
+        expected_human = (*expected_human, prior)
+    if reviewer_kind == "agent" and agent_prior not in expected_agent:
+        expected_agent = (*expected_agent, agent_prior)
+    assert revalidated.review_history == expected_human
+    assert revalidated.agent_review_history == expected_agent
 
 
 def test_mine_retains_bounded_discovery_funnel(

@@ -1,11 +1,15 @@
 # Accepted cases
 
-This directory contains owner-reviewed, accepted benchmark cases. Each bundle
-retains its original case JSON, human approval, historical reference, controlled
+This directory contains explicitly reviewed, accepted benchmark cases. Each bundle
+retains its original case JSON, reviewer identity and kind, historical reference, controlled
 repair, upstream notices and machine evidence byte for byte. Its explicit
 `publication-manifest.json` identifies every published file and the pinned Python
 base used to reproduce its environment. Exploratory runs and local research are
 excluded.
+
+Reviews record either an actual human attestation or an agent's own decision under
+explicit delegated authorization. Agent review is stored separately and never
+presented as human approval. Both require the same machine, provenance and CI evidence.
 
 The first case is
 [more-itertools product-index iterator regression](more-itertools-71b76842d32c-5a1d64d1-be44ad73/case.json):
@@ -13,7 +17,9 @@ merged PR1079 broke iterator inputs; PR1082 restored them. The unchanged origina
 test passes on the introducing commit's parent, fails on the bad tree with
 `TypeError`, and passes after the historical production repair. Each condition
 was repeated three times. The configured pytest subset passed 690 tests per tree;
-the official unittest supplement, including doctests, passed 850 per tree.
+the official unittest supplement, including doctests, passed 850 per tree. Bishal
+Jena explicitly reviewed and approved this first case; its original human review
+and published evidence remain unchanged.
 
 Inspect the packet without executing its historical code on the host:
 

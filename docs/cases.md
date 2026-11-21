@@ -1,7 +1,7 @@
 # Mining and reviewing cases
 
 RevertBench mines historical Python regression tests, reconstructs a controlled
-bad/repaired pair, and records machine evidence before human review. A discovered
+bad/repaired pair, and records machine evidence before explicit review. A discovered
 fix is a candidate, not an accepted benchmark example.
 
 ## Run the pipeline
@@ -67,7 +67,8 @@ uses a fresh directory and refuses to overwrite an existing packet. Validation
 also accepts a built `case.json` and verifies its original candidate artifact
 before reconstructing the trees into a new output directory. Revalidation preserves
 PR/publication metadata, split labels and historical review notes, replaces machine
-evidence, and clears the current human decision so the new proof needs review.
+evidence, and clears both current human and agent decisions so the new proof needs
+review. Separate histories of both reviewer kinds are retained.
 
 `mine` scans bounded commit history for supported fix/test changes (at most 10,000
 commits per invocation). It retains `discovery.json` alongside candidates with
@@ -142,12 +143,12 @@ preview is labeled. Review packets contain source code: inspect them in a viewer
 not by executing the reference on the host.
 
 Machine states are `candidate`, `pending_infrastructure`, `rejected`, or
-`pending_human_review` after successful machine validation. `machine_validated`
-is also understood as a stored machine state. Successful validation never marks
+`pending_review` after successful machine validation. Legacy `pending_human_review`
+and `machine_validated` are also understood as stored machine states. Successful validation never marks
 a case `accepted`. Infrastructure uncertainty remains distinct from a negative
 benchmark result.
 
-An actual human reviewer can record a decision explicitly:
+The default reviewer kind is `human`. An actual human reviewer records a decision explicitly:
 
 ```bash
 uv run revertbench review PATH/case.json --accept \
@@ -161,10 +162,30 @@ uv run revertbench review PATH/case.json \
 
 Acceptance requires a complete passing machine report, matching source, grader and
 policy fingerprints and versions, matching immutable inputs,
-verified Git lineage, merged bad-PR provenance, reviewer identity, notes and an
-explicit human attestation. The review records bind report bytes and immutable
-case inputs; later notes preserve the original decision. An automation agent must
-not manufacture an approval, identity or attestation on behalf of an absent human.
+verified Git lineage, merged bad-PR provenance, reviewer identity and notes. Human
+acceptance additionally requires explicit human attestation. An agent can record
+its own decision when the user has explicitly delegated case review:
+
+```bash
+uv run revertbench review PATH/case.json --accept --reviewer-kind agent \
+  --reviewer 'Codex regression reviewer' \
+  --authorization-note 'User explicitly delegated case review for this project' \
+  --notes 'Inspected the complete original test, minimal repair and bound evidence'
+```
+
+Agent review requires a nonblank authorization note and cannot use
+`--attest-human-review`. It is stored in `agent_review` and `agent_review_history`,
+separately from `human_review` and `review_history`; an agent never claims the
+owner's identity or fabricates a human attestation. Agent records require the
+validation report digest, immutable input digest and timezone-aware review time.
+Agent decisions, including rejection or notes, apply to prepared packets with an
+existing validation report; they cannot be attached to an unvalidated candidate.
+Exactly one reviewer kind can hold the active decision. A new accept/reject
+decision clears the previous active decision of either kind while preserving both
+histories; notes append to the corresponding history without replacing an active
+decision. Both kinds of acceptance use the same machine and provenance gates.
+Review records bind report bytes and immutable case inputs. Previously published
+cases retain their original pinned engine, review records and evidence bytes.
 The case-specific machine report does not prove that every global adversarial
 grader/sandbox regression test passed. Acceptance additionally requires separately
 verified `global_suite_evidence`: the CI run URL and implementation commit, observed

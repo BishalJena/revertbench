@@ -22,8 +22,14 @@ def test_public_dataset_contains_an_accepted_case() -> None:
 def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path: Path) -> None:
     case = load_case(case_path)
     assert case.validation.status == "accepted"
-    assert case.human_review is not None and case.human_review.attested
-    assert case.human_review.case_inputs_sha256 == case.review_input_digest()
+    assert (case.human_review is None) != (case.agent_review is None)
+    review = case.human_review or case.agent_review
+    assert review is not None
+    if case.human_review is not None:
+        assert case.human_review.attested
+    else:
+        assert case.agent_review is not None and case.agent_review.authorization_note.strip()
+    assert review.case_inputs_sha256 == case.review_input_digest()
     build_review_packet(case_path)
     _machine_passed(case, case_path.parent)
     manifest = json.loads((case_path.parent / "publication-manifest.json").read_text())
