@@ -35,6 +35,7 @@ def production_path(name: str) -> str:
         or path.suffix != ".py"
         or any(part.startswith(".") or part in _FORBIDDEN for part in path.parts)
         or path.name.startswith("test_")
+        or name == "test.py"
         or path.name in {"conftest.py", "setup.py"}
         or any(ord(character) < 33 or ord(character) > 126 for character in name)
     ):
