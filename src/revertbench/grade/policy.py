@@ -10,11 +10,11 @@ import codecs
 import io
 import re
 import tokenize
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "3"
+POLICY_VERSION = "4"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -22,6 +22,9 @@ _MAX_MODULE_BYTES = 1_048_576
 _MAX_MODULES = 64
 _MAX_EXPORTS = 1024
 _MAX_EXPORT_NAME = 128
+_MAX_PACK_DEPTH = 4
+_MAX_PACK_NODES = 128
+_MAX_PACK_ALTERNATIVES = 16
 _SOURCE_COOKIE = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)")
 _SOURCE_BLANK = re.compile(rb"^[ \t\f]*(?:[#\r\n]|$)")
 _UTF8_COOKIE_NAMES = frozenset({b"utf-8", b"utf8"})
@@ -53,6 +56,11 @@ class _Symbol:
     module: str = ""
     node: ast.AST | None = None
     type_name: str | None = None
+    packs: tuple[tuple[_Symbol, ...], ...] | None = None
+    proof_depth: int = 0
+    proof_size: int = 1
+    proof_exhausted: bool = False
+    touches_pack: bool = False
 
 
 _UNKNOWN = _Symbol("value")
@@ -311,8 +319,54 @@ def _value_symbol(node: ast.AST | None) -> _Symbol:
 
 def _with_origin(symbol: _Symbol, module: str) -> _Symbol:
     if symbol.kind == "value":
-        return _Symbol("value", module=module, node=symbol.node, type_name=symbol.type_name)
+        return replace(symbol, module=module)
     return symbol
+
+
+def _packed_value(
+    variants: tuple[tuple[_Symbol, ...], ...], *, module: str = "", type_name: str | None = None
+) -> _Symbol:
+    items = [item for variant in variants for item in variant]
+    origin = module or next((item.module for item in items if item.module), "")
+    depth = 1 + max((item.proof_depth for item in items), default=0)
+    size = 1 + sum(item.proof_size for item in items)
+    exhausted = (
+        len(variants) > _MAX_PACK_ALTERNATIVES
+        or depth > _MAX_PACK_DEPTH
+        or size > _MAX_PACK_NODES
+        or any(item.proof_exhausted for item in items)
+    )
+    return _Symbol(
+        "value",
+        module=origin,
+        type_name=type_name,
+        packs=None if exhausted else variants,
+        proof_depth=0 if exhausted else depth,
+        proof_size=1 if exhausted else size,
+        proof_exhausted=exhausted,
+    )
+
+
+def _join_packs(values: list[_Symbol], module: str) -> _Symbol:
+    origin = module or next((value.module for value in values if value.module), "")
+    if not values or any(value.packs is None for value in values):
+        return _Symbol(
+            "value",
+            module=origin,
+            proof_exhausted=any(value.proof_exhausted for value in values),
+        )
+    # Structural pack knowledge never grants a loop target callable/member access.
+    variants = tuple(variant for value in values for variant in value.packs or ())
+    return _packed_value(variants, module=origin)
+
+
+def _invalidate_packs(env: dict[str, _Symbol]) -> None:
+    # Calls may mutate aliases or retain a container for later mutation.
+    for name, symbol in env.items():
+        if symbol.packs is not None or symbol.proof_exhausted:
+            env[name] = replace(
+                symbol, packs=None, proof_depth=0, proof_size=1, proof_exhausted=False
+            )
 
 
 def _check_metadata_key(container: _Symbol, key: _Symbol) -> None:
@@ -627,6 +681,8 @@ class _Submission:
         self.index = index
         self.globals: dict[str, _Symbol] = {}
         self.observed = False
+        self.proof_epoch = 0
+        self.star_calls = 0
 
     def check(self, tree: ast.Module) -> None:
         functions: list[ast.FunctionDef] = []
@@ -656,6 +712,11 @@ class _Submission:
         self.globals[name] = symbol
 
     def _module(self, name: str) -> _Symbol:
+        if name.split(".")[0] == "itertools":
+            self.index.reject_stdlib_shadow("itertools")
+            if name != "itertools":
+                _reject("unsupported_import", "Only the restricted itertools module is supported")
+            return _Symbol("itertools")
         if name == "unittest":
             self.index.reject_stdlib_shadow(name)
             return _Symbol("unittest")
@@ -777,6 +838,7 @@ class _Submission:
             elif isinstance(node, ast.AugAssign):
                 self._expression(node.target, env)
                 self._expression(node.value, env)
+                self._forget_packs(env)
                 self._bind(node.target, _UNKNOWN, env)
             elif isinstance(node, ast.Return):
                 if node.value:
@@ -805,11 +867,19 @@ class _Submission:
 
     def _loop(self, node: ast.For | ast.While, env: dict[str, _Symbol]) -> None:
         if isinstance(node, ast.For):
-            self._expression(node.iter, env)
-            self._bind(node.target, _UNKNOWN, env)
+            iterable = self._expression(node.iter, env)
+            values = [item for variant in iterable.packs or () for item in variant]
+            self._bind(node.target, _join_packs(values, iterable.module), env)
         else:
             self._expression(node.test, env)
+        epoch, stars = self.proof_epoch, self.star_calls
         self._branches(node.body, node.orelse, env)
+        if self.proof_epoch != epoch and self.star_calls != stars:
+            _reject("unsupported_call", "Loop effects cannot retain bounded star-argument proof")
+
+    def _forget_packs(self, env: dict[str, _Symbol]) -> None:
+        self.proof_epoch += 1
+        _invalidate_packs(env)
 
     @staticmethod
     def _bind(node: ast.expr, symbol: _Symbol, env: dict[str, _Symbol]) -> None:
@@ -817,8 +887,12 @@ class _Submission:
             _check_name(node.id)
             env[node.id] = symbol
         elif isinstance(node, (ast.Tuple, ast.List)):
-            for target in node.elts:
-                _Submission._bind(target, _UNKNOWN, env)
+            aligned = symbol.packs is not None and all(
+                len(variant) == len(node.elts) for variant in symbol.packs
+            )
+            for index, target in enumerate(node.elts):
+                values = [variant[index] for variant in symbol.packs or ()] if aligned else []
+                _Submission._bind(target, _join_packs(values, symbol.module), env)
         else:
             _reject(
                 "unsupported_syntax", "Assignments may bind local names, not attributes or items"
@@ -832,6 +906,9 @@ class _Submission:
                     "Only pytest.raises without captured runtime objects is supported",
                 )
             call = item.context_expr
+            if isinstance(call.func, ast.Attribute) and call.func.attr == "subTest":
+                self._subtest(call, env, single_context=len(node.items) == 1)
+                continue
             if self._expression(call.func, env).kind != "raises" or len(call.args) != 1:
                 _reject(
                     "unsupported_context",
@@ -850,11 +927,33 @@ class _Submission:
             self.observed = True
         self._statements(node.body, env)
 
+    def _subtest(self, call: ast.Call, env: dict[str, _Symbol], *, single_context: bool) -> None:
+        assert isinstance(call.func, ast.Attribute)
+        if (
+            not single_context
+            or call.args
+            or not 1 <= len(call.keywords) <= 2
+            or self._expression(call.func.value, env).kind != "test_case"
+            or any(keyword.arg is None or keyword.arg == "msg" for keyword in call.keywords)
+            or len({keyword.arg for keyword in call.keywords}) != len(call.keywords)
+        ):
+            _reject(
+                "unsupported_context", "subTest requires an exact TestCase and 1-2 named labels"
+            )
+        for keyword in call.keywords:
+            assert keyword.arg is not None
+            _check_name(keyword.arg)
+            self._expression(keyword.value, env)
+        # On a fresh standalone TestCase this is diagnostic context, not an observation.
+
     def _expression(self, node: ast.expr, env: dict[str, _Symbol]) -> _Symbol:
         if isinstance(node, ast.Name):
             _check_name(node.id)
             if node.id in env:
-                return env[node.id]
+                symbol = env[node.id]
+                if symbol.kind == "helper" or symbol.touches_pack:
+                    self._forget_packs(env)
+                return symbol
             if node.id == "iter":
                 return _Symbol("iter")
             if node.id in _BUILTIN_RETURNS:
@@ -863,14 +962,28 @@ class _Submission:
                 return _Symbol("exception")
             _reject("unresolved_symbol", f"Name is not an approved binding: {node.id}")
         if isinstance(node, ast.Attribute):
-            return self._member(self._expression(node.value, env), node.attr)
+            symbol = self._member(self._expression(node.value, env), node.attr)
+            if symbol.touches_pack:
+                self._forget_packs(env)
+            return symbol
         if isinstance(node, ast.Call):
             return self._call(node, env)
         if isinstance(node, ast.ListComp):
             return self._list_comprehension(node, env)
         if isinstance(node, ast.Constant):
             return _value_symbol(node)
-        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        if isinstance(node, (ast.List, ast.Tuple)):
+            epoch = self.proof_epoch
+            items = tuple(self._expression(item, env) for item in node.elts)
+            if self.proof_epoch != epoch:
+                items = tuple(
+                    _Symbol("value", module=item.module, proof_exhausted=item.proof_exhausted)
+                    for item in items
+                )
+            return _packed_value(
+                (items,), type_name="list" if isinstance(node, ast.List) else "tuple"
+            )
+        if isinstance(node, ast.Set):
             for item in node.elts:
                 self._expression(item, env)
             return _value_symbol(node)
@@ -919,11 +1032,16 @@ class _Submission:
         iterable = self._expression(generator.iter, env)
         inner = env.copy()
         self._bind(generator.target, _with_origin(_UNKNOWN, iterable.module), inner)
+        epoch = self.proof_epoch
         element = self._expression(node.elt, inner)
+        if self.proof_epoch != epoch:
+            self._forget_packs(env)
         return _Symbol("value", module=iterable.module or element.module, type_name="list")
 
     def _member(self, symbol: _Symbol, name: str) -> _Symbol:
         _check_member(name)
+        if symbol.kind == "itertools" and name == "permutations":
+            return _Symbol("permutations")
         if symbol.kind == "unittest" and name == "TestCase":
             return _Symbol("test_case_constructor")
         if symbol.kind == "test_case" and name == "assertEqual":
@@ -947,19 +1065,71 @@ class _Submission:
                     if symbol.type_name == "dict" and name in {"get", "pop", "setdefault"}
                     else "builtin"
                 )
-                return _Symbol(kind, module=symbol.module, type_name=methods[name])
+                return _Symbol(
+                    kind,
+                    module=symbol.module,
+                    type_name=methods[name],
+                    touches_pack=symbol.packs is not None or symbol.proof_exhausted,
+                )
         return self.index.member(symbol, name)
+
+    def _star_arguments(
+        self, node: ast.Call, symbol: _Symbol, env: dict[str, _Symbol]
+    ) -> list[_Symbol]:
+        if (
+            len(node.args) != 1
+            or node.keywords
+            or not isinstance(node.args[0], ast.Starred)
+            or not isinstance(node.args[0].value, ast.Name)
+            or not (
+                symbol.kind in {"function", "class"}
+                or (symbol.kind == "builtin" and symbol.type_name == "range")
+            )
+        ):
+            _reject(
+                "unsupported_call",
+                "Star calls require one bounded named pack and an approved target",
+            )
+        packed = self._expression(node.args[0].value, env)
+        if packed.packs is None or any(not 1 <= len(row) <= 3 for row in packed.packs):
+            _reject(
+                "unsupported_call", "Star argument needs a current source-built pack of 1-3 values"
+            )
+        self.star_calls += 1
+        return [value for row in packed.packs for value in row]
 
     def _call(self, node: ast.Call, env: dict[str, _Symbol]) -> _Symbol:
         symbol = self._expression(node.func, env)
-        arguments = [self._expression(argument, env) for argument in node.args]
+        arguments = (
+            self._star_arguments(node, symbol, env)
+            if any(isinstance(argument, ast.Starred) for argument in node.args)
+            else [self._expression(argument, env) for argument in node.args]
+        )
         for keyword in node.keywords:
             if keyword.arg is None:
                 _reject("unsupported_syntax", "Keyword unpacking is outside the subset")
             _check_name(keyword.arg)
             arguments.append(self._expression(keyword.value, env))
-        if symbol.kind in {"test_case_constructor", "assert_equal", "iter"}:
-            expected = {"test_case_constructor": 0, "assert_equal": 2, "iter": 1}[symbol.kind]
+        if (
+            symbol.touches_pack
+            or symbol.kind == "helper"
+            or (
+                symbol.kind in {"function", "class"}
+                and not any(isinstance(arg, ast.Starred) for arg in node.args)
+            )
+            or (
+                symbol.kind not in {"iter", "permutations"}
+                and any(arg.packs is not None or arg.proof_exhausted for arg in arguments)
+            )
+        ):
+            self._forget_packs(env)
+        if symbol.kind in {"test_case_constructor", "assert_equal", "iter", "permutations"}:
+            expected = {
+                "test_case_constructor": 0,
+                "assert_equal": 2,
+                "iter": 1,
+                "permutations": 1,
+            }[symbol.kind]
             if node.keywords or len(node.args) != expected:
                 _reject(
                     "unsupported_call",

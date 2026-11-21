@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 3
+# Behavioral-test submission policy, version 4
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,7 +6,7 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 3 intentionally supports a restricted Python test format. A rejected
+Version 4 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
@@ -29,10 +29,9 @@ Inside functions, supported operations are assertions, literals, name assignment
 arithmetic/comparison/boolean expressions, indexing/slicing, returns, `if`, `for`,
 `while`, and calls whose targets can be resolved statically. Assignment may bind
 local names or unpack names; it cannot overwrite attributes or indexed objects.
-Lambdas, starred argument expansion, dictionary/keyword unpacking,
-`try`, `raise`, custom context managers and imports inside functions are excluded.
+Lambdas, dictionary/keyword unpacking, `try`, `raise`, custom context managers and imports inside functions are excluded.
 
-Version 3 additionally admits list comprehensions inside functions of the form
+Version 3 introduced list comprehensions inside functions of the form
 `[element for name in iterable]`. It requires exactly one synchronous generator,
 a simple name target, no filters and no nested comprehension. The iterable is
 checked in the outer scope first; the target shadows existing names only inside
@@ -71,7 +70,7 @@ constructor can be resolved from source. Return annotations on project functions
 can identify builtin value types or directly named project classes. A method or
 attribute that cannot be resolved is rejected. Inherited members, runtime
 attribute creation, string annotations and namespace packages are not resolved
-by version 3.
+by version 4.
 
 ## Imports and calls
 
@@ -89,8 +88,8 @@ mutation, rebinding, ambiguous providers and collisions with explicit bindings
 are rejected. This supports public package APIs without admitting wildcard
 imports in the submission itself.
 
-The external modules admitted by this version are `pytest`, `math`, and a
-restricted part of `unittest`:
+The external modules admitted by this version are `pytest`, `math`, and
+restricted parts of `unittest` and `itertools`:
 
 - `pytest.raises(ApprovedException, match="literal pattern")` is allowed as a
   context manager without an `as` target. It cannot expose an exception-info,
@@ -104,10 +103,44 @@ restricted part of `unittest`:
   the policy. Importing it grants no access to other module attributes.
 - `unittest.TestCase()` takes no arguments. Its resulting object exposes only
   `assertEqual(actual, expected)`, with exactly two positional arguments. Other
-  assertions, test runners, cleanup, skipping, subtests and module attributes are
+  assertions, test runners, cleanup, skipping and module attributes are
   excluded. A case tree containing a root or `src` module/package named
   `unittest` is rejected. This API supports ordinary test functions; submission
   classes remain excluded.
+- `itertools.permutations(iterable)` takes exactly one positional argument and no
+  keywords. Imports may use the module or the function with an alias; other
+  `itertools` APIs and source-tree shadows are rejected. Its output retains known
+  project origin for direct metadata checks.
+
+Version 4 additionally permits a direct, uncaptured
+`with case.subTest(label=value):` on an exact stdlib `TestCase` binding. It takes
+one or two distinct named labels, with their values checked as ordinary expressions.
+Positional messages, `msg`, keyword expansion, context aliases, `as` capture and
+multiple contexts in the same `with` are excluded. The context alone is not an
+observation. The standalone fresh instance is not run through unittest's runner:
+exceptions propagate and stop the ordinary test at the first failure; successful
+iterations continue. It does not produce separate subtest node IDs. Thus all
+original input cases and assertions remain in the source, but a bad-tree failure
+can prevent later cases from running. Base and repaired passes require all cases.
+
+A positional expansion is admitted only as `target(*name)`, with no other
+positional or keyword arguments. The target must already resolve to a project
+function/class or the exact builtin `range`. The name must retain proof of a
+source-built tuple/list containing one to three values in every possible shape.
+Certificates are function-local: module literals keep ordinary value permissions
+but never gain pack certificates, including through local aliases.
+Literal case rows and loop unpacking may preserve a bounded union of shapes;
+every row and expression is checked. This structural knowledge grants loop
+variables no callable or member permissions. Unknown values, incompatible rows,
+mutation through aliases, escaping containers, ordinary project calls and helper
+calls discard proof;
+a fresh literal can establish new proof. Calls/effects during literal evaluation
+cannot resurrect earlier alias shapes, and effectful loops cannot reuse star
+proof across iterations. The proof budget is four levels,
+128 expanded shape nodes and 16 alternatives, including aliased structures.
+Arbitrary runtime iterable expansion, expression operands, multiple stars and
+starred calls to observation helpers, `iter`, `permutations`, mapping lookups or
+submission helpers remain excluded. Existing origin and fix-only checks apply.
 
 `iter(value)` is allowed with exactly one positional argument and no keywords;
 the callable/sentinel form is excluded. Aliases retain these restrictions and
@@ -170,7 +203,7 @@ invoke host-registered codec search hooks. Only then does the checker confirm th
 canonical UTF-8 name, without decoding source through a caller-selected codec.
 It then parses the exact UTF-8 bytes supplied to the worker, so an encoding such
 as `unicode_escape` cannot transform an apparent comment into executable imports
-at collection time. BOM-prefixed source is explicitly outside version 3.
+at collection time. BOM-prefixed source is explicitly outside version 4.
 Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover
@@ -224,3 +257,13 @@ worker with controlled files, configuration, resource limits and networking.
 Reports produced in the pytest interpreter are also not universally authentic
 against arbitrary in-process manipulation. The orchestrator must validate
 execution evidence and report these residual limitations explicitly.
+
+
+Qualified unittest extraction permits unrelated inert helper definitions only
+with ordinary positional parameters and call-free literal defaults. They cannot
+participate in the selected test's dependency closure. The complete trusted
+TestCase class/instance namespace, including internal methods and state, remains
+reserved against overrides; class state, decorators, annotations, inherited or
+rebound bases, fixture hooks and selected-method helper/property/state access
+remain excluded. The selected body may directly use only `assertEqual` and the
+supported `subTest` context, and is preserved without assertion/input rewriting.
