@@ -38,3 +38,33 @@ tpd = 200000
 evidence = "conservative"
 source_url = "https://console.groq.com/docs/rate-limits"
 observed_at = 2026-11-21T09:07:21Z
+
+# Prospective Qwen profile: commented until its own synthetic compatibility smoke.
+# The dated prices are standard Developer prices; quotas below are unverified
+# conservative local ceilings. Hosted immutable revision and cutoff are unknown.
+# [[models]]
+# alias = "groq-qwen-27b"
+# provider = "groq"
+# model_id = "qwen/qwen3.8-27b"
+# profile = "qwen3_8_parsed"
+# model_context_tokens = 131072
+# max_completion_tokens = 512
+# tool_choice = "required"
+# temperature = 0.6
+# reasoning_effort = "low"
+# timeout_seconds = 60
+#
+# [models.pricing]
+# input_usd_per_million = "0.80"
+# output_usd_per_million = "4.00"
+# source_url = "https://console.groq.com/docs/model/qwen/qwen3.8-27b"
+# observed_at = 2026-11-21T11:34:10Z
+#
+# [models.quotas]
+# rpm = 1
+# tpm = 8000
+# rpd = 1000
+# tpd = 200000
+# evidence = "conservative"
+# source_url = "https://console.groq.com/docs/rate-limits"
+# observed_at = 2026-11-21T11:34:10Z

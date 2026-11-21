@@ -495,3 +495,126 @@ def test_required_tool_turn_preserves_raw_reasoning_and_arguments(
     assert body["messages"][0]["content"] is None
     assert body["messages"][0]["tool_calls"][0]["function"]["arguments"] == '{"path":"."}'
     assert len(transport.calls) == 1
+
+
+def _qwen_config() -> ModelConfig:
+    data = model().model_dump(mode="python")
+    data.update(
+        alias="qwen-candidate",
+        model_id="qwen/qwen3.8-27b",
+        profile="qwen3_8_parsed",
+        reasoning_effort="low",
+        declared_cutoff=None,
+        cutoff_source_url=None,
+        model_revision=None,
+    )
+    data["pricing"]["input_usd_per_million"] = "0.80"
+    data["pricing"]["output_usd_per_million"] = "4.00"
+    return ModelConfig.model_validate(data)
+
+
+def test_qwen_wire_uses_one_explicit_parsed_reasoning_representation() -> None:
+    request = prepare_request(
+        _qwen_config(),
+        messages=[{"role": "user", "content": "Inspect."}],
+        tools=[{"type": "function", "function": {"name": "list_dir"}}],
+    )
+    body = json.loads(request.body)
+    assert body["reasoning_format"] == "parsed" and body["reasoning_effort"] == "low"
+    assert "include_reasoning" not in body
+    assert body["tool_choice"] == "required" and body["parallel_tool_calls"] is False
+    assert "profile" not in body and "projection_policy" not in body
+
+
+def test_qwen_raw_response_survives_but_only_assistant_reasoning_is_projected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "secret-sentinel")
+    data = json.loads(json.dumps(payload()))
+    data["model"] = "qwen/qwen3.8-27b"
+    assistant = data["choices"][0]["message"]
+    assistant["content"] = "literal <think>code</think> stays"
+    assistant["reasoning_content"] = "undocumented opaque field stays"
+    assistant["opaque_extension"] = {"reasoning": "nested opaque metadata stays"}
+    assistant["tool_calls"][0]["function"]["arguments"] = (
+        '{"content":"# <think>literal</think>\\nassert True"}'
+    )
+    raw = json.dumps(data).encode()
+    config = _qwen_config()
+    initial = prepare_request(config, messages=[{"role": "user", "content": "Inspect."}], tools=[])
+    transport = FakeTransport(raw)
+    result = ProviderClient(config, transport=transport).complete(initial)
+    assert result.raw_body == raw and result.assistant_message == assistant
+    original = json.loads(json.dumps(result.assistant_message))
+    messages: list[dict[str, JsonValue]] = [
+        {"role": "user", "content": "keep <think>user</think>"},
+        result.assistant_message,
+        {"role": "tool", "tool_call_id": "call-1", "content": "tool reasoning <think>text</think>"},
+    ]
+    followup = prepare_request(config, messages=messages, tools=[])
+    wire = json.loads(followup.body)["messages"]
+    assert "reasoning" not in wire[1]
+    assert wire[1] == {key: value for key, value in assistant.items() if key != "reasoning"}
+    assert wire[0] == messages[0] and wire[2] == messages[2]
+    assert wire[1]["content"] == original["content"]
+    assert wire[1]["tool_calls"] == original["tool_calls"]
+    assert result.assistant_message == original and "reasoning" in result.assistant_message
+    # Canonical revalidation accepts already projected wire bytes without hidden mutation.
+    ProviderClient(config, transport=transport).complete(followup)
+    assert len(transport.calls) == 2
+
+
+def test_qwen_projection_policy_is_part_of_configuration_identity() -> None:
+    config = _qwen_config()
+    expected = {
+        "model_config": config.model_dump(mode="json"),
+        "http_user_agent": "RevertBench/0.0.1",
+        "assistant_projection": "qwen-assistant-without-reasoning-v1",
+    }
+    expected_digest = hashlib.sha256(
+        json.dumps(expected, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
+    assert config_digest(config) == expected_digest
+    assert config_digest(config) != config_digest(model())
+
+
+def test_qwen_foreign_profile_prepared_request_fails_before_credential_or_io(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    foreign = prepare_request(model(), messages=[{"role": "user", "content": "Inspect."}], tools=[])
+    transport = FakeTransport(b"")
+    with pytest.raises(ProviderError) as caught:
+        ProviderClient(_qwen_config(), transport=transport).complete(foreign)
+    assert caught.value.category == "invalid_request_identity"
+    assert caught.value.delivery_state == "not_sent" and not transport.calls
+
+
+def test_gpt_oss_wire_bytes_remain_identical_to_the_pre_qwen_profile() -> None:
+    request = prepare_request(
+        model(),
+        messages=[
+            {
+                "role": "assistant",
+                "content": None,
+                "reasoning": "keep this",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "echo",
+                            "arguments": '{"value":"<think>literal</think>"}',
+                        },
+                    }
+                ],
+            }
+        ],
+        tools=[],
+    )
+    assert (
+        request.request_sha256 == "a19dd28d1d3f661e4b256e7df0710d2908d96d8ee4d72444c658a4ca04baff46"
+    )
+    body = json.loads(request.body)
+    assert body["include_reasoning"] is True and "reasoning_format" not in body
+    assert body["messages"][0]["reasoning"] == "keep this"
