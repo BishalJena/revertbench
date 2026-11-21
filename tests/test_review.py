@@ -155,6 +155,154 @@ def test_show_packet_is_versioned_and_does_not_accept_or_mutate_case(tmp_path: P
     assert load_case(path).human_review is None
 
 
+def test_authorized_agent_decisions_are_separate_and_keep_cross_kind_history(
+    tmp_path: Path,
+) -> None:
+    path = _packet(tmp_path)
+    human = record_review(
+        path, decision="accept", reviewer="Actual human", notes="Inspected", attested=True
+    )
+    agent = record_review(
+        path,
+        decision="reject",
+        reviewer="Codex reviewer",
+        notes="Found a mismatch",
+        reviewer_kind="agent",
+        authorization_note="User delegated review.",
+    )
+    assert agent.validation.status == "rejected" and agent.human_review is None
+    assert agent.agent_review is not None and agent.agent_review.reviewer == "Codex reviewer"
+    assert agent.review_history == human.review_history
+    assert agent.agent_review_history == (agent.agent_review,)
+    noted = record_review(
+        path, decision="notes", reviewer="Actual human", notes="Additional observation"
+    )
+    assert noted.agent_review == agent.agent_review and noted.human_review is None
+    accepted = record_review(
+        path,
+        decision="accept",
+        reviewer="Codex reviewer",
+        notes="Checked all evidence",
+        reviewer_kind="agent",
+        authorization_note="User delegated review.",
+    )
+    assert accepted.validation.status == "accepted" and accepted.human_review is None
+    assert len(accepted.review_history) == 2 and len(accepted.agent_review_history) == 2
+    assert accepted.agent_review is not None
+    assert accepted.agent_review.case_inputs_sha256 == accepted.review_input_digest()
+    preview = render_review_packet(build_review_packet(path))
+    assert (
+        "Agent review" in preview
+        and "Codex reviewer" in preview
+        and "User delegated review." in preview
+    )
+    switched = record_review(
+        path, decision="reject", reviewer="Actual human", notes="Different conclusion"
+    )
+    assert switched.agent_review is None and switched.human_review is not None
+    assert len(switched.agent_review_history) == 2
+
+
+def test_agent_notes_preserve_active_human_and_archive_legacy_active_record(tmp_path: Path) -> None:
+    path = _packet(tmp_path)
+    accepted = record_review(
+        path, decision="accept", reviewer="Actual human", notes="Checked", attested=True
+    )
+    # Historical files may predate the optional history collection.
+    write_case(
+        Case.model_validate({**accepted.model_dump(mode="python"), "review_history": ()}), path
+    )
+    noted = record_review(
+        path,
+        decision="notes",
+        reviewer="Codex",
+        notes="Independent observation",
+        reviewer_kind="agent",
+        authorization_note="User delegated review",
+    )
+    assert noted.human_review == accepted.human_review and noted.agent_review is None
+    assert noted.validation.status == "accepted"
+    assert noted.review_history == (accepted.human_review,)
+    assert len(noted.agent_review_history) == 1
+
+
+def test_agent_notes_require_an_actual_report_and_human_cannot_claim_agent_authorization(
+    tmp_path: Path,
+) -> None:
+    path = _packet(tmp_path)
+    with pytest.raises(ReviewError, match="only"):
+        record_review(
+            path,
+            decision="notes",
+            reviewer="Human",
+            notes="Observed",
+            authorization_note="Delegated",
+        )
+    data = json.loads(path.read_text())
+    data["validation"] = {"status": "candidate"}
+    path.write_text(json.dumps(data))
+    with pytest.raises(ReviewError):
+        record_review(
+            path,
+            decision="notes",
+            reviewer="Codex",
+            notes="Observed",
+            reviewer_kind="agent",
+            authorization_note="Delegated",
+        )
+
+
+@pytest.mark.parametrize(
+    "authorization,attested", [(None, False), (" ", False), ("User delegated review", True)]
+)
+def test_agent_requires_authorization_and_cannot_attest_as_human(
+    tmp_path: Path, authorization: str | None, attested: bool
+) -> None:
+    path = _packet(tmp_path)
+    before = path.read_bytes()
+    with pytest.raises(ReviewError):
+        record_review(
+            path,
+            decision="accept",
+            reviewer="Codex",
+            notes="Checked",
+            reviewer_kind="agent",
+            authorization_note=authorization,
+            attested=attested,
+        )
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("mutation", ["report", "ci", "lineage", "digest"])
+def test_agent_acceptance_preserves_machine_and_provenance_gates(
+    tmp_path: Path, mutation: str
+) -> None:
+    path = _packet(tmp_path)
+    data = json.loads(path.read_text())
+    if mutation == "report":
+        report = json.loads((tmp_path / "validation.json").read_text())
+        report["reference"]["score"] = 0
+        raw = json.dumps(report).encode()
+        (tmp_path / "validation.json").write_bytes(raw)
+        data["validation"]["report_sha256"] = _digest(raw)
+    elif mutation == "ci":
+        data["global_suite_evidence"] = None
+    elif mutation == "lineage":
+        data["lineage_verified"] = False
+    else:
+        (tmp_path / "repair.patch").write_text("changed")
+    path.write_text(json.dumps(data))
+    with pytest.raises(ReviewError):
+        record_review(
+            path,
+            decision="accept",
+            reviewer="Codex",
+            notes="Checked",
+            reviewer_kind="agent",
+            authorization_note="User delegated review",
+        )
+
+
 @pytest.mark.parametrize("attested", [False, True])
 def test_acceptance_requires_explicit_attestation_and_preserves_evidence(
     tmp_path: Path, attested: bool

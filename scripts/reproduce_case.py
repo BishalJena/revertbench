@@ -123,12 +123,43 @@ def _export_grader(repo_root: Path, commit: str, destination: Path) -> None:
     archive_path.unlink()
 
 
+def _has_explicit_acceptance(case: Any) -> bool:
+    """Screen reviewer kind without importing a newer schema into an old snapshot.
+
+    The pinned engine's Case schema and machine-report checks remain authoritative
+    for every evidence binding; this outer check only controls process launch.
+    """
+    if not isinstance(case, dict):
+        return False
+    validation = case.get("validation")
+    if not isinstance(validation, dict) or validation.get("status") != "accepted":
+        return False
+    human, agent = case.get("human_review"), case.get("agent_review")
+    if (human is None) == (agent is None):
+        return False
+    review = human if human is not None else agent
+    if not isinstance(review, dict) or review.get("decision") != "accept":
+        return False
+    identity = review.get("reviewer")
+    if not isinstance(identity, str) or not identity.strip():
+        return False
+    if human is not None:
+        return review.get("attested") is True and review.get("reviewer_kind", "human") == "human"
+    authorization = review.get("authorization_note")
+    return (
+        review.get("reviewer_kind") == "agent"
+        and isinstance(authorization, str)
+        and bool(authorization.strip())
+        and "attested" not in review
+    )
+
+
 def reproduce(case_dir: Path, *, output: Path, cache: Path) -> dict[str, Any]:
     """Launch an isolated host interpreter from this case's trusted grader commit."""
     case_dir, output, cache = case_dir.resolve(), output.resolve(), cache.resolve()
     read_publication(case_dir)
     case = json.loads((case_dir / "case.json").read_bytes())
-    if case["validation"]["status"] != "accepted" or not case["human_review"]["attested"]:
+    if not _has_explicit_acceptance(case):
         raise ReproductionError("only explicitly accepted cases can enter dataset reproduction")
     uv = shutil.which("uv")
     if uv is None:

@@ -142,6 +142,7 @@ class CaseEnvironment(EvidenceModel):
 ValidationStatus = Literal[
     "candidate",
     "machine_validated",
+    "pending_review",
     "pending_human_review",
     "accepted",
     "rejected",
@@ -149,6 +150,7 @@ ValidationStatus = Literal[
 ]
 DatasetSplit = Literal["unassigned", "train", "validation", "test"]
 ReviewDecision = Literal["accept", "reject", "notes"]
+ReviewerKind = Literal["human", "agent"]
 
 
 class CaseValidation(EvidenceModel):
@@ -170,9 +172,12 @@ class CaseValidation(EvidenceModel):
 
     @model_validator(mode="after")
     def check_machine_status(self) -> Self:
-        if self.status in {"machine_validated", "pending_human_review", "accepted"} and (
-            not self.machine_passed or self.report is None or self.report_sha256 is None
-        ):
+        if self.status in {
+            "machine_validated",
+            "pending_review",
+            "pending_human_review",
+            "accepted",
+        } and (not self.machine_passed or self.report is None or self.report_sha256 is None):
             raise ValueError("validated status requires a passing machine report and its digest")
         return self
 
@@ -188,6 +193,22 @@ class HumanReview(EvidenceModel):
     case_inputs_sha256: ContentDigest | None = None
 
     _validate_text = field_validator("reviewer", "notes")(_nonblank)
+
+
+class AgentReview(EvidenceModel):
+    """An authorized agent's own decision, never a human attestation."""
+
+    review_version: Literal["1"] = "1"
+    reviewer_kind: Literal["agent"] = "agent"
+    decision: ReviewDecision
+    reviewer: Annotated[str, Field(min_length=1)]
+    authorization_note: Annotated[str, Field(min_length=1)]
+    notes: Annotated[str, Field(min_length=1)]
+    reviewed_at: AwareDatetime
+    validation_report_sha256: ContentDigest
+    case_inputs_sha256: ContentDigest
+
+    _validate_text = field_validator("reviewer", "authorization_note", "notes")(_nonblank)
 
 
 class CaseArtifact(EvidenceModel):
@@ -247,6 +268,8 @@ class Case(EvidenceModel):
     validation: CaseValidation = Field(default_factory=CaseValidation)
     human_review: HumanReview | None = None
     review_history: tuple[HumanReview, ...] = ()
+    agent_review: AgentReview | None = None
+    agent_review_history: tuple[AgentReview, ...] = ()
     bad_diff: CaseArtifact | None = None
     historical_fix_diff: CaseArtifact | None = None
     candidate_artifact: CaseArtifact | None = None
@@ -319,12 +342,14 @@ class Case(EvidenceModel):
 
     @model_validator(mode="after")
     def check_acceptance(self) -> Self:
+        if self.human_review is not None and self.agent_review is not None:
+            raise ValueError("a case can have only one active human or agent review")
         if self.validation.status != "accepted":
             return self
-        review = self.human_review
+        review = self.human_review or self.agent_review
         if review is None or review.decision != "accept":
-            raise ValueError("accepted cases require an explicit human acceptance review")
-        if not review.attested:
+            raise ValueError("accepted cases require an explicit human or agent acceptance review")
+        if isinstance(review, HumanReview) and not review.attested:
             raise ValueError("human acceptance requires an explicit attestation")
         if (
             not self.validation.machine_passed
@@ -332,7 +357,7 @@ class Case(EvidenceModel):
             or self.validation.report_sha256 is None
             or review.validation_report_sha256 != self.validation.report_sha256
         ):
-            raise ValueError("human acceptance must bind the passing machine report")
+            raise ValueError("acceptance review must bind the passing machine report")
         if (
             not self.changed_lines
             or self.regression_group_id is None
@@ -391,7 +416,7 @@ class Case(EvidenceModel):
                 "accepted case requires separately verified matching global CI evidence"
             )
         if review.case_inputs_sha256 != self.review_input_digest():
-            raise ValueError("human acceptance must bind the immutable case inputs")
+            raise ValueError("acceptance review must bind the immutable case inputs")
         return self
 
 
