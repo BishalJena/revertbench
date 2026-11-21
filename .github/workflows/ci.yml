@@ -25,7 +25,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen
       - run: docker info
       - run: uv run pytest --run-docker -m docker
+        env:
+          REVERTBENCH_REPRO_OUTPUT: artifacts/case-reproductions
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accepted-case-reproductions
+          path: artifacts/case-reproductions
+          if-no-files-found: error

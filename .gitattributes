@@ -1,0 +1,2 @@
+cases/**/validation.json linguist-generated=true
+cases/**/official-unittest/*.json linguist-generated=true
