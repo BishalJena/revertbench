@@ -15,6 +15,7 @@ from revertbench.models.config import ModelConfig
 
 type JsonValue = bool | int | float | str | list[JsonValue] | dict[str, JsonValue] | None
 DeliveryState = Literal["not_sent", "possibly_sent", "response_received"]
+CLIENT_USER_AGENT = "RevertBench/0.0.1"
 _RESPONSE_LIMIT = 2097152
 _SAFE_HEADERS = frozenset(
     {
@@ -287,9 +288,12 @@ def _parse_response(
 
 
 def config_digest(config: ModelConfig) -> str:
-    """Bind endpoint, model, sampling, quota and price facts without credentials."""
+    """Bind honest transport identity and model facts without credentials."""
     raw = json.dumps(
-        config.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), allow_nan=False
+        {"model_config": config.model_dump(mode="json"), "http_user_agent": CLIENT_USER_AGENT},
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
     ).encode()
     return hashlib.sha256(raw).hexdigest()
 
@@ -341,6 +345,7 @@ class ProviderClient:
                 "Authorization": "Bearer " + key,
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                "User-Agent": CLIENT_USER_AGENT,
             },
             method="POST",
         )
