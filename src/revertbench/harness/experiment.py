@@ -17,8 +17,9 @@ from revertbench.harness.metrics import summarize
 from revertbench.harness.prompt import (
     MAX_MODEL_CALLS,
     PR_BODY_POLICY,
-    PROMPT_VERSION,
     TOOL_DEFINITIONS,
+    CompletionPolicy,
+    prompt_version,
 )
 from revertbench.harness.runtime import PinnedRuntime
 from revertbench.models.budget import CostBudget
@@ -124,6 +125,18 @@ def _case_inputs(case_dirs: list[Path]) -> list[dict[str, Any]]:
     return rows
 
 
+def _completion_identity(policy: CompletionPolicy) -> str:
+    return _sha(
+        json.dumps(
+            {
+                "completion_policy": policy,
+                "prompt_version": prompt_version(policy),
+            },
+            sort_keys=True,
+        ).encode()
+    )
+
+
 def _manifest(
     *,
     experiment_id: str,
@@ -131,6 +144,7 @@ def _manifest(
     model: dict[str, Any],
     model_hash: str,
     budget: Decimal,
+    completion_policy: CompletionPolicy,
 ) -> dict[str, Any]:
     episodes = [
         {
@@ -151,7 +165,9 @@ def _manifest(
         "host_code": _code_identity(),
         "model_config": model,
         "config_sha256": model_hash,
-        "prompt_version": PROMPT_VERSION,
+        "completion_policy": completion_policy,
+        "prompt_version": prompt_version(completion_policy),
+        "completion_identity_sha256": _completion_identity(completion_policy),
         "pr_body_policy": PR_BODY_POLICY,
         "tools_sha256": _sha(json.dumps(TOOL_DEFINITIONS, sort_keys=True).encode()),
         "max_physical_calls_per_sample": MAX_MODEL_CALLS,
@@ -173,11 +189,15 @@ def run_experiment(
     experiment_id: str,
     budget_usd: float,
     resume: bool = False,
+    completion_policy: CompletionPolicy = "explicit_submit",
 ) -> dict[str, Any]:
+    selected_prompt = prompt_version(completion_policy)
     if not experiment_id.strip() or len(experiment_id) > 128:
         raise ValueError("Experiment identity must be nonempty and bounded")
     output, cache = output.resolve(), cache.resolve()
     config = load_model(config_path, model_id)
+    if completion_policy == "saved_test_on_stop_v1" and config.tool_choice != "auto":
+        raise ValueError("Saved-test completion policy requires tool_choice=auto")
     model_hash = config_digest(config)
     inputs = _case_inputs(case_dirs)
     limit = Decimal(str(budget_usd))
@@ -186,6 +206,15 @@ def run_experiment(
         raise ValueError("Existing experiment requires explicit resume")
     if resume and not manifest_path.exists():
         raise ValueError("Experiment checkpoint missing; explicit recovery required")
+    if resume:
+        checkpoint = json.loads(manifest_path.read_bytes())
+        if (
+            checkpoint.get("completion_policy", "explicit_submit") != completion_policy
+            or checkpoint.get("prompt_version") != selected_prompt
+            or checkpoint.get("completion_identity_sha256", _completion_identity("explicit_submit"))
+            != _completion_identity(completion_policy)
+        ):
+            raise ValueError("Experiment completion policy or prompt changed on resume")
     output.mkdir(parents=True, exist_ok=True)
     with (
         JsonlLedger(cache / "project-ledger.jsonl") as project,
@@ -201,7 +230,12 @@ def run_experiment(
             manifest = cast(dict[str, Any], json.loads(manifest_path.read_bytes()))
             if (
                 manifest["host_code"] != _code_identity()
-                or manifest["prompt_version"] != PROMPT_VERSION
+                or manifest["prompt_version"] != selected_prompt
+                or manifest.get("completion_policy", "explicit_submit") != completion_policy
+                or manifest.get(
+                    "completion_identity_sha256", _completion_identity("explicit_submit")
+                )
+                != _completion_identity(completion_policy)
                 or manifest["pr_body_policy"] != PR_BODY_POLICY
                 or manifest["tools_sha256"]
                 != _sha(json.dumps(TOOL_DEFINITIONS, sort_keys=True).encode())
@@ -218,6 +252,14 @@ def run_experiment(
                 expected != inputs
                 or not registrations
                 or registrations[-1]["output"] != str(output)
+                or registrations[-1].get("completion_policy", "explicit_submit")
+                != completion_policy
+                or registrations[-1].get("prompt_version", prompt_version("explicit_submit"))
+                != selected_prompt
+                or registrations[-1].get(
+                    "completion_identity_sha256", _completion_identity("explicit_submit")
+                )
+                != _completion_identity(completion_policy)
             ):
                 raise ValueError("Experiment inputs or durable project accounting changed")
         else:
@@ -231,12 +273,16 @@ def run_experiment(
                 model=config.model_dump(mode="json"),
                 model_hash=model_hash,
                 budget=limit,
+                completion_policy=completion_policy,
             )
             project.append(
                 "experiment_registered",
                 experiment_id=experiment_id,
                 output=str(output),
                 config_sha256=model_hash,
+                completion_policy=completion_policy,
+                prompt_version=selected_prompt,
+                completion_identity_sha256=_completion_identity(completion_policy),
             )
             atomic_json(manifest_path, manifest)
         scheduler = RateScheduler(
@@ -264,6 +310,7 @@ def run_experiment(
                 ledger=ledger,
                 budget=budget,
                 scheduler=scheduler,
+                completion_policy=completion_policy,
             )
             manifest["episodes"][index] = {**row, **result}
             manifest["metrics"] = summarize(manifest["episodes"], planned=len(manifest["episodes"]))

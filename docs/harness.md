@@ -27,6 +27,18 @@ when changing this setting or the client profile. Verify each model's actual
 tool continuation, usage and quota evidence before scheduling a cohort; a compatible
 API handshake is not a benchmark result.
 
+The default `--completion-policy explicit_submit` requires the model to call
+`submit()`. A prospective `--completion-policy saved_test_on_stop_v1` variant
+requires a model configuration with `tool_choice = "auto"`; the harness rejects
+other selectors before starting an experiment and never changes them silently.
+The variant uses a separately versioned prompt: after a clean provider `stop`,
+already acknowledged saved test bytes are checked in a fresh workspace and
+passed to the case's original pinned grader. It does not extract Python from
+a final answer or interpret prose as a submission. Errors, truncated responses
+and budget exhaustion do not trigger this completion path. A run with no saved
+test still fails to submit. Declare the variant before collecting a cohort, use
+a new experiment identity, and report it separately from explicit-submit runs.
+
 ```bash
 uv run revertbench run cases \
   --model groq-120b \
@@ -37,10 +49,9 @@ uv run revertbench report runs/five-case-pilot-1
 ```
 
 Use the same arguments with `--resume` to resume an existing experiment. Keep the
-same code revision, host Python, dependency lock, prompt, tools and model
-configuration, plus the original case, output and shared-cache paths. The manifest
-checks those identities before continuing. An
-independent generation needs a new experiment identity and makes fresh requests.
+same code revision, host Python, dependency lock, prompt, tools, completion policy
+and model configuration, plus the original case, output and shared-cache paths.
+The manifest checks those identities before continuing. An independent generation needs a new experiment identity and makes fresh requests.
 A resumed completed response is not another attempt. When running across
 multiple checkouts, pass the same absolute `--cache` path so all experiments share
 the project budget ledger. Unresolved provider or tool
@@ -70,7 +81,10 @@ Only the saved test persists: after a preview, the next workspace is recreated
 from pristine buggy source and that test. Preview output never includes a repaired
 run or final score. The `preview_invoked` diagnostic records a pytest invocation;
 it does not prove that a test body ran, because collection or setup can fail. Each episode allows at most 15 physical model requests,
-including any recorded retries. A plain final answer is not a saved submission.
+including any recorded retries. Under the default explicit-submit policy, a plain
+final answer is not a saved submission. Under the saved-test-on-stop variant, only
+a clean stop with previously saved bytes can initiate verification and grading;
+the final answer itself supplies no test bytes.
 
 For `write_test`, `ok=true` means the bytes were saved. The separate `policy.allowed`,
 `reason` and bounded `details` describe admission under the case's pinned checker,
@@ -102,10 +116,14 @@ saved test bytes cross from the agent workspace into fresh grading containers.
 
 The experiment journal records logical call identities and exact request hashes
 before sending, responses and usage before tools, tool transitions, submission
-hashes and private final grading evidence. Manifests bind the harness, prompt,
-provider configuration, case inputs, original grader, images and result counts.
-Completed calls and results are reused on resume; unresolved effects are not
-silently rerun.
+hashes and private final grading evidence. Manifests bind the harness,
+provider configuration, selected completion policy and prompt, case inputs,
+original grader, images and result counts.
+Completed calls and results are reused on resume only after the bound identities
+match; unresolved effects are not silently rerun. Older manifests without a
+completion-policy field belong to `explicit_submit` and cannot be adopted by the
+saved-test-on-stop variant. Both variants retain the same valid, invalid and
+incomplete result denominators and the same pinned grading rules.
 
 Cost accounting reserves a conservative request ceiling before each attempt.
 Missing usage or uncertain delivery retains that reservation. Published prices
