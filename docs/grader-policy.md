@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 4
+# Behavioral-test submission policy, version 5
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,10 +6,19 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 4 intentionally supports a restricted Python test format. A rejected
+Version 5 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
+
+Version 5 additionally excludes the repository-root `test.py` suite from project
+API resolution. Direct imports, aliases and statically resolved transitive or
+wildcard reexports of that exact source file are rejected, including after a
+legitimate project call. The guard checks the selected resolved source path:
+`src/test.py` still takes precedence and nested production modules such as
+`pkg/test.py` retain their previous behavior. This matches the miner's explicit
+root-suite classification without changing the accepted expression grammar.
+Previously accepted cases continue to use their pinned policy and engine.
 
 ## Supported format
 
@@ -70,7 +79,7 @@ constructor can be resolved from source. Return annotations on project functions
 can identify builtin value types or directly named project classes. A method or
 attribute that cannot be resolved is rejected. Inherited members, runtime
 attribute creation, string annotations and namespace packages are not resolved
-by version 4.
+by this version.
 
 ## Imports and calls
 
@@ -80,7 +89,7 @@ Imports may refer to public Python source modules in `bad_tree/src`, then
 and `src` packages are never mixed. Simple imports and transitive source reexports
 are followed, with cycles and unresolved names rejected. Symlinks may not resolve
 outside the bad tree. Test support modules named `tests`, `conftest` or `test_...`
-are not an alternate API surface.
+and the exact root `test.py` source file are not an alternate API surface.
 
 Project wildcard reexports can be resolved when every provider has a bounded,
 direct, call-free literal list or tuple of public names in `__all__`. Visible
@@ -203,7 +212,7 @@ invoke host-registered codec search hooks. Only then does the checker confirm th
 canonical UTF-8 name, without decoding source through a caller-selected codec.
 It then parses the exact UTF-8 bytes supplied to the worker, so an encoding such
 as `unicode_escape` cannot transform an apparent comment into executable imports
-at collection time. BOM-prefixed source is explicitly outside version 4.
+at collection time. BOM-prefixed source is explicitly outside this version.
 Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover
