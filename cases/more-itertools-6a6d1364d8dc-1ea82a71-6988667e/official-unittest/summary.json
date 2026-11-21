@@ -1,0 +1,102 @@
+{
+  "profile": "official_unittest_discovery",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "unittest",
+    "-q"
+  ],
+  "cwd": "/workspace/repo",
+  "image": "sha256:54ccef1ec96d0f294c119552825f1b08fbdad9e2b6ae1144bfd030e2b5687be6",
+  "case_id": "more-itertools-6a6d1364d8dc-1ea82a71-6988667e",
+  "validation_report_sha256": "ef740b16fdcf6bb2f2b52f60034851dc8877b68b838b97d24ce3571b06ea2645",
+  "requested_limits": {
+    "memory_bytes": 268435456,
+    "pids": 256,
+    "cpus": 1.0,
+    "tmpfs_bytes": 67108864,
+    "uid": 10001,
+    "gid": 10001
+  },
+  "docker_api_timeout_seconds": 70,
+  "timeout_seconds": 60,
+  "output_limit_bytes": 65536,
+  "base_commit": "7275e7fcfdfec81100cd4a6a14e46a952d5a9ecb",
+  "bad_commit": "6a6d1364d8dc6d2d3c727e4ccd36353b731ab105",
+  "fix_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4",
+  "roles": {
+    "base": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "3a9a99e182910580296244023952728426dda2bc5779ba65da7a37dbd2579983",
+      "observed_container_limits": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "ShmSize": 8388608,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 857 tests in 13.683s\n\nOK\n",
+      "tests_run": 857,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 857
+    },
+    "bad": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "ea97ec24b25b0738ac85ad49442d2b56e7cc66482ae10da3b373132a41f72f60",
+      "observed_container_limits": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "ShmSize": 8388608,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 863 tests in 13.367s\n\nOK\n",
+      "tests_run": 863,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 863
+    },
+    "repaired": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "c0fb9162869906127baa8ad7560f97693caf319d41e2c40ab408b27aaf818136",
+      "observed_container_limits": {
+        "PidsLimit": 256,
+        "Memory": 268435456,
+        "MemorySwap": 268435456,
+        "NanoCpus": 1000000000,
+        "ShmSize": 8388608,
+        "NetworkMode": "none",
+        "ReadonlyRootfs": true
+      },
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 863 tests in 13.777s\n\nOK\n",
+      "tests_run": 863,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 863
+    }
+  },
+  "status": "passed"
+}

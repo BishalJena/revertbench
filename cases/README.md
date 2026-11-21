@@ -31,6 +31,16 @@ repeats. All 445 upstream unittest tests pass on each tree. This case records
 an authorized agent review, with no human attestation, and pins its own grader
 and environment independently of the first case.
 
+The third case is
+[more-itertools zero-size ichunked regression](more-itertools-6a6d1364d8dc-1ea82a71-6988667e/case.json):
+merged PR1124 broke zero-sized chunks for nonempty input; PR1305 restored the
+input guards. The original three assertions check an empty result for list and
+iterator inputs, including an unconsumed iterator. Base passes, bad raises
+`ValueError` on introduced lines, and repair passes across three repeats.
+The full upstream suites pass 857/863/863 tests respectively. The report records
+a 256-PID upstream-suite budget; scored references retain their existing limits.
+This case has an authorized agent review and its own pinned policy3 environment.
+
 Inspect the packet without executing its historical code on the host:
 
 ```bash

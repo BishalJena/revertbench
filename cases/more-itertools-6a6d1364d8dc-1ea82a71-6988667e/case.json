@@ -1,0 +1,202 @@
+{
+  "schema_version": "2",
+  "id": "more-itertools-6a6d1364d8dc-1ea82a71-6988667e",
+  "repo": "more-itertools/more-itertools",
+  "base_commit": "7275e7fcfdfec81100cd4a6a14e46a952d5a9ecb",
+  "bad_commit": "6a6d1364d8dc6d2d3c727e4ccd36353b731ab105",
+  "fix_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "1b402059025bd5ef8eae059a45534a59f20fa703c576360337ec3a0c3d45db41",
+    "repaired_tree_sha256": "c0fb9162869906127baa8ad7560f97693caf319d41e2c40ab408b27aaf818136"
+  },
+  "changed_lines": {
+    "more_itertools/more.py": [
+      6,
+      26,
+      576,
+      577,
+      595,
+      596,
+      597,
+      599,
+      600,
+      602,
+      603,
+      605,
+      606,
+      2866,
+      3620,
+      3621,
+      3622,
+      3623,
+      3624,
+      4181,
+      4199,
+      4200,
+      4202,
+      4233,
+      4234,
+      4235,
+      4272,
+      4274,
+      4278,
+      4332,
+      4352,
+      4882,
+      4902,
+      4928,
+      4944,
+      5416,
+      5417,
+      5418,
+      5419,
+      5421
+    ],
+    "more_itertools/recipes.py": [
+      567,
+      583,
+      654,
+      658
+    ]
+  },
+  "source_hashes": {
+    "base": "3a9a99e182910580296244023952728426dda2bc5779ba65da7a37dbd2579983",
+    "bad": "ea97ec24b25b0738ac85ad49442d2b56e7cc66482ae10da3b373132a41f72f60",
+    "historical_fix": "7767060719bf69236290db1a22bd680752c8887880f1846a65574d1f5ea3b08e",
+    "repaired": "c0fb9162869906127baa8ad7560f97693caf319d41e2c40ab408b27aaf818136"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44875189756",
+    "implementation_commit": "662ab954eb89d49914700ba1a7fd16f625aa9b0c",
+    "applies_to_image": "sha256:54ccef1ec96d0f294c119552825f1b08fbdad9e2b6ae1144bfd030e2b5687be6",
+    "grader_sha256": "d21e7ecff83629f86c42709ffd3fcfad2be69567822b9c8b8faa4be99d718095",
+    "policy_sha256": "ea2688bd4d6c481d8466a8f20d615c7ae41ac7a2e082ed655c74062f0d7a3234",
+    "observed_at": "2026-11-21T07:38:37.965717Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "more-itertools/more-itertools:6a6d1364d8dc6d2d3c727e4ccd36353b731ab105",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1124,
+    "title": "Add sized_iterator class",
+    "body": "### Issue reference\r\n[more-itertools/more-itertools#1123](https://github.com/more-itertools/more-itertools/issues/1123)\r\n\r\n### Changes\r\nAdds a `sized_iterator` class that wraps around an _iterable_ and provides a `__len__` function for it.\r\n\r\nThis is useful when the length of an _iterable_ is known in advance but not supported by the iterable itself (e.g., a generator, a file, a database). This allows usage with tools that rely on ``len()``, such as progress bars.\r\n\r\n```\r\n>>> def my_generator(n):\r\n...     for i in range(n):\r\n...         yield f\"Item{i}\"\r\n>>> gen = my_generator(3)\r\n>>> sized_gen = sized_iterator(gen, 3)\r\n>>> len(sized_gen)\r\n3\r\n>>> list(sized_gen)\r\n['Item0', 'Item1', 'Item2']\r\n```\r\n\r\n### Checks and tests\r\n- [X] check\r\n- [X] coverage\r\n- [X] docs\r\n- [X] package",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1124",
+    "published_at": "2026-01-28T21:06:47Z",
+    "merged_at": "2026-01-28T22:36:57Z",
+    "observed_at": "2026-11-21T06:10:59.920481Z",
+    "updated_at": "2026-01-28T22:36:57Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "6a6d1364d8dc6d2d3c727e4ccd36353b731ab105"
+  },
+  "fix_pr": {
+    "number": 1305,
+    "title": "Issue 1304: ichunked matches chunked for n=0 and negative n",
+    "body": "### Issue reference\nmore-itertools/more-itertools#1304\n\n### Changes\n`ichunked` is documented as being like `chunked`, but a nonempty iterable with `n=0` called `islice(iterator, -1)` and raised islice's `ValueError`. Negative `n` leaked the same islice message instead of `n must be at least 0`.\n\nTreat `n=0` as an empty iterator (without consuming the source) and reject negative `n` the same way `chunked` does.\n\n### Checks and tests\n- `python -m unittest tests.test_more.IchunkedTests` — OK\n- `python -m unittest` — 932 tests OK\n- `ruff check more_itertools/more.py tests/test_more.py` — OK\n- `ruff format --check more_itertools/more.py tests/test_more.py` — OK",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1305",
+    "published_at": "2026-09-29T15:59:51Z",
+    "merged_at": "2026-09-29T20:28:23Z",
+    "observed_at": "2026-11-21T06:10:59.920481Z",
+    "updated_at": "2026-09-29T20:28:24Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4"
+  },
+  "reference_test": {
+    "path": "tests/test_more.py",
+    "node_ids": [
+      "tests/test_more.py::IchunkedTests::test_zero_nonempty"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "a534dfd327705b75d669670a1819034424200034d17476ab83104e060db57204"
+  },
+  "changed_files": [
+    "more_itertools/more.py",
+    "more_itertools/recipes.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2026-09-29T15:28:23-05:00",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1124",
+      "published_at": "2026-01-28T21:06:47Z",
+      "observed_at": "2026-11-21T06:10:59.920481Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1305",
+      "published_at": "2026-09-29T15:59:51Z",
+      "observed_at": "2026-11-21T06:10:59.920481Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:54ccef1ec96d0f294c119552825f1b08fbdad9e2b6ae1144bfd030e2b5687be6",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "unittest",
+      "-q"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "ef740b16fdcf6bb2f2b52f60034851dc8877b68b838b97d24ce3571b06ea2645",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "3",
+    "grader_sha256": "d21e7ecff83629f86c42709ffd3fcfad2be69567822b9c8b8faa4be99d718095",
+    "policy_sha256": "ea2688bd4d6c481d8466a8f20d615c7ae41ac7a2e082ed655c74062f0d7a3234",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "Codex /root/m1_policy",
+    "authorization_note": "Owner explicitly delegated autonomous case review to the orchestrator; orchestrator assigned this review to Codex /root/m1_policy.",
+    "notes": "Reviewed the full original method, all three observations and both iterables without altering assertions or inputs. Before PR1124, ichunked with n=0 returns no chunks without consuming the source. The merged PR changes ichunked to pull its first source item and call islice(iterator,n-1), which raises ValueError for -1; all three bad calls cover the introducing loop/islice lines3620/3621. The exact historical production repair adds an n=0 return before iterator creation, restoring empty results and leaving source [1,2,3] unconsumed. The same small historical hunk also checks negative n; this reference specifically proves zero-size behavior, not every branch of that guard. Verified first-parent regression lineage, merged badPR1124/fixPR1305, historical patch/source/reference hashes, policy3 full-body preservation, strict nine-run stability/coverage, seven required probes, complete857/863/863 existing suites and independent official supplement SHA256 26346f8e531863e6bb88de85839babffb27547085b146257c8aafd3b1fb1ba5d. Baseline PID256 is explicitly declared; scored reference/probe limits stay64. Verified immutable image, Python/lock/grader/policy, official base935 amd64 layer prefix and independently observed matching CI. Fix-only probe is honestly not applicable because the repair adds no public symbol. Accept this distinct genuine mainline regression under the bounded supported policy. This is my delegated agent review, not a human attestation.",
+    "reviewed_at": "2026-11-21T07:38:40.261813Z",
+    "validation_report_sha256": "ef740b16fdcf6bb2f2b52f60034851dc8877b68b838b97d24ce3571b06ea2645",
+    "case_inputs_sha256": "63014fa2c9453216ef9763fbd449af66e345411e1360ab492a83b4105266116b"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "Codex /root/m1_policy",
+      "authorization_note": "Owner explicitly delegated autonomous case review to the orchestrator; orchestrator assigned this review to Codex /root/m1_policy.",
+      "notes": "Reviewed the full original method, all three observations and both iterables without altering assertions or inputs. Before PR1124, ichunked with n=0 returns no chunks without consuming the source. The merged PR changes ichunked to pull its first source item and call islice(iterator,n-1), which raises ValueError for -1; all three bad calls cover the introducing loop/islice lines3620/3621. The exact historical production repair adds an n=0 return before iterator creation, restoring empty results and leaving source [1,2,3] unconsumed. The same small historical hunk also checks negative n; this reference specifically proves zero-size behavior, not every branch of that guard. Verified first-parent regression lineage, merged badPR1124/fixPR1305, historical patch/source/reference hashes, policy3 full-body preservation, strict nine-run stability/coverage, seven required probes, complete857/863/863 existing suites and independent official supplement SHA256 26346f8e531863e6bb88de85839babffb27547085b146257c8aafd3b1fb1ba5d. Baseline PID256 is explicitly declared; scored reference/probe limits stay64. Verified immutable image, Python/lock/grader/policy, official base935 amd64 layer prefix and independently observed matching CI. Fix-only probe is honestly not applicable because the repair adds no public symbol. Accept this distinct genuine mainline regression under the bounded supported policy. This is my delegated agent review, not a human attestation.",
+      "reviewed_at": "2026-11-21T07:38:40.261813Z",
+      "validation_report_sha256": "ef740b16fdcf6bb2f2b52f60034851dc8877b68b838b97d24ce3571b06ea2645",
+      "case_inputs_sha256": "63014fa2c9453216ef9763fbd449af66e345411e1360ab492a83b4105266116b"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "31c1c992b4a47693063051e3df2256969db0e52c97c1d6e92b29f6ebf01fc03d"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "59346df125b76c5ee2ae43ce187b7021a992d59a70fb87344d206f428b7f0e81"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "b486b484245e1675f0c0dbcaa1285e134a8566e612c0aec9b5e80aafb6720fc8"
+  },
+  "notes": "Complete original IchunkedTests.test_zero_nonempty body AST, all three assertEqual observations and all inputs are unchanged. Policy3 admits its single-generator list comprehensions. Nine normal reference runs pass base3, fail bad3 with ValueError and own introducing-line CALL coverage, and pass repaired3. Official unittest baselines passed857/863/863 tests with complete node IDs. Existing-suite PID256 is explicitly bound in the machine report; scored reference/probe limits remain default64. Independent exact official unittest supplement SHA256 26346f8e531863e6bb88de85839babffb27547085b146257c8aafd3b1fb1ba5d passed857/863/863 with PID256, memory256MiB, CPU1, wall60s, output65536 and Docker transport70s, with no test omissions/failures/errors/skips. Historical repair and source identities match the old exploratory proof; normal wrapper source differs only in its TestCase alias and has its own fresh nine-run proof. CI check/sandbox at exact662ab954 are independently observed and bound by matching implementation fingerprints, not a claim that CI ran this platform-specific image. Review is an authorized agent decision, not human approval."
+}
