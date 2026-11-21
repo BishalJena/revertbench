@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import docker
 import pytest
@@ -552,3 +553,119 @@ def test_backend_cannot_silently_run_a_different_baseline_profile(tmp_path: Path
     assert report.status == "pending_infrastructure"
     assert report.reason == "baseline_profile_mismatch"
     assert report.reference is None
+
+
+def test_selected_baseline_resources_persist_without_changing_scored_backend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from revertbench.grade.runner import run_tree
+    from revertbench.schema import ExecutionResult
+    from revertbench.validate import MachineValidationReport, controller, validate_built_candidate
+
+    calls: list[dict[str, object]] = []
+    factories: list[dict[str, object]] = []
+
+    def execute(
+        tree: Path,
+        submission: str,
+        *,
+        seed: int,
+        timeout_seconds: float = 10,
+        output_limit_bytes: int = 65536,
+    ) -> ExecutionResult:
+        calls.append(dict(timeout_seconds=timeout_seconds, output_limit_bytes=output_limit_bytes))
+        return run_tree(
+            tree,
+            submission,
+            seed=seed,
+            timeout_seconds=timeout_seconds,
+            output_limit_bytes=output_limit_bytes,
+        )
+
+    def scored_factory(image: str, *, client: object) -> Any:
+        factories.append({"image": image, "client": client})
+        return execute
+
+    monkeypatch.setattr(controller, "DockerRunner", scored_factory)
+    report = validate_built_candidate(
+        _built_toy(tmp_path),
+        image="sha256:" + "a" * 64,
+        baseline_pids_limit=256,
+        baseline_backend=lambda tree: _passing_baseline(tree).model_copy(
+            update={"pids_limit": 256}
+        ),
+        transfer_backend=lambda tree, source: source,
+    )
+    assert report.status == "machine_validated", report.model_dump_json()
+    assert report.baseline_pids_limit == 256
+    assert all(row.pids_limit == 256 for row in report.baseline_reports.values())
+    assert MachineValidationReport.model_validate_json(report.model_dump_json()) == report
+    assert factories == [{"image": "sha256:" + "a" * 64, "client": None}]
+    assert calls and all(
+        call == {"timeout_seconds": 10, "output_limit_bytes": 65536} for call in calls
+    )
+    raw = report.model_dump(mode="json")
+    raw["baseline_reports"]["bad"]["pids_limit"] = 64
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="resource"):
+        MachineValidationReport.model_validate_json(json.dumps(raw))
+
+
+@pytest.mark.docker
+def test_normal_validation_explicit_pid_limit_handles_upstream_threads(
+    tmp_path: Path, docker_client: docker.DockerClient, worker_image: str
+) -> None:
+    from dataclasses import replace
+
+    from revertbench.build import canonical_tree_digest
+    from revertbench.validate import validate_built_candidate
+    from test_baseline_resources import _thread_suite
+
+    built = _built_toy(tmp_path)
+    trees = {
+        "base": built.base_tree,
+        "bad": built.bad_tree,
+        "repaired": built.repaired_tree,
+        "historical_fix": built.historical_fix_tree,
+    }
+    for tree in trees.values():
+        _thread_suite(tree / "tests")
+    built = replace(
+        built, source_hashes={role: canonical_tree_digest(tree) for role, tree in trees.items()}
+    )
+    report = validate_built_candidate(
+        built, image=worker_image, client=docker_client, baseline_pids_limit=256
+    )
+    assert report.status == "machine_validated", report.model_dump_json()
+    assert report.baseline_pids_limit == 256
+    assert all(
+        row.pids_limit == 256 and row.passed == 2 for row in report.baseline_reports.values()
+    )
+    assert report.reference is not None and report.reference.score == 1
+
+
+def test_baseline_resource_mismatch_stays_pending_before_reference(tmp_path: Path) -> None:
+    from revertbench.validate import validate_built_candidate
+
+    report = validate_built_candidate(
+        _built_toy(tmp_path),
+        image="sha256:" + "a" * 64,
+        baseline_pids_limit=256,
+        baseline_backend=_passing_baseline,
+    )
+    assert report.status == "pending_infrastructure"
+    assert report.reason == "baseline_resource_mismatch" and report.reference is None
+
+
+@pytest.mark.parametrize("limit", [7, 257, True])
+def test_invalid_baseline_resource_request_fails_before_execution(
+    tmp_path: Path, limit: Any
+) -> None:
+    from revertbench.validate import validate_built_candidate
+
+    with pytest.raises(ValueError):
+        validate_built_candidate(
+            _built_toy(tmp_path), image="sha256:" + "a" * 64, baseline_pids_limit=limit
+        )

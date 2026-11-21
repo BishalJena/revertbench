@@ -6,10 +6,12 @@ import base64
 import binascii
 import json
 import zlib
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
 
 import docker
+import requests
 from pydantic import Field, ValidationError
 
 from revertbench.grade.backend import ExecutionBackend
@@ -20,6 +22,7 @@ from revertbench.sandbox.worker import DockerRunner, SandboxError, SandboxLimits
 from revertbench.schema import ContentDigest, EvidenceModel
 
 _COUNT = Annotated[int, Field(ge=0)]
+BaselinePidsLimit = Annotated[int, Field(ge=8, le=256)]
 BaselineProfile = Literal["pytest", "unittest"]
 _PREFIX = b"REVERTBENCH_BASELINE="
 _ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
@@ -193,6 +196,7 @@ class BaselineResult(EvidenceModel):
     status: Literal["passed", "failed", "invalid_run"]
     profile: BaselineProfile = "pytest"
     command: tuple[str, ...] = ()
+    pids_limit: BaselinePidsLimit = 64
     collection_errors: tuple[str, ...] = ()
     extra_skip_node_ids: tuple[str, ...] = ()
     environment_python: str | None = None
@@ -243,8 +247,11 @@ def parse_baseline_output(
     exit_code: int | None,
     *,
     expected_profile: BaselineProfile = "pytest",
+    expected_pids_limit: int = 64,
 ) -> BaselineResult:
+    SandboxLimits(pids=expected_pids_limit)
     common = {
+        "pids_limit": expected_pids_limit,
         "stdout": stdout.decode("utf-8", errors="replace"),
         "stderr": stderr.decode("utf-8", errors="replace"),
         "exit_code": exit_code,
@@ -319,28 +326,46 @@ class DockerBaselineRunner:
 
     def __call__(self, tree: Path) -> BaselineResult:
         try:
-            with AgentSandbox(self.image, tree, client=self.client, limits=self.limits) as box:
-                execution = box.exec(
-                    [
-                        "/usr/local/bin/python",
-                        "-I",
-                        "-c",
-                        _BASELINE_SCRIPT if self.profile == "pytest" else _UNITTEST_SCRIPT,
-                    ],
-                    timeout_seconds=60,
-                    output_limit_bytes=65_536,
-                )
+            with ExitStack() as resources:
+                client = self.client
+                if client is None:
+                    client = docker.from_env(timeout=70)
+                    resources.callback(client.close)
+                with AgentSandbox(self.image, tree, client=client, limits=self.limits) as box:
+                    execution = box.exec(
+                        [
+                            "/usr/local/bin/python",
+                            "-I",
+                            "-c",
+                            _BASELINE_SCRIPT if self.profile == "pytest" else _UNITTEST_SCRIPT,
+                        ],
+                        timeout_seconds=60,
+                        output_limit_bytes=65_536,
+                    )
             if execution.status != "completed":
-                return BaselineResult(status="invalid_run", reason=f"baseline_{execution.status}")
+                return BaselineResult(
+                    status="invalid_run",
+                    profile=self.profile,
+                    pids_limit=self.limits.pids,
+                    reason=f"baseline_{execution.status}",
+                )
             return parse_baseline_output(
                 execution.stdout,
                 execution.stderr,
                 execution.exit_code,
                 expected_profile=self.profile,
+                expected_pids_limit=self.limits.pids,
             )
-        except (SandboxError, OSError) as error:
+        except (
+            SandboxError,
+            docker.errors.DockerException,
+            requests.exceptions.RequestException,
+            OSError,
+        ) as error:
             return BaselineResult(
                 status="invalid_run",
+                profile=self.profile,
+                pids_limit=self.limits.pids,
                 reason="baseline_sandbox_unavailable",
                 details=(type(error).__name__,),
             )
