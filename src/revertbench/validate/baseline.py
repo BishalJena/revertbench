@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
+import zlib
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
 
@@ -17,16 +20,40 @@ from revertbench.sandbox.worker import DockerRunner, SandboxError, SandboxLimits
 from revertbench.schema import ContentDigest, EvidenceModel
 
 _COUNT = Annotated[int, Field(ge=0)]
+BaselineProfile = Literal["pytest", "unittest"]
 _PREFIX = b"REVERTBENCH_BASELINE="
+_ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
+_MAX_REPORT_BYTES = 2_097_152
+_PYTEST_ARGS = (
+    "-q",
+    "--disable-warnings",
+    "-c",
+    "/opt/revertbench/pytest.ini",
+    "--rootdir",
+    "/workspace/repo",
+    "--basetemp=/tmp/revertbench-baseline",
+    "-p",
+    "no:cacheprovider",
+    "tests",
+)
+
+
+def baseline_command(profile: BaselineProfile) -> tuple[str, ...]:
+    """Return the fixed effective test command; a trusted reporting shim runs it."""
+    if profile == "pytest":
+        return ("/usr/local/bin/python", "-m", "pytest", *_PYTEST_ARGS)
+    if profile == "unittest":
+        return ("/usr/local/bin/python", "-m", "unittest", "-q")
+    raise ValueError("baseline profile must be pytest or unittest")
+
+
 # This trusted controller is executed by isolated Python inside the container.
 # Repository imports begin only after pytest and the reporting hook are loaded.
-_BASELINE_SCRIPT = r"""
+_ENVIRONMENT_SCRIPT = r"""
 import hashlib
 import json
 import sys
 from pathlib import Path
-import pytest
-
 python_version = '.'.join(map(str, sys.version_info[:3]))
 lock_digest = hashlib.sha256(Path('/opt/revertbench/uv.lock').read_bytes()).hexdigest()
 trusted_source = Path('/opt/revertbench/src/revertbench')
@@ -38,6 +65,12 @@ for path in sorted(trusted_source.rglob('*.py')):
 grader_digest = grader_hasher.hexdigest()
 policy_digest = hashlib.sha256((trusted_source / 'grade/policy.py').read_bytes()).hexdigest()
 
+"""
+
+_BASELINE_SCRIPT = (
+    _ENVIRONMENT_SCRIPT
+    + r"""
+import pytest
 root = '/workspace/repo'
 class Evidence:
     def __init__(self):
@@ -71,15 +104,17 @@ class Evidence:
 
 plugin = Evidence()
 sys.path[:0] = [root + '/src', root]
-code = int(pytest.main([
+command = ['/usr/local/bin/python', '-m', 'pytest',
     '-q', '--disable-warnings', '-c', '/opt/revertbench/pytest.ini',
     '--rootdir', root, '--basetemp=/tmp/revertbench-baseline',
     '-p', 'no:cacheprovider', 'tests',
-], plugins=[plugin]))
+]
+code = int(pytest.main(command[3:], plugins=[plugin]))
 passed = sum(value == 'passed' and node not in plugin.xpasses
     for node, value in plugin.calls.items())
 failed = sum(value == 'failed' for value in plugin.calls.values())
-payload = dict(collected=len(plugin.nodes), passed=passed, failed=failed,
+payload = dict(profile='pytest', command=command, collected=len(plugin.nodes),
+    passed=passed, failed=failed,
     skipped=len(plugin.skips), xfailed=len(plugin.xfails), xpassed=len(plugin.xpasses),
     errors=len(plugin.errors), details=plugin.errors, node_ids=plugin.nodes,
     deselected=plugin.deselected, environment_python=python_version,
@@ -87,10 +122,79 @@ payload = dict(collected=len(plugin.nodes), passed=passed, failed=failed,
 print('\nREVERTBENCH_BASELINE=' + json.dumps(payload, separators=(',', ':')), flush=True)
 sys.exit(code)
 """
+)
+
+
+_UNITTEST_SCRIPT = (
+    _ENVIRONMENT_SCRIPT
+    + r"""
+import base64
+import unittest
+import zlib
+
+class Evidence(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nodes = []
+        self.success_count = 0
+        self.success_nodes = []
+        self.skip_events = []
+        self.current_node = None
+    def startTest(self, test):
+        self.current_node = test.id()
+        self.nodes.append(test.id())
+        super().startTest(test)
+    def stopTest(self, test):
+        super().stopTest(test)
+        self.current_node = None
+    def addSuccess(self, test):
+        self.success_count += 1
+        self.success_nodes.append(test.id())
+        super().addSuccess(test)
+    def addSkip(self, test, reason):
+        self.skip_events.append((test.id(), self.current_node))
+        super().addSkip(test, reason)
+
+class Runner(unittest.TextTestRunner):
+    resultclass = Evidence
+
+root = '/workspace/repo'
+sys.path[:0] = [root + '/src', root]
+loader = unittest.TestLoader()
+program = unittest.main(module=None, argv=['unittest', '-q'],
+    testLoader=loader, testRunner=Runner, exit=False)
+result = program.result
+command = ['/usr/local/bin/python', '-m', 'unittest', '-q']
+details = [test.id() + ': ' + text[:2048] for test, text in result.errors + result.failures]
+remaining = set(result.nodes) - set(result.success_nodes)
+remaining -= {test.id() for test, _ in result.expectedFailures}
+skip_parents = set()
+extra_skips = []
+for event_id, parent_id in result.skip_events:
+    if parent_id in remaining and parent_id not in skip_parents:
+        skip_parents.add(parent_id)
+    else:
+        extra_skips.append(event_id)
+payload = dict(profile='unittest', command=command, collected=result.testsRun,
+    passed=result.success_count, failed=len(result.failures), errors=len(result.errors),
+    skipped=len(result.skipped), xfailed=len(result.expectedFailures),
+    xpassed=len(result.unexpectedSuccesses), node_ids=result.nodes, details=details,
+    extra_skip_node_ids=extra_skips,
+    collection_errors=[text[:2048] for text in loader.errors], environment_python=python_version,
+    dependency_lock_sha256=lock_digest, grader_sha256=grader_digest, policy_sha256=policy_digest)
+encoded = base64.b64encode(zlib.compress(json.dumps(payload, separators=(',', ':')).encode()))
+print('\nREVERTBENCH_BASELINE_ZLIB=' + encoded.decode('ascii'), flush=True)
+sys.exit(0 if result.wasSuccessful() else 1)
+"""
+)
 
 
 class BaselineResult(EvidenceModel):
     status: Literal["passed", "failed", "invalid_run"]
+    profile: BaselineProfile = "pytest"
+    command: tuple[str, ...] = ()
+    collection_errors: tuple[str, ...] = ()
+    extra_skip_node_ids: tuple[str, ...] = ()
     environment_python: str | None = None
     dependency_lock_sha256: ContentDigest | None = None
     grader_sha256: ContentDigest | None = None
@@ -115,36 +219,77 @@ class BaselineBackend(Protocol):
     def __call__(self, tree: Path) -> BaselineResult: ...
 
 
-def parse_baseline_output(stdout: bytes, stderr: bytes, exit_code: int | None) -> BaselineResult:
+def _report_payload(stdout: bytes) -> object:
+    plain = [line[len(_PREFIX) :] for line in stdout.splitlines() if line.startswith(_PREFIX)]
+    packed = [
+        line[len(_ZLIB_PREFIX) :] for line in stdout.splitlines() if line.startswith(_ZLIB_PREFIX)
+    ]
+    if len(plain) + len(packed) != 1:
+        raise ValueError("missing or duplicate baseline report")
+    data = plain[0] if plain else base64.b64decode(packed[0], validate=True)
+    if packed:
+        decoder = zlib.decompressobj()
+        data = decoder.decompress(data, _MAX_REPORT_BYTES + 1)
+        if not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise ValueError("incomplete or oversized baseline report")
+    if len(data) > _MAX_REPORT_BYTES:
+        raise ValueError("oversized baseline report")
+    return json.loads(data)
+
+
+def parse_baseline_output(
+    stdout: bytes,
+    stderr: bytes,
+    exit_code: int | None,
+    *,
+    expected_profile: BaselineProfile = "pytest",
+) -> BaselineResult:
     common = {
         "stdout": stdout.decode("utf-8", errors="replace"),
         "stderr": stderr.decode("utf-8", errors="replace"),
         "exit_code": exit_code,
     }
     try:
-        lines = [line[len(_PREFIX) :] for line in stdout.splitlines() if line.startswith(_PREFIX)]
-        if len(lines) != 1:
-            raise ValueError("missing or duplicate baseline report")
-        payload = json.loads(lines[0])
+        payload = _report_payload(stdout)
+        if not isinstance(payload, dict):
+            raise ValueError("baseline report must be an object")
         result = BaselineResult.model_validate_json(
             json.dumps({**payload, **common, "status": "invalid_run"})
         )
-    except (ValueError, TypeError, ValidationError, RecursionError):
+    except (ValueError, TypeError, ValidationError, RecursionError, binascii.Error, zlib.error):
         return BaselineResult.model_validate(
             {"status": "invalid_run", "reason": "baseline_report_invalid", **common}
         )
+    if result.profile != expected_profile:
+        return result.model_copy(update={"reason": "baseline_profile_mismatch"})
     if result.errors and any("SyntaxError:" in detail for detail in result.details):
         return result.model_copy(update={"status": "failed", "reason": "unsupported_environment"})
-    if result.errors or exit_code in (2, 3, 4) or exit_code not in (0, 1, 5):
+    if (
+        result.collection_errors
+        or (result.profile == "pytest" and result.errors)
+        or exit_code in (2, 3, 4)
+        or exit_code not in (0, 1, 5)
+    ):
         return result.model_copy(update={"reason": "baseline_collection_or_worker_error"})
     counted = result.passed + result.failed + result.skipped + result.xfailed + result.xpassed
-    if (
+    if result.profile == "unittest":
+        counted += result.errors
+    inconsistent = (
         len(result.node_ids) != result.collected
         or len(set(result.node_ids)) != result.collected
-        or counted != result.collected
+        or result.passed > result.collected
+        or len(result.extra_skip_node_ids) > result.skipped
+        or any(not node or node in result.node_ids for node in result.extra_skip_node_ids)
         or (exit_code == 0 and result.failed)
-    ):
+    )
+    if result.profile == "pytest":
+        inconsistent |= counted != result.collected or bool(result.extra_skip_node_ids)
+    elif not (result.failed or result.errors or result.xpassed):
+        inconsistent |= counted - len(result.extra_skip_node_ids) != result.collected
+    if inconsistent:
         return result.model_copy(update={"reason": "baseline_report_inconsistent"})
+    if result.profile == "unittest" and (result.failed or result.errors or result.xpassed):
+        return result.model_copy(update={"status": "failed", "reason": "existing_suite_failed"})
     if result.collected == 0 or result.passed == 0:
         return result.model_copy(update={"status": "failed", "reason": "no_executed_tests"})
     if result.failed or exit_code == 1:
@@ -165,7 +310,10 @@ class DockerBaselineRunner:
         *,
         client: docker.DockerClient | None = None,
         limits: SandboxLimits | None = None,
+        profile: BaselineProfile = "pytest",
     ) -> None:
+        baseline_command(profile)
+        self.profile = profile
         self.image, self.client = image, client
         self.limits = limits or SandboxLimits()
 
@@ -173,13 +321,23 @@ class DockerBaselineRunner:
         try:
             with AgentSandbox(self.image, tree, client=self.client, limits=self.limits) as box:
                 execution = box.exec(
-                    ["/usr/local/bin/python", "-I", "-c", _BASELINE_SCRIPT],
+                    [
+                        "/usr/local/bin/python",
+                        "-I",
+                        "-c",
+                        _BASELINE_SCRIPT if self.profile == "pytest" else _UNITTEST_SCRIPT,
+                    ],
                     timeout_seconds=60,
                     output_limit_bytes=65_536,
                 )
             if execution.status != "completed":
                 return BaselineResult(status="invalid_run", reason=f"baseline_{execution.status}")
-            return parse_baseline_output(execution.stdout, execution.stderr, execution.exit_code)
+            return parse_baseline_output(
+                execution.stdout,
+                execution.stderr,
+                execution.exit_code,
+                expected_profile=self.profile,
+            )
         except (SandboxError, OSError) as error:
             return BaselineResult(
                 status="invalid_run",

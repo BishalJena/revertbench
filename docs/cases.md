@@ -26,6 +26,36 @@ parent. History probes run in Docker and require a monotonic pass-to-fail sequen
 through the bounded first-parent interval. A pre-bisected candidate that contains
 both verified `base_commit` and `bad_commit` needs no `--good-commit`.
 
+Choose the baseline profile that matches the upstream test command. The default
+`--baseline-profile pytest` runs the existing `tests` directory with fixed pytest
+configuration. For repositories that use unittest discovery, including historical
+nested-package layouts, select it explicitly:
+
+```bash
+uv run revertbench validate artifacts/candidates/CANDIDATE.json \
+  --image sha256:IMAGE_ID --baseline-profile unittest
+```
+
+The unittest profile uses the equivalent of `python -m unittest -q` from the
+repository root, honors `load_tests`, and includes doctests added by that hook.
+The report records `baseline_profile`, `baseline_command`, complete executed
+TestCase/doctest IDs, standard outcome counts, and observed environment hashes.
+Unittest subtest or class-level outcome events can exceed the number of executed
+TestCases; extra skip events are identified by `extra_skip_node_ids`, while successful
+parent outcomes must still account exactly for executed tests. Standard failure
+details remain in the report. At least one
+ordinary passing test is required. Loader/import errors stay pending, test
+failures and unexpected successes fail the baseline, and an empty suite cannot
+validate a case. `Case.env.test_cmd` records the effective controlled command;
+a trusted reporting shim supplies the result hooks. Submitted regression tests
+continue to use the same grader regardless of baseline profile.
+
+The supported worker also pins Six 1.17.0 for older upstream snapshots that declare
+Six as a runtime dependency. Its version belongs to the shared locked image used
+for all three trees; no repository setup script or runtime package install runs.
+New profile images have their own image/lock fingerprints, while previously
+published case environments retain their recorded identities.
+
 Use `--local-repo PATH` to inspect an existing checkout instead of cloning a public
 GitHub repository. `--cache-dir`, `--work-dir` and `--output-dir` choose storage;
 Git objects and source snapshots never run Python or project setup on the host.

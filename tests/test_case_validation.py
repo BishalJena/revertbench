@@ -12,9 +12,12 @@ from revertbench.validate.identity import host_code_identity
 
 
 def _passing_baseline(tree: Path) -> BaselineResult:
+    from revertbench.validate.baseline import baseline_command
+
     grader, policy = host_code_identity()
     return BaselineResult(
         status="passed",
+        command=baseline_command("pytest"),
         collected=1,
         passed=1,
         environment_python="3.12.15",
@@ -510,3 +513,42 @@ def test_code_identity_is_location_independent_and_tracks_python_sources(tmp_pat
     assert renamed[0] != original[0] and renamed[1] == original[1]
     (roots[1] / "grade/policy.py").write_text('POLICY_VERSION = "3"\n')
     assert all(new != old for new, old in zip(package_identity(roots[1]), renamed, strict=True))
+
+
+def test_explicit_unittest_profile_is_preserved_and_matches_backend(tmp_path: Path) -> None:
+    from revertbench.grade.runner import run_tree
+    from revertbench.validate import validate_built_candidate
+    from revertbench.validate.baseline import baseline_command
+
+    built = _built_toy(tmp_path)
+
+    def baseline(tree: Path) -> BaselineResult:
+        return _passing_baseline(tree).model_copy(
+            update={"profile": "unittest", "command": baseline_command("unittest")}
+        )
+
+    report = validate_built_candidate(
+        built,
+        image="sha256:" + "a" * 64,
+        baseline_profile="unittest",
+        baseline_backend=baseline,
+        execution_backend=run_tree,
+        transfer_backend=lambda tree, source: source,
+    )
+    assert report.status == "machine_validated", report.model_dump_json()
+    assert report.baseline_profile == "unittest"
+    assert report.baseline_command == ("/usr/local/bin/python", "-m", "unittest", "-q")
+
+
+def test_backend_cannot_silently_run_a_different_baseline_profile(tmp_path: Path) -> None:
+    from revertbench.validate import validate_built_candidate
+
+    report = validate_built_candidate(
+        _built_toy(tmp_path),
+        image="sha256:" + "a" * 64,
+        baseline_profile="unittest",
+        baseline_backend=_passing_baseline,
+    )
+    assert report.status == "pending_infrastructure"
+    assert report.reason == "baseline_profile_mismatch"
+    assert report.reference is None
