@@ -11,6 +11,7 @@ import pytest
 
 from revertbench.models.client import (
     HttpResponse,
+    JsonValue,
     PreparedRequest,
     ProviderClient,
     ProviderError,
@@ -410,3 +411,87 @@ def test_user_agent_change_invalidates_prepared_transport_identity(
     with pytest.raises(ProviderError) as caught:
         ProviderClient(model(), transport=transport).complete(request)
     assert caught.value.delivery_state == "not_sent" and not transport.calls
+
+
+def _choice_config(choice: str | None) -> ModelConfig:
+    data = model().model_dump(mode="python")
+    data.pop("tool_choice", None)
+    if choice is not None:
+        data["tool_choice"] = choice
+    return ModelConfig.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "choice,expected", [(None, "auto"), ("auto", "auto"), ("required", "required")]
+)
+def test_configured_tool_selector_preserves_default_and_parallel_boundary(
+    choice: str | None,
+    expected: str,
+) -> None:
+    request = prepare_request(
+        _choice_config(choice),
+        messages=[{"role": "user", "content": "Inspect using the local function."}],
+        tools=[
+            {"type": "function", "function": {"name": "list_dir", "parameters": {"type": "object"}}}
+        ],
+    )
+    body = json.loads(request.body)
+    assert body["tool_choice"] == expected
+    assert body["parallel_tool_calls"] is False
+    assert body["include_reasoning"] is True
+
+
+@pytest.mark.parametrize("choice", [None, "auto", "required"])
+def test_no_tools_normalizes_selector_to_none(choice: str | None) -> None:
+    request = prepare_request(
+        _choice_config(choice), messages=[{"role": "user", "content": "Text only."}], tools=[]
+    )
+    assert json.loads(request.body)["tool_choice"] == "none"
+
+
+def test_required_profile_cannot_reuse_prepared_auto_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "secret-sentinel")
+    auto, required = _choice_config("auto"), _choice_config("required")
+    messages: list[dict[str, JsonValue]] = [{"role": "user", "content": "Inspect."}]
+    first = prepare_request(auto, messages=messages, tools=[])
+    second = prepare_request(required, messages=messages, tools=[])
+    # Even equal no-tools wire bytes remain distinct configuration identities.
+    assert first.body == second.body and first.config_sha256 != second.config_sha256
+    transport = FakeTransport(json.dumps(payload()).encode())
+    with pytest.raises(ProviderError) as caught:
+        ProviderClient(required, transport=transport).complete(first)
+    assert caught.value.delivery_state == "not_sent" and not transport.calls
+
+
+def test_required_tool_turn_preserves_raw_reasoning_and_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "secret-sentinel")
+    config = _choice_config("required")
+    tools: list[dict[str, JsonValue]] = [
+        {"type": "function", "function": {"name": "list_dir", "parameters": {"type": "object"}}}
+    ]
+    request = prepare_request(
+        config, messages=[{"role": "user", "content": "Inspect."}], tools=tools
+    )
+    raw = json.dumps(payload()).encode()
+    transport = FakeTransport(raw)
+    response = ProviderClient(config, transport=transport).complete(request)
+    assert response.raw_body == raw
+    followup = prepare_request(
+        config,
+        messages=[
+            response.assistant_message,
+            {"role": "tool", "tool_call_id": "call-1", "content": "{}"},
+        ],
+        tools=tools,
+    )
+    body = json.loads(followup.body)
+    assert body["tool_choice"] == "required"
+    assert body["messages"][0] == json.loads(raw)["choices"][0]["message"]
+    assert body["messages"][0]["reasoning"] == "Retained provider reasoning."
+    assert body["messages"][0]["content"] is None
+    assert body["messages"][0]["tool_calls"][0]["function"]["arguments"] == '{"path":"."}'
+    assert len(transport.calls) == 1

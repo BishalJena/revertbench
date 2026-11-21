@@ -50,6 +50,7 @@ def test_load_selected_explicit_model_without_reading_key(
     assert selected.provider.base_url == "https://api.groq.com/openai/v1"
     assert selected.model_id == "openai/gpt-oss-120b"
     assert selected.max_completion_tokens == 2048
+    assert selected.tool_choice == "required"
     assert selected.pricing.input_usd_per_million == Decimal("0.15")
     assert selected.quotas.evidence == "conservative"
     assert "Bearer" not in selected.model_dump_json()
@@ -128,3 +129,13 @@ def test_first_provider_profile_does_not_promise_arbitrary_compatibility() -> No
     }
     with pytest.raises(ValueError):
         ModelConfig.model_validate(data)
+
+
+def test_missing_tool_selector_retains_auto_default() -> None:
+    assert model().tool_choice == "auto"
+
+
+@pytest.mark.parametrize("choice", ["none", "mandatory", "", True, {"name": "submit"}])
+def test_unsupported_tool_selector_is_not_passthrough(choice: object) -> None:
+    with pytest.raises(ValueError):
+        ModelConfig.model_validate({**config_data(), "tool_choice": choice})
