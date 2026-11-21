@@ -93,3 +93,314 @@ def test_unsupported_encoding_cookie_is_rejected_without_codec_lookup() -> None:
     )
     with pytest.raises(ReferenceError, match="encoding"):
         extract_reference(source, "test_regression")
+
+
+def test_unittest_method_lift_preserves_body_and_qualified_changed_identity() -> None:
+    import ast
+
+    source = (
+        "from unittest import TestCase\nimport pkg\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_iterator_input(self):\n"
+        "        self.assertEqual(pkg.run(iter(['a', 'b'])), ['a', 'b'])\n"
+        "    def test_other(self):\n        self.assertEqual(1, 1)\n"
+    )
+    assert changed_test_functions("", source) == (
+        "ProductTests::test_iterator_input",
+        "ProductTests::test_other",
+    )
+    extracted = extract_reference(source, "ProductTests::test_iterator_input")
+    old_class = next(node for node in ast.parse(source).body if isinstance(node, ast.ClassDef))
+    old_method = next(node for node in old_class.body if isinstance(node, ast.FunctionDef))
+    lifted = next(node for node in ast.parse(extracted).body if isinstance(node, ast.FunctionDef))
+    assert lifted.name == old_method.name and not lifted.args.args
+    assert isinstance(lifted.body[0], ast.Assign)
+    assert ast.dump(ast.Module(body=old_method.body, type_ignores=[])) == ast.dump(
+        ast.Module(body=lifted.body[1:], type_ignores=[])
+    )
+    assert "from unittest import TestCase as _revertbench_test_case" in extracted
+    assert "def test_other" not in extracted
+    assert "class ProductTests" not in extracted
+
+
+@pytest.mark.parametrize(
+    "binding,base",
+    [
+        ("from unittest import TestCase as UnitCase", "UnitCase"),
+        ("import unittest as unit", "unit.TestCase"),
+    ],
+)
+def test_unittest_base_requires_exact_statically_bound_stdlib_identity(
+    binding: str, base: str
+) -> None:
+    source = (
+        f"{binding}\n"
+        f"class ProductTests({base}):\n"
+        f"    def test_api(self):\n"
+        f"        self.assertEqual(1, 1)\n"
+    )
+    assert "self.assertEqual(1, 1)" in extract_reference(source, "ProductTests::test_api")
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        (
+            "class ProductTests(TestCase, object):\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "@decorate\n"
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    VALUE = 1\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def setUp(self):\n"
+            "        pass\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def tearDown(self):\n"
+            "        pass\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def helper(self):\n"
+            "        return 1\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(self.helper(), 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def assertEqual(self, *args):\n"
+            "        pass\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    @decorate\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self, fixture):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self, value=1):\n"
+            "        self.assertEqual(1, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self):\n"
+            "        self.value = 1\n"
+            "        self.assertEqual(self.value, 1)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(self.__class__, TestCase)\n"
+        ),
+        (
+            "class ProductTests(TestCase):\n"
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+            "    def test_other(self, value=run()):\n"
+            "        pass\n"
+        ),
+    ],
+)
+def test_unittest_lift_rejects_class_context_or_unpreserved_dependencies(context: str) -> None:
+    with pytest.raises(ReferenceError):
+        extract_reference("from unittest import TestCase\n" + context, "ProductTests::test_api")
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "from pkg import TestCase\n",
+        "from unittest import TestCase\nTestCase = object\n",
+        "from unittest import TestCase\nif True:\n    TestCase = object\n",
+        "import unittest as unit\nunit = object\n",
+    ],
+)
+def test_unittest_base_alias_cannot_be_rebound_or_come_from_project(binding: str) -> None:
+    base = "unit.TestCase" if "unit =" in binding else "TestCase"
+    source = (
+        binding
+        + f"class ProductTests({base}):\n    def test_api(self):\n        self.assertEqual(1, 1)\n"
+    )
+    with pytest.raises(ReferenceError):
+        extract_reference(source, "ProductTests::test_api")
+
+
+def test_unittest_lift_uses_collision_free_alias_and_excludes_unused_testcase_import() -> None:
+    source = (
+        "from unittest import TestCase\n"
+        "import pkg\n"
+        "_revertbench_test_case = 3\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_api(self):\n"
+        "        _revertbench_test_case_1 = 4\n"
+        "        self.assertEqual(pkg.run(), _revertbench_test_case)\n"
+    )
+    extracted = extract_reference(source, "ProductTests::test_api")
+    assert "from unittest import TestCase as _revertbench_test_case_2" in extracted
+    assert "self = _revertbench_test_case_2()" in extracted
+    assert "from unittest import TestCase\n" not in extracted
+    assert "_revertbench_test_case = 3" in extracted
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "    def test_api(self) -> None:\n        self.assertEqual(1, 1)\n",
+        "    def test_api(self: object):\n        self.assertEqual(1, 1)\n",
+        "    def test_api(self):\n        self = object()\n        self.assertEqual(1, 1)\n",
+        "    def test_api(self):\n        inspect(self)\n        self.assertEqual(1, 1)\n",
+        "    def test_api(self):\n        equal = self.assertEqual\n        equal(1, 1)\n",
+        (
+            "    def test_api(self):\n"
+            "        self.assertEqual(1, 1)\n"
+            "    def test_other(self) -> initialize():\n"
+            "        pass\n"
+        ),
+    ],
+)
+def test_unittest_lift_rejects_annotation_and_identity_context(extra: str) -> None:
+    source = "from unittest import TestCase\nclass ProductTests(TestCase):\n" + extra
+    with pytest.raises(ReferenceError):
+        extract_reference(source, "ProductTests::test_api")
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "from unittest import TestCase\nfrom pkg import setUpModule\n",
+        "from unittest import TestCase\nsetUpModule = initialize\n",
+        "from unittest import TestCase\ndef load_tests(*args):\n    pass\n",
+        "from unittest import TestCase\nTestCase.assertEqual = replacement\n",
+        "import unittest as unit\nunit.TestCase = replacement\n",
+    ],
+)
+def test_unittest_lift_rejects_module_hooks_and_base_monkeypatches(prefix: str) -> None:
+    base = "unit.TestCase" if "import unittest as unit" in prefix else "TestCase"
+    source = (
+        prefix
+        + f"class ProductTests({base}):\n    def test_api(self):\n        self.assertEqual(1, 1)\n"
+    )
+    with pytest.raises(ReferenceError):
+        extract_reference(source, "ProductTests::test_api")
+
+
+def test_unittest_lift_rejects_standalone_helper_dependencies() -> None:
+    source = (
+        "from unittest import TestCase\n"
+        "def expected():\n"
+        "    return 1\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_api(self):\n"
+        "        self.assertEqual(1, expected())\n"
+    )
+    with pytest.raises(ReferenceError, match="helper"):
+        extract_reference(source, "ProductTests::test_api")
+
+
+def test_unrelated_nested_testcase_name_does_not_rebind_stdlib_base() -> None:
+    source = (
+        "from unittest import TestCase\n"
+        "class OtherTests(TestCase):\n"
+        "    def test_other(self):\n"
+        "        class TestCase:\n"
+        "            pass\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_api(self):\n"
+        "        self.assertEqual(1, 1)\n"
+    )
+    assert "self.assertEqual(1, 1)" in extract_reference(source, "ProductTests::test_api")
+
+
+def test_unittest_lift_cannot_shadow_original_module_value_with_generated_function() -> None:
+    source = (
+        "from unittest import TestCase\n"
+        "test_api = 1\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_api(self):\n"
+        "        self.assertEqual(test_api, 1)\n"
+    )
+    with pytest.raises(ReferenceError, match="collision"):
+        extract_reference(source, "ProductTests::test_api")
+
+
+def test_unittest_lift_accepts_exact_additive_upstream_doctest_loader() -> None:
+    # Exact hook and selected method body from more-itertools PR1082.
+    source = (
+        "from doctest import DocTestSuite\nfrom unittest import TestCase, mock\n"
+        "import more_itertools as mi\n"
+        "class ProductIndexTests(TestCase):\n"
+        "    def test_iterator_input(self):\n"
+        "        self.assertEqual(\n"
+        "            mi.product_index(iter(['i', 'a']), iter('snicker'), iter('snack')),\n"
+        "            12,\n        )\n"
+        "def load_tests(loader, tests, ignore):\n"
+        "    # Add the doctests\n"
+        "    tests.addTests(DocTestSuite('more_itertools.more'))\n"
+        "    return tests\n"
+    )
+    extracted = extract_reference(source, "ProductIndexTests::test_iterator_input")
+    assert "mi.product_index(iter(['i', 'a']), iter('snicker'), iter('snack'))" in extracted
+    assert "load_tests" not in extracted and "DocTestSuite" not in extracted
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "    tests.modified = True\n",
+        "    tests.addTests(other())\n",
+        "    tests.clear()\n",
+    ],
+)
+def test_unittest_loader_exemption_cannot_hide_other_mutations(change: str) -> None:
+    source = (
+        "from doctest import DocTestSuite\nfrom unittest import TestCase\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_api(self):\n        self.assertEqual(1, 1)\n"
+        "def load_tests(loader, tests, ignore):\n"
+        "    tests.addTests(DocTestSuite('pkg'))\n" + change + "    return tests\n"
+    )
+    with pytest.raises(ReferenceError, match="module_context"):
+        extract_reference(source, "ProductTests::test_api")
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "from pkg import DocTestSuite\n",
+        "from doctest import DocTestSuite\nDocTestSuite = other\n",
+    ],
+)
+def test_unittest_loader_requires_exact_unrebound_doctest_import(binding: str) -> None:
+    source = binding + (
+        "from unittest import TestCase\nclass ProductTests(TestCase):\n"
+        "    def test_api(self):\n        self.assertEqual(1, 1)\n"
+        "def load_tests(loader, tests, ignore):\n"
+        "    tests.addTests(DocTestSuite('pkg'))\n    return tests\n"
+    )
+    with pytest.raises(ReferenceError, match="module_context"):
+        extract_reference(source, "ProductTests::test_api")

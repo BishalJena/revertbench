@@ -61,7 +61,30 @@ when present; extraction does not silently prepend executable encoding headers o
 change the test bytes after validation.
 
 The reference is a standalone function with its supported imports, literals and
-helper dependencies. It is derived from a historical test, rather than a claim
+helper dependencies. The version 2 admission profile also supports a narrowly
+verified unittest derivation, recorded as
+`reference_derivation: unittest_method_dependency_closure`. Its original node
+remains `tests/PATH.py::Class::test_method`. Extraction requires the class's sole
+base to resolve to the standard library `unittest.TestCase`, with no rebound base
+alias, class data, decorators, setup/teardown, overrides or helper dependencies.
+Other independent test methods may be present. The selected method takes only
+`self` and directly uses `self.assertEqual`; the extracted ordinary test constructs
+an exact `TestCase` through a fresh import alias and preserves the entire original
+method body AST. Assertions and input cases are never rewritten or removed.
+
+Unittest module setup/teardown and general `load_tests` hooks are rejected. A
+recognized additive hook that only adds `DocTestSuite('literal.module')` through a
+verified standard library import and returns the incoming test suite is permitted;
+it does not configure the selected class. This is a source-visible derivation
+check, not a proof of arbitrary module initialization semantics. The original
+existing-suite and three-tree reference checks remain required.
+
+Single-argument `iter()` and direct `TestCase.assertEqual(actual, expected)` are
+admitted in this profile. Public project re-exports through a bounded, literal
+`__all__` can be resolved from source; dynamic exports, private access and
+introspection remain outside the supported subset.
+
+The extracted test is derived from a historical test, rather than a claim
 that arbitrary upstream fixtures or collection context were preserved. Reviewers
 must inspect that derivation. The historical fix can contain unrelated changes;
 only the extracted production repair enters the scored repaired tree.
@@ -125,9 +148,10 @@ the operator is responsible for supplying truthful independently verified metada
 
 ## Supported subset and limits
 
-The initial miner supports ordinary Python functions whose standalone dependencies
-can be extracted and a small production-only repair that applies unchanged to the
-bad tree. Complex fixtures, decorators, ambiguous/nonmonotonic histories, broad
+The miner supports ordinary Python functions and the constrained unittest method
+derivation described above, plus a small production-only repair that applies
+unchanged to the bad tree. Complex fixtures, decorators,
+ambiguous/nonmonotonic histories, broad
 repairs, unavailable dependencies, unsupported Git objects, missing reference
 coverage and inconsistent test collections are rejected or remain pending with a
 reason. The fixed worker environment does not install arbitrary project build

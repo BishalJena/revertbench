@@ -125,9 +125,21 @@ def materialize_candidate(
     )
     if historical_patch != candidate.production_patch:
         raise BuildError("repair_is_not_the_historical_production_diff")
-    node_path, separator, function = candidate.reference_node_id.partition("::")
-    if node_path != candidate.reference_path or not separator or "::" in function:
+    node_parts = candidate.reference_node_id.split("::")
+    if (
+        len(node_parts) not in (2, 3)
+        or node_parts[0] != candidate.reference_path
+        or not all(part.isidentifier() for part in node_parts[1:])
+    ):
         raise BuildError("reference_node_mismatch")
+    expected_derivation = (
+        "standalone_function_dependency_closure"
+        if len(node_parts) == 2
+        else "unittest_method_dependency_closure"
+    )
+    if candidate.reference_derivation != expected_derivation:
+        raise BuildError("reference_derivation_mismatch")
+    function = "::".join(node_parts[1:])
     try:
         previous = (
             repository.file_text(candidate.fix_parent, candidate.reference_path)

@@ -64,7 +64,7 @@ def test_accepts_supported_behavioral_tests(bad_tree: Path, source: str) -> None
 
     assert result.allowed, result
     assert result.reason is None
-    assert POLICY_VERSION == "1"
+    assert POLICY_VERSION == "2"
 
 
 @pytest.mark.parametrize(
@@ -524,3 +524,313 @@ def test_unknown_encoding_cookie_never_reaches_registered_codec_search(
     assert not result.allowed
     assert result.reason == "unsupported_encoding"
     assert searched == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import unittest\nfrom toy import normalize\ndef test_behavior():\n"
+        "    unittest.TestCase().assertEqual(normalize('x'), 'x')\n",
+        "from unittest import TestCase as _case\nfrom toy import normalize\n"
+        "def test_behavior():\n    self = _case()\n"
+        "    self.assertEqual(normalize(list(iter(['x']))[0]), 'x')\n",
+        "import unittest as ut\nfrom toy import normalize\ndef test_behavior():\n"
+        "    constructor = ut.TestCase\n    case = constructor()\n"
+        "    equal = case.assertEqual\n    iterate = iter\n"
+        "    equal(normalize(list(iterate(['x']))[0]), 'x')\n",
+        "from unittest import TestCase\ndef test_observation():\n"
+        "    TestCase().assertEqual(1, 1)\n",
+    ],
+)
+def test_accepts_only_supported_unittest_observation_forms(bad_tree: Path, source: str) -> None:
+    assert check_submission(source, bad_tree).allowed
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "unittest.TestCase('test_behavior')",
+        "unittest.TestCase(methodName='runTest')",
+        "unittest.TestCase.assertEqual(1, 1)",
+        "unittest.TestCase().assertEqual()",
+        "unittest.TestCase().assertEqual(1)",
+        "unittest.TestCase().assertEqual(1, 1, 'message')",
+        "unittest.TestCase().assertEqual(first=1, second=1)",
+        "unittest.TestCase().assertEqual(1, 1, msg='message')",
+        "unittest.TestCase().assertTrue(True)",
+        "unittest.TestCase().assertRaises(ValueError)",
+        "unittest.TestCase().run()",
+        "unittest.TestCase().debug()",
+        "unittest.TestCase().fail()",
+        "unittest.TestCase().skipTest('skip')",
+        "unittest.TestCase().addCleanup(normalize, 'x')",
+        "unittest.TestCase().subTest()",
+        "unittest.TestLoader()",
+        "unittest.mock",
+        "iter()",
+        "iter(normalize, 'sentinel')",
+        "iter(object=['x'])",
+    ],
+)
+def test_unittest_and_iter_arities_and_other_apis_are_rejected(
+    bad_tree: Path, expression: str
+) -> None:
+    source = (
+        "import unittest\nfrom toy import normalize\ndef test_behavior():\n"
+        f"    normalize('x')\n    {expression}\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "equal = unittest.TestCase().assertEqual\n    equal(1, 1, 'message')",
+        "iterate = iter\n    iterate(normalize, 'sentinel')",
+        "case = unittest.TestCase()\n    case = 1\n    case.assertEqual(1, 1)",
+        "case = unittest.TestCase()\n    if True:\n        case = 1\n    case.assertEqual(1, 1)",
+        "case = unittest.TestCase()\n    case.assertEqual = normalize",
+        "unittest = 1\n    unittest.TestCase()",
+    ],
+)
+def test_unittest_and_iter_aliases_do_not_bypass_restrictions(bad_tree: Path, body: str) -> None:
+    source = (
+        "import unittest\nfrom toy import normalize\ndef test_behavior():\n"
+        f"    normalize('x')\n    {body}\n"
+    )
+    assert not check_submission(source, bad_tree).allowed
+
+
+@pytest.mark.parametrize(
+    "path", ["unittest.py", "unittest/__init__.py", "src/unittest.py", "src/unittest/__init__.py"]
+)
+def test_unittest_source_shadowing_is_rejected_without_execution(bad_tree: Path, path: str) -> None:
+    target = bad_tree / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("raise RuntimeError('project shadow must never execute')\n")
+    source = "import unittest\ndef test_behavior():\n    unittest.TestCase().assertEqual(1, 1)\n"
+    result = check_submission(source, bad_tree)
+    assert not result.allowed
+
+
+def test_iter_preserves_project_metadata_origin(bad_tree: Path) -> None:
+    (bad_tree / "toy" / "data.py").write_text("INFO = {'version': 'old'}\n")
+    source = (
+        "from toy.data import INFO\nfrom toy import normalize\ndef test_behavior():\n"
+        "    normalize('x')\n    assert list(iter(INFO))['version'] == 'new'\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert not result.allowed
+    assert result.reason == "introspection"
+
+
+def _export_package(bad_tree: Path, consumer: str, providers: dict[str, str]) -> None:
+    package = bad_tree / "exports"
+    package.mkdir()
+    (package / "__init__.py").write_text(consumer)
+    for name, source in providers.items():
+        (package / f"{name}.py").write_text(source)
+
+
+@pytest.mark.parametrize("declaration", ["['normalize']", "('normalize',)"])
+def test_literal_project_star_reexports_resolve_only_declared_names(
+    bad_tree: Path, declaration: str
+) -> None:
+    _export_package(
+        bad_tree,
+        "from .api import *\n",
+        {
+            "api": f"__all__ = {declaration}\ndef normalize(value):\n    return value\n"
+            "def hidden(value):\n    return value\n",
+        },
+    )
+    assert check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.hidden('x') == 'x'\n", bad_tree
+    ).allowed
+    assert not check_submission(
+        "from exports import *\ndef test_behavior():\n    assert True\n", bad_tree
+    ).allowed
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "",
+        "__all__ = names\n",
+        "__all__ = list(['normalize'])\n",
+        "__all__ = ['normalize'] + []\n",
+        "__all__ = ['normalize', 'normalize']\n",
+        "__all__ = ['_private', 'normalize']\n",
+        "__all__ = ['bad-name', 'normalize']\n",
+        "__all__ = [1, 'normalize']\n",
+        "__all__ = {'normalize'}\n",
+        "__all__ = ['normalize']\n__all__.append('hidden')\n",
+        "__all__ = ['normalize']\n__all__ += ['hidden']\n",
+        "__all__ = ['normalize']\n__all__[0] = 'hidden'\n",
+        "__all__ = ['normalize']\nalias = __all__\n",
+        "__all__ = ['normalize']\n__all__ = ['hidden']\n",
+        "__all__ = ['normalize']\ndel __all__[0]\n",
+    ],
+)
+def test_project_exports_fail_closed_for_dynamic_or_mutated_declarations(
+    bad_tree: Path, declaration: str
+) -> None:
+    _export_package(
+        bad_tree,
+        "from .api import *\n",
+        {
+            "api": declaration + "def normalize(value):\n    return value\n",
+        },
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+@pytest.mark.parametrize(
+    "explicit", ["def normalize(value):\n    return value\n", "from .other import normalize\n"]
+)
+def test_project_star_reexport_collisions_are_rejected(bad_tree: Path, explicit: str) -> None:
+    definition = "__all__ = ['normalize']\ndef normalize(value):\n    return value\n"
+    _export_package(
+        bad_tree, "from .api import *\n" + explicit, {"api": definition, "other": definition}
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+def test_ambiguous_project_star_providers_are_rejected(bad_tree: Path) -> None:
+    definition = "__all__ = ['normalize']\ndef normalize(value):\n    return value\n"
+    _export_package(
+        bad_tree,
+        "from .api import *\nfrom .other import *\n",
+        {"api": definition, "other": definition},
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+def test_project_star_reexport_cycles_are_rejected(bad_tree: Path) -> None:
+    _export_package(
+        bad_tree,
+        "from .api import *\n",
+        {
+            "api": "__all__ = ['normalize']\nfrom .other import *\n",
+            "other": "__all__ = ['normalize']\nfrom .api import *\n",
+        },
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+def test_project_export_name_count_is_bounded(bad_tree: Path) -> None:
+    names = ["normalize", *(f"name{i}" for i in range(1024))]
+    _export_package(
+        bad_tree,
+        "from .api import *\n",
+        {
+            "api": f"__all__ = {names!r}\ndef normalize(value):\n    return value\n",
+        },
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+def test_project_unknown_codec_cookie_never_invokes_host_search(bad_tree: Path) -> None:
+    import codecs
+
+    searches: list[str] = []
+
+    def record(name: str) -> codecs.CodecInfo | None:
+        searches.append(name)
+        return None
+
+    (bad_tree / "toy" / "encoded.py").write_text(
+        "# coding: policy_untrusted_project_codec\ndef normalize(value):\n    return value\n"
+    )
+    codecs.register(record)
+    try:
+        result = check_submission(
+            "from toy.encoded import normalize\ndef test_behavior():\n"
+            "    assert normalize('x') == 'x'\n",
+            bad_tree,
+        )
+    finally:
+        codecs.unregister(record)
+    assert not result.allowed
+    assert searches == []
+
+
+@pytest.mark.parametrize(
+    "expression", ["iter(['x'])", "unittest.TestCase()", "unittest.TestCase().assertEqual"]
+)
+def test_iterator_and_testcase_construction_are_not_test_observations(
+    bad_tree: Path, expression: str
+) -> None:
+    result = check_submission(f"import unittest\ndef test_empty():\n    {expression}\n", bad_tree)
+    assert not result.allowed
+    assert result.reason == "empty_test"
+
+
+def test_project_star_provider_without_known_exports_cannot_be_ignored(bad_tree: Path) -> None:
+    _export_package(
+        bad_tree,
+        "from .api import *\nfrom .dynamic import *\n",
+        {
+            "api": "__all__ = ['normalize']\ndef normalize(value):\n    return value\n",
+            "dynamic": "def unrelated():\n    return 1\n",
+        },
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+def test_project_star_provider_module_budget_is_bounded(bad_tree: Path) -> None:
+    providers = {
+        f"level{i}": "__all__ = ['normalize']\n"
+        + (
+            f"from .level{i + 1} import *\n"
+            if i < 64
+            else "def normalize(value):\n    return value\n"
+        )
+        for i in range(65)
+    }
+    _export_package(bad_tree, "from .level0 import *\n", providers)
+    result = check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    )
+    assert not result.allowed
+    assert result.reason == "unresolved_symbol"
+
+
+def test_conditional_project_star_provider_is_rejected(bad_tree: Path) -> None:
+    _export_package(
+        bad_tree,
+        "if True:\n    from .api import *\n",
+        {
+            "api": "__all__ = ['normalize']\ndef normalize(value):\n    return value\n",
+        },
+    )
+    assert not check_submission(
+        "import exports\ndef test_behavior():\n    assert exports.normalize('x') == 'x'\n", bad_tree
+    ).allowed
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf8", "utf_8", "UTF-8"])
+def test_project_source_accepts_only_recognized_utf8_cookies(bad_tree: Path, encoding: str) -> None:
+    (bad_tree / "toy" / "encoded.py").write_text(
+        f"# coding: {encoding}\ndef normalize(value):\n    return value\n"
+    )
+    assert check_submission(
+        "from toy.encoded import normalize\ndef test_behavior():\n"
+        "    assert normalize('x') == 'x'\n",
+        bad_tree,
+    ).allowed

@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 1
+# Behavioral-test submission policy, version 2
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,7 +6,7 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 1 intentionally supports a restricted Python test format. A rejected
+Version 2 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
@@ -54,7 +54,7 @@ constructor can be resolved from source. Return annotations on project functions
 can identify builtin value types or directly named project classes. A method or
 attribute that cannot be resolved is rejected. Inherited members, runtime
 attribute creation, string annotations and namespace packages are not resolved
-by version 1.
+by version 2.
 
 ## Imports and calls
 
@@ -66,7 +66,14 @@ are followed, with cycles and unresolved names rejected. Symlinks may not resolv
 outside the bad tree. Test support modules named `tests`, `conftest` or `test_...`
 are not an alternate API surface.
 
-The only external modules admitted by this version are `pytest` and `math`:
+Project wildcard reexports can be resolved when every provider has a bounded,
+direct, call-free literal list or tuple of public names in `__all__`. Visible
+mutation, rebinding, ambiguous providers and collisions with explicit bindings
+are rejected. This supports public package APIs without admitting wildcard
+imports in the submission itself.
+
+The external modules admitted by this version are `pytest`, `math`, and a
+restricted part of `unittest`:
 
 - `pytest.raises(ApprovedException, match="literal pattern")` is allowed as a
   context manager without an `as` target. It cannot expose an exception-info,
@@ -78,9 +85,19 @@ The only external modules admitted by this version are `pytest` and `math`:
   plugins, hooks and `pytest` attributes are rejected.
 - `math` exposes the explicitly enumerated numeric functions and constants in
   the policy. Importing it grants no access to other module attributes.
+- `unittest.TestCase()` takes no arguments. Its resulting object exposes only
+  `assertEqual(actual, expected)`, with exactly two positional arguments. Other
+  assertions, test runners, cleanup, skipping, subtests and module attributes are
+  excluded. A case tree containing a root or `src` module/package named
+  `unittest` is rejected. This API supports ordinary test functions; submission
+  classes remain excluded.
 
-Safe builtin operations are explicitly enumerated in `_BUILTIN_RETURNS` and
-`_EXCEPTIONS`. They include numeric/container constructors, `len`, ordinary
+`iter(value)` is allowed with exactly one positional argument and no keywords;
+the callable/sentinel form is excluded. Aliases retain these restrictions and
+project-origin tracking. Iterator objects expose no additional methods.
+
+Safe builtin operations are explicitly enumerated by the policy, including
+`_BUILTIN_RETURNS` and `_EXCEPTIONS`. They include numeric/container constructors, `len`, ordinary
 iteration helpers and simple aggregations. Public methods of known literal or
 annotated string/list/tuple/dict/set values are enumerated in `_VALUE_METHODS`.
 These allow ordinary behavioral assertions without permitting arbitrary method
@@ -136,7 +153,7 @@ invoke host-registered codec search hooks. Only then does the checker confirm th
 canonical UTF-8 name, without decoding source through a caller-selected codec.
 It then parses the exact UTF-8 bytes supplied to the worker, so an encoding such
 as `unicode_escape` cannot transform an apparent comment into executable imports
-at collection time. BOM-prefixed source is explicitly outside version 1.
+at collection time. BOM-prefixed source is explicitly outside version 2.
 Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover
@@ -165,7 +182,9 @@ custom wrappers, helper parameters or indirect API outputs is not completely
 tracked; the direct
 literal-key checks are not a general information-flow analysis. Python's dynamic
 object model, decorators and native extensions can disagree with source-level
-approximations. The tests exercise
+approximations. Project code can indirectly mutate export lists, standard-library
+objects or import state; source-visible export checks and module-shadowing guards
+do not prove arbitrary import semantics. The tests exercise
 known counterexamples; they are not a completeness proof for this language.
 
 The policy's approved exception names apply to caught exceptions in

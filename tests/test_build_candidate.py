@@ -274,3 +274,84 @@ def test_new_historical_reference_file_does_not_require_parent_blob(tmp_path: Pa
 
     built = materialize_candidate(NewReference(), _candidate(), tmp_path / "build")
     assert built.reference_source == _candidate().reference_source
+
+
+def test_existing_regular_executable_source_mode_does_not_change_repair_semantics() -> None:
+    regular = parse_production_patch(PATCH.replace(" 100644\n", " 100755\n"))
+    assert regular.paths == ("toy.py",)
+    assert regular.added_lines == {"toy.py": (2,)}
+    for mode in ("120000", "160000"):
+        with pytest.raises(BuildError):
+            parse_production_patch(PATCH.replace(" 100644\n", f" {mode}\n"))
+
+
+def test_builder_rejects_unsupported_or_mislabeled_reference_derivation(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from revertbench.build import materialize_candidate
+
+    candidate = replace(_candidate(), reference_derivation="unverified_rewrite")
+    with pytest.raises(BuildError, match="reference_derivation"):
+        materialize_candidate(_Repository(), candidate, tmp_path / "build")
+
+
+def test_builder_passes_qualified_unittest_reference_to_deterministic_extractor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    import revertbench.build.candidate as module
+    from revertbench.build import materialize_candidate
+
+    candidate = replace(
+        _candidate(),
+        reference_node_id="tests/test_toy.py::NormalizeTests::test_regression",
+        reference_derivation="unittest_method_dependency_closure",
+    )
+    seen: list[str] = []
+    monkeypatch.setattr(
+        module, "changed_test_functions", lambda before, after: ("NormalizeTests::test_regression",)
+    )
+
+    def extract(source: str, function: str) -> str:
+        seen.append(function)
+        return candidate.reference_source
+
+    monkeypatch.setattr(module, "extract_reference", extract)
+    built = materialize_candidate(_Repository(), candidate, tmp_path / "build")
+    assert built.reference_node_id == candidate.reference_node_id
+    assert seen == ["NormalizeTests::test_regression"]
+
+
+def test_builder_verifies_actual_lifted_method_source(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from revertbench.build import materialize_candidate
+    from revertbench.mine.reference import extract_reference
+
+    class ClassRepository(_Repository):
+        def file_text(self, commit: str, path: str) -> str:
+            expected = "X" if commit == "3" * 40 else "x"
+            return (
+                "from unittest import TestCase\nfrom toy import normalize\n\n"
+                "class NormalizeTests(TestCase):\n"
+                "    def test_regression(self):\n"
+                f'        self.assertEqual(normalize(" X "), "{expected}")\n'
+            )
+
+    repository = ClassRepository()
+    source = extract_reference(
+        repository.file_text("4" * 40, "tests/test_toy.py"), "NormalizeTests::test_regression"
+    )
+    candidate = replace(
+        _candidate(),
+        reference_node_id="tests/test_toy.py::NormalizeTests::test_regression",
+        reference_source=source,
+        reference_derivation="unittest_method_dependency_closure",
+    )
+    built = materialize_candidate(repository, candidate, tmp_path / "build")
+    assert built.reference_source == source
+    assert "self.assertEqual" in source
+    forged = replace(candidate, reference_source=source.replace('"x"', '"forged"'))
+    with pytest.raises(BuildError, match="historical_extraction"):
+        materialize_candidate(repository, forged, tmp_path / "forged")

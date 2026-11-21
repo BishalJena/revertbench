@@ -6,7 +6,7 @@ from pathlib import PurePosixPath
 
 _HEADER = re.compile(r"^diff --git a/([^\s]+) b/([^\s]+)$")
 _HUNK = re.compile(r"^@@ -(\d{1,8})(?:,(\d{1,8}))? \+(\d{1,8})(?:,(\d{1,8}))? @@(?:.*)$")
-_INDEX = re.compile(r"^index [0-9a-f]+\.\.[0-9a-f]+(?: 100644)?$")
+_INDEX = re.compile(r"^index [0-9a-f]+\.\.[0-9a-f]+(?: 100(?:644|755))?$")
 _FORBIDDEN = {
     "tests",
     "test",

@@ -8,6 +8,20 @@ import pytest
 
 from revertbench.build import BuiltCandidate
 from revertbench.validate.baseline import BaselineResult, parse_baseline_output
+from revertbench.validate.identity import host_code_identity
+
+
+def _passing_baseline(tree: Path) -> BaselineResult:
+    grader, policy = host_code_identity()
+    return BaselineResult(
+        status="passed",
+        collected=1,
+        passed=1,
+        environment_python="3.12.15",
+        dependency_lock_sha256="b" * 64,
+        grader_sha256=grader,
+        policy_sha256=policy,
+    )
 
 
 def test_baseline_reports_maintainer_xfail_xpass_separately() -> None:
@@ -147,7 +161,7 @@ def test_complete_machine_probes_remain_pending_human_review(tmp_path: Path) -> 
     report = validate_built_candidate(
         built,
         image="sha256:" + "a" * 64,
-        baseline_backend=lambda tree: BaselineResult(status="passed", collected=1, passed=1),
+        baseline_backend=_passing_baseline,
         execution_backend=run_tree,
         transfer_backend=lambda tree, source: source,
     )
@@ -197,7 +211,7 @@ def test_machine_probe_infrastructure_cannot_be_a_successful_cheat_block(tmp_pat
     report = validate_built_candidate(
         built,
         image="sha256:" + "a" * 64,
-        baseline_backend=lambda tree: BaselineResult(status="passed", collected=1, passed=1),
+        baseline_backend=_passing_baseline,
         execution_backend=execute,
         transfer_backend=lambda tree, source: source,
     )
@@ -259,7 +273,7 @@ def test_existing_suite_failure_on_controlled_repair_rejects_before_reference(
     assert report.reason == "existing_suite_failed"
 
 
-def test_machine_report_contains_actual_container_environment(tmp_path: Path) -> None:
+def test_machine_report_preserves_observed_environment_and_code_identity(tmp_path: Path) -> None:
     from revertbench.grade.runner import run_tree
     from revertbench.validate import validate_built_candidate
 
@@ -267,22 +281,14 @@ def test_machine_report_contains_actual_container_environment(tmp_path: Path) ->
     report = validate_built_candidate(
         built,
         image="sha256:" + "a" * 64,
-        baseline_backend=lambda tree: BaselineResult(
-            status="passed",
-            collected=1,
-            passed=1,
-            environment_python="3.12.15",
-            dependency_lock_sha256="b" * 64,
-            grader_sha256="c" * 64,
-            policy_sha256="d" * 64,
-        ),
+        baseline_backend=_passing_baseline,
         execution_backend=run_tree,
         transfer_backend=lambda tree, source: source,
     )
     assert report.status == "machine_validated"
     assert report.environment_python == "3.12.15"
     assert report.dependency_lock_sha256 == "b" * 64
-    assert report.grader_sha256 == "c" * 64 and report.policy_sha256 == "d" * 64
+    assert (report.grader_sha256, report.policy_sha256) == host_code_identity()
 
 
 def test_python_syntax_incompatibility_is_an_unsupported_candidate() -> None:
@@ -444,3 +450,63 @@ def test_history_probe_uses_supported_exception_and_own_project_provenance(
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "missing", ["environment_python", "dependency_lock_sha256", "grader_sha256", "policy_sha256"]
+)
+def test_machine_validation_requires_observed_environment_identity(
+    tmp_path: Path, missing: str
+) -> None:
+    from revertbench.validate import validate_built_candidate
+
+    built = _built_toy(tmp_path)
+    report = validate_built_candidate(
+        built,
+        image="sha256:" + "a" * 64,
+        baseline_backend=lambda tree: _passing_baseline(tree).model_copy(update={missing: None}),
+    )
+    assert report.status == "pending_infrastructure"
+    assert report.reason == "environment_identity_missing"
+    assert report.reference is None
+
+
+def test_machine_validation_rejects_consistently_stale_worker_code(tmp_path: Path) -> None:
+    from revertbench.validate import validate_built_candidate
+
+    built = _built_toy(tmp_path)
+    report = validate_built_candidate(
+        built,
+        image="sha256:" + "a" * 64,
+        baseline_backend=lambda tree: BaselineResult(
+            status="passed",
+            collected=1,
+            passed=1,
+            environment_python="3.12.16",
+            dependency_lock_sha256="a" * 64,
+            grader_sha256="b" * 64,
+            policy_sha256="c" * 64,
+        ),
+    )
+    assert report.status == "pending_infrastructure"
+    assert report.reason == "worker_code_mismatch"
+    assert report.reference is None
+
+
+def test_code_identity_is_location_independent_and_tracks_python_sources(tmp_path: Path) -> None:
+    from revertbench.validate.identity import package_identity
+
+    roots = [tmp_path / "first", tmp_path / "second"]
+    for root in roots:
+        (root / "grade").mkdir(parents=True)
+        (root / "grade/policy.py").write_text('POLICY_VERSION = "2"\n')
+        (root / "api.py").write_text("VALUE = 1\n")
+    original = package_identity(roots[0])
+    assert package_identity(roots[1]) == original
+    (roots[1] / "notes.txt").write_text("not an installed Python source")
+    assert package_identity(roots[1]) == original
+    (roots[1] / "api.py").rename(roots[1] / "renamed.py")
+    renamed = package_identity(roots[1])
+    assert renamed[0] != original[0] and renamed[1] == original[1]
+    (roots[1] / "grade/policy.py").write_text('POLICY_VERSION = "3"\n')
+    assert all(new != old for new, old in zip(package_identity(roots[1]), renamed, strict=True))
