@@ -387,3 +387,26 @@ def test_unknown_assistant_fields_are_retained_in_continuation(
     )
     followup = prepare_request(model(), messages=[result.assistant_message], tools=[])
     assert json.loads(followup.body)["messages"][0]["provider_extension"] == {"opaque": "preserved"}
+
+
+def test_client_sends_its_honest_application_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "secret-sentinel")
+    transport = FakeTransport(json.dumps(payload()).encode())
+    ProviderClient(model(), transport=transport).complete(prepared())
+    assert transport.calls[0].get_header("User-agent") == "RevertBench/0.0.1"
+
+
+def test_user_agent_change_invalidates_prepared_transport_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import revertbench.models.client as module
+
+    monkeypatch.setenv("GROQ_API_KEY", "secret-sentinel")
+    request = prepared()
+    original = config_digest(model())
+    monkeypatch.setattr(module, "CLIENT_USER_AGENT", "RevertBench/test-version")
+    assert config_digest(model()) != original
+    transport = FakeTransport(json.dumps(payload()).encode())
+    with pytest.raises(ProviderError) as caught:
+        ProviderClient(model(), transport=transport).complete(request)
+    assert caught.value.delivery_state == "not_sent" and not transport.calls
