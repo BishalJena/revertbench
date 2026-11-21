@@ -1,17 +1,13 @@
 """The model file surface reads bounded project data and edits only its test."""
 
-import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-_SPEC = importlib.util.spec_from_file_location(
-    "_bounded_tools", Path(__file__).resolve().parents[1] / "scripts/episode_runtime.py"
-)
-assert _SPEC is not None and _SPEC.loader is not None
-_BRIDGE = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(_BRIDGE)
+from revertbench.harness.runtime import _bridge_module
+
+_BRIDGE = _bridge_module()
 file_tool = _BRIDGE.file_tool
 model_reply = _BRIDGE.model_reply
 preview_nodes = _BRIDGE.preview_nodes
@@ -103,3 +99,26 @@ def test_search_releases_descriptors_and_skips_binary_files(project: Path) -> No
     assert result["ok"] is True
     assert result["matches"] == []
     assert len(os.listdir("/dev/fd")) == before
+
+
+def test_large_submission_rehydration_stays_under_exec_argument_limit(
+    project: Path,
+    tmp_path: Path,
+) -> None:
+    from types import SimpleNamespace
+
+    worker = _BRIDGE.EpisodeWorker(project, project, tmp_path, tmp_path, "opaque")
+
+    class Box:
+        def exec(self, argv: list[str], **_kwargs: object) -> object:
+            assert sum(len(arg.encode()) for arg in argv) <= 65536
+            reply = file_tool(project, argv[-2], json.loads(argv[-1]))
+            return SimpleNamespace(
+                status="completed", exit_code=0, stdout=json.dumps(reply).encode()
+            )
+
+    worker.box = Box()
+    content = "#" + 'mixed-雪\\"' * 4700
+    assert len(content.encode()) < 65536
+    worker._write_submission(content.encode())
+    assert (project / "tests/test_revertbench_submission.py").read_text() == content
