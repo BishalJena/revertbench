@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "4"
+POLICY_VERSION = "5"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -449,6 +449,11 @@ class _SourceIndex:
                 try:
                     resolved = candidate.resolve()
                     if resolved.is_relative_to(self.root) and resolved.is_file():
+                        if resolved == self.root / "test.py":
+                            _reject(
+                                "unsupported_import",
+                                "Root test.py is test support, not an approved project API",
+                            )
                         return resolved, package
                 except (OSError, RuntimeError):
                     continue
