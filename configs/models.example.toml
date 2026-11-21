@@ -1,32 +1,37 @@
-# Copy to configs/models.toml (gitignored) and adjust.
-# Free-tier limits change often; check each provider's console before a run.
-# Keys are read from environment variables, never written here.
+# Copy to ignored configs/models.toml. Credentials are environment references only.
+# Quotas below are conservative LOCAL ceilings, not verified project entitlements.
+# Standard Developer prices are not a promise of free usage. Recheck before calls.
+# Calls must be wrapped by the harness ledger to enforce project/run spending caps.
 
-[providers.gemini]
-base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-api_key_env = "GEMINI_API_KEY"
-
-[providers.openrouter]
-base_url = "https://openrouter.ai/api/v1"
-api_key_env = "OPENROUTER_API_KEY"
-
-[providers.ollama]
-base_url = "http://localhost:11434/v1"
-api_key_env = ""
-
-# One block per model used in a run. Limits are enforced by the scheduler.
-[[models]]
-id = "gemini-flash-lite"
-provider = "gemini"
-model = "gemini-3.5-flash-lite"
-rpm = 15
-tpm = 250000
-rpd = 500
+[providers.groq]
+base_url = "https://api.groq.com/openai/v1"
+api_key_env = "GROQ_API_KEY"
 
 [[models]]
-id = "local-small"
-provider = "ollama"
-model = "qwen3:8b"
-rpm = 60
-tpm = 1000000
-rpd = 100000
+alias = "groq-120b"
+provider = "groq"
+model_id = "openai/gpt-oss-120b"
+model_context_tokens = 131072
+max_completion_tokens = 2048
+temperature = 0.6
+reasoning_effort = "low"
+timeout_seconds = 60
+# Omitted model_revision means the hosted immutable weights identity is unknown.
+# Upstream declaration does not establish the effective hosted alias cutoff.
+declared_cutoff = "2024-06"
+cutoff_source_url = "https://cdn.openai.com/pdf/419b6906-9da6-406c-a19d-1bb078ac7637/oai_gpt-oss_model_card.pdf"
+
+[models.pricing]
+input_usd_per_million = "0.15"
+output_usd_per_million = "0.60"
+source_url = "https://console.groq.com/docs/model/openai/gpt-oss-120b"
+observed_at = 2026-11-21T09:07:21Z
+
+[models.quotas]
+rpm = 1
+tpm = 8000
+rpd = 1000
+tpd = 200000
+evidence = "conservative"
+source_url = "https://console.groq.com/docs/rate-limits"
+observed_at = 2026-11-21T09:07:21Z
