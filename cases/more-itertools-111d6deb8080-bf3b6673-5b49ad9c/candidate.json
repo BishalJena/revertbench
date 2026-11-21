@@ -1,0 +1,21 @@
+{
+  "bad_commit": "111d6deb8080040f8ec28db32eeb44b61238d860",
+  "base_commit": "0d97c55616fb9563be69fdeeda13bf4038834b7c",
+  "commit_url": "https://github.com/more-itertools/more-itertools/commit/bf3b6673e4d28e19333464f5a662bef3bd564263",
+  "committed_at": "2020-01-03T13:25:31-06:00",
+  "fix_commit": "bf3b6673e4d28e19333464f5a662bef3bd564263",
+  "fix_parent": "b5700b455dcfdc2e37d4780c019de3cef9436f93",
+  "license_path": "LICENSE",
+  "license_text": "Copyright (c) 2012 Erik Rose\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the \"Software\"), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\nof the Software, and to permit persons to whom the Software is furnished to do\nso, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+  "modified_source_paths": [
+    "more_itertools/recipes.py"
+  ],
+  "production_patch": "diff --git a/more_itertools/recipes.py b/more_itertools/recipes.py\nindex e1291af..77cc2db 100644\n--- a/more_itertools/recipes.py\n+++ b/more_itertools/recipes.py\n@@ -313,8 +313,17 @@ def partition(pred, iterable):\n         >>> list(even_items), list(odd_items)\n         ([0, 2, 4, 6, 8], [1, 3, 5, 7, 9])\n \n+    If *pred* is None, :func:`bool` is used.\n+\n+        >>> iterable = [0, 1, False, True, '', ' ']\n+        >>> false_items, true_items = partition(None, iterable)\n+        >>> list(false_items), list(true_items)\n+        ([0, False, ''], [1, True, ' '])\n+\n     \"\"\"\n-    # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9\n+    if pred is None:\n+        pred = bool\n+\n     evaluations = ((pred(x), x) for x in iterable)\n     t1, t2 = tee(evaluations)\n     return (\n",
+  "reference_derivation": "unittest_method_dependency_closure",
+  "reference_header": "",
+  "reference_node_id": "tests/test_recipes.py::PartitionTests::test_pred_is_none",
+  "reference_path": "tests/test_recipes.py",
+  "reference_source": "import more_itertools as mi\n\nfrom unittest import TestCase as _revertbench_test_case\n\ndef test_pred_is_none():\n    self = _revertbench_test_case()\n    falses, trues = mi.partition(None, range(3))\n    self.assertEqual(list(falses), [0])\n    self.assertEqual(list(trues), [1, 2])\n",
+  "repo": "more-itertools/more-itertools",
+  "title": "Merge pull request #368 from erikrose/partition-none"
+}

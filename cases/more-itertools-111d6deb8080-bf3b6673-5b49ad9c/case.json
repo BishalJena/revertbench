@@ -1,0 +1,160 @@
+{
+  "schema_version": "2",
+  "id": "more-itertools-111d6deb8080-bf3b6673-5b49ad9c",
+  "repo": "more-itertools/more-itertools",
+  "base_commit": "0d97c55616fb9563be69fdeeda13bf4038834b7c",
+  "bad_commit": "111d6deb8080040f8ec28db32eeb44b61238d860",
+  "fix_commit": "bf3b6673e4d28e19333464f5a662bef3bd564263",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "0b61033ffd1bcfd7526166d21f3e3444c4b445eb85e273f52df4ed3b7f45ddea",
+    "repaired_tree_sha256": "7fefb054661d71d1763b10ef058b36e84578f02fc4e5bd053bbbe94d365fb8db"
+  },
+  "changed_lines": {
+    "more_itertools/recipes.py": [
+      317,
+      318,
+      319,
+      320,
+      321
+    ]
+  },
+  "source_hashes": {
+    "base": "8a4a05149cfff63ae56ec1ae887564f2d094d7e3fea5555d0e0952d890100055",
+    "bad": "1ecb530c5a3aec9eda7e830118e0dcca71ae9d91ca61a534e88460b78aeaba95",
+    "historical_fix": "697fabdcbe126ed2f6a7eba18342279570bc7ec978e383a1c0fdbb3737886117",
+    "repaired": "7fefb054661d71d1763b10ef058b36e84578f02fc4e5bd053bbbe94d365fb8db"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44873038888",
+    "implementation_commit": "cfec4996be340b36ebb7b5684726289a5b9db7ad",
+    "applies_to_image": "sha256:abaee8aa061ac732d8f5479beafa715b40792e5e8c5ec5903f9890e605ab8ba6",
+    "grader_sha256": "08dedbf44bb97385673c57bdc78b2537f2f4e890ea261758cdc6c4936dc1c5d9",
+    "policy_sha256": "c3811acc75bfc8db043daa151a8239a9a1252d640bd240a24d031ec7714e4323",
+    "observed_at": "2026-11-21T06:06:49.307473Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "more-itertools/more-itertools:111d6deb8080040f8ec28db32eeb44b61238d860",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 310,
+    "title": "Optimize partition w/ expensive predicate",
+    "body": "Since calling the predicate might be expensive, call it ahead of the tee so it will not need to be evaluated separately in each branch of the tee, taking up to twice as much time as necessary, assuming an equal number of results will be evaluated through each of the resulting iterables.",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/310",
+    "published_at": "2019-10-01T06:48:43Z",
+    "merged_at": "2019-10-01T13:14:51Z",
+    "observed_at": "2026-11-21T05:21:28.740729Z",
+    "updated_at": "2019-10-02T13:28:31Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "111d6deb8080040f8ec28db32eeb44b61238d860"
+  },
+  "fix_pr": {
+    "number": 368,
+    "title": "Make pred=None work in partition again",
+    "body": "Re: https://github.com/erikrose/more-itertools/issues/366, this PR restores the previous `pred=None` behavior for `partition`.",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/368",
+    "published_at": "2020-01-03T16:13:19Z",
+    "merged_at": "2020-01-03T19:25:32Z",
+    "observed_at": "2026-11-21T05:21:28.740729Z",
+    "updated_at": "2020-01-03T19:25:36Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "bf3b6673e4d28e19333464f5a662bef3bd564263"
+  },
+  "reference_test": {
+    "path": "tests/test_recipes.py",
+    "node_ids": [
+      "tests/test_recipes.py::PartitionTests::test_pred_is_none"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "b7b07fe66864a922eb6087c79dba92b08423922ee8ae1a6695d5d19d5642d1f7"
+  },
+  "changed_files": [
+    "more_itertools/recipes.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2020-01-03T13:25:31-06:00",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/310",
+      "published_at": "2019-10-01T06:48:43Z",
+      "observed_at": "2026-11-21T05:21:28.740729Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/368",
+      "published_at": "2020-01-03T16:13:19Z",
+      "observed_at": "2026-11-21T05:21:28.740729Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:abaee8aa061ac732d8f5479beafa715b40792e5e8c5ec5903f9890e605ab8ba6",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "unittest",
+      "-q"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "288c1e135b8835e047d328bd593c40100ca08977e69ade0a80158820a33c498c",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "2",
+    "grader_sha256": "08dedbf44bb97385673c57bdc78b2537f2f4e890ea261758cdc6c4936dc1c5d9",
+    "policy_sha256": "c3811acc75bfc8db043daa151a8239a9a1252d640bd240a24d031ec7714e4323",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "Codex /root/m1_runner",
+    "authorization_note": "Owner explicitly delegated autonomous case review to the orchestrator; orchestrator assigned this review to Codex /root/m1_runner.",
+    "notes": "Reviewed the complete original test and deterministic unittest lift without changing either assertion or input. The pre-optimization implementation delegates the None predicate to filter/filterfalse, which partition by truth value. PR310 replaced that behavior with pred(x), making None callable and producing the observed TypeError while consuming the false iterator. The minimal historical repair changes only recipes.py and supplies pred=bool when pred is None; this restores [0] and [1,2] for the same range(3). The documentation changes explain that same behavior. Verified immediate-parent and fix ancestry, exact historical repair/reference identities, all nine outcomes and per-node CALL coverage, all existing suites445x3, required probes, matching image/lock/code and independently observed CI. The fix adds no public symbol, so the case-specific symbol probe is honestly not applicable; global policy tests cover that class. Accept this distinct regression group under the supported bounded policy. This is my authorized agent review, not a human attestation.",
+    "reviewed_at": "2026-11-21T06:06:51.750169Z",
+    "validation_report_sha256": "288c1e135b8835e047d328bd593c40100ca08977e69ade0a80158820a33c498c",
+    "case_inputs_sha256": "467dee1c3f084ba74869a11638d4f5d27d4c04f5effa74c235ab16ef34295184"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "Codex /root/m1_runner",
+      "authorization_note": "Owner explicitly delegated autonomous case review to the orchestrator; orchestrator assigned this review to Codex /root/m1_runner.",
+      "notes": "Reviewed the complete original test and deterministic unittest lift without changing either assertion or input. The pre-optimization implementation delegates the None predicate to filter/filterfalse, which partition by truth value. PR310 replaced that behavior with pred(x), making None callable and producing the observed TypeError while consuming the false iterator. The minimal historical repair changes only recipes.py and supplies pred=bool when pred is None; this restores [0] and [1,2] for the same range(3). The documentation changes explain that same behavior. Verified immediate-parent and fix ancestry, exact historical repair/reference identities, all nine outcomes and per-node CALL coverage, all existing suites445x3, required probes, matching image/lock/code and independently observed CI. The fix adds no public symbol, so the case-specific symbol probe is honestly not applicable; global policy tests cover that class. Accept this distinct regression group under the supported bounded policy. This is my authorized agent review, not a human attestation.",
+      "reviewed_at": "2026-11-21T06:06:51.750169Z",
+      "validation_report_sha256": "288c1e135b8835e047d328bd593c40100ca08977e69ade0a80158820a33c498c",
+      "case_inputs_sha256": "467dee1c3f084ba74869a11638d4f5d27d4c04f5effa74c235ab16ef34295184"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "1aad1d263dc96b45a5f757c4df84811432d1f43acd1ddba98d1fda1468422ece"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "bb471f760be5aad195414d2f43386f876ce2c3e0b3476c06db64ba636db372bc"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "89385a6d1af8662e218ee77391546f93c02108038b99c6969616c1fa89b716a3"
+  },
+  "notes": "Qualified unittest derivation preserves the complete original PartitionTests.test_pred_is_none body AST, both assertions and range(3) input. Normal nine-run proof passes base3, fails bad3 with TypeError and own introducing-line CALL coverage, and passes repaired3. Native official unittest baselines passed445 tests and445 IDs per tree. Independent official-unittest/summary.json SHA256 2da77cc83e25aa0bfaf792749ce6d18d14911d3eef7f0a240add92ada1cca20d records445 passed per exact source tree with no failures, errors or skips. CI evidence is separately observed at the exact matching implementation and does not claim CI ran this platform-specific image. Review provenance is an explicitly authorized agent decision, separately recorded from human review."
+}

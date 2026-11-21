@@ -1,0 +1,15 @@
+{
+  "execution_status": "completed",
+  "exit_code": 0,
+  "source_sha256": "7fefb054661d71d1763b10ef058b36e84578f02fc4e5bd053bbbe94d365fb8db",
+  "stdout": "",
+  "stderr": "/workspace/repo/more_itertools/more.py:378: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 445 tests in 0.472s\n\nOK\n",
+  "tests_run": 445,
+  "status": "passed",
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "expected_failures": 0,
+  "unexpected_successes": 0,
+  "passed": 445
+}
