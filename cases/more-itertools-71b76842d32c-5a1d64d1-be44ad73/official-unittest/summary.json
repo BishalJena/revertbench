@@ -1,0 +1,64 @@
+{
+  "profile": "official_unittest_discovery",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "unittest",
+    "-q"
+  ],
+  "cwd": "/workspace/repo",
+  "image": "sha256:60feabcbd85fb1fa7c12597b0c7882621434600577d0b61dde8cadd40ef5572c",
+  "case_id": "more-itertools-71b76842d32c-5a1d64d1-be44ad73",
+  "validation_report_sha256": "5b3cb078551f5552d0473886ea7c5dec05edb0ef12a2be98a6861e1192752cc4",
+  "base_commit": "3331507287761a35d7aa8d583f76d022dd9da958",
+  "bad_commit": "71b76842d32c0b25cfc992fad21f83a606606667",
+  "fix_commit": "5a1d64d1915df11481dcd31ffaf7165419064116",
+  "roles": {
+    "base": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "219a06b27429842fb96580c71c6d0a883f648be143a649c6e5ef1e8c23854bf8",
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 850 tests in 7.713s\n\nOK\n",
+      "tests_run": 850,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 850
+    },
+    "bad": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "a7f3ab46713d2ce75c0a294dee0622262fbe424aea1a0d9a6d29aa614fb6c118",
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 850 tests in 7.688s\n\nOK\n",
+      "tests_run": 850,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 850
+    },
+    "repaired": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "8d77a6e62dd8b65c646a1e78a894864d63ee65cda6af562715e597431947b057",
+      "stdout": "",
+      "stderr": "----------------------------------------------------------------------\nRan 850 tests in 7.749s\n\nOK\n",
+      "tests_run": 850,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 850
+    }
+  },
+  "status": "passed"
+}
