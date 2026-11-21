@@ -1,3 +1,7 @@
+from pathlib import Path
+from typing import Any
+
+import pytest
 from typer.testing import CliRunner
 
 from revertbench import __version__
@@ -9,3 +13,296 @@ def test_version_command_prints_package_version() -> None:
 
     assert result.exit_code == 0
     assert result.output.strip() == __version__
+
+
+def test_pipeline_commands_and_review_help_are_discoverable() -> None:
+    runner = CliRunner()
+    for command in ("mine", "build", "validate", "review"):
+        result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 0, result.output
+
+
+def test_mine_dispatches_without_credentials_or_prompts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+
+    calls: list[dict[str, Any]] = []
+
+    def capture(**kwargs: Any) -> int:
+        calls.append(kwargs)
+        return 2
+
+    monkeypatch.setattr(cli, "_mine_candidates", capture)
+    result = CliRunner().invoke(app, ["mine", "owner/toy", "--output-dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert calls[0]["repo"] == "owner/toy"
+    assert "2 candidate" in result.output
+
+
+def test_build_and_validate_dispatch_explicit_images(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text("{}")
+    calls: list[dict[str, Any]] = []
+
+    def capture(**kwargs: Any) -> Path:
+        calls.append(kwargs)
+        return tmp_path / "case.json"
+
+    monkeypatch.setattr(cli, "_process_candidate", capture)
+    runner = CliRunner()
+    for command in ("build", "validate"):
+        result = runner.invoke(app, [command, str(candidate), "--image", "sha256:" + "a" * 64])
+        assert result.exit_code == 0, result.output
+    assert [call["validate"] for call in calls] == [False, True]
+
+
+def test_review_is_read_only_by_default_and_human_flags_are_explicit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+    from revertbench.review import ReviewPacket
+
+    path = tmp_path / "case.json"
+    path.write_text("{}")
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        cli,
+        "build_review_packet",
+        lambda path: ReviewPacket(
+            case_id="toy", status="pending_human_review", case_inputs_sha256="a" * 64, sections=()
+        ),
+    )
+    monkeypatch.setattr(cli, "record_review", lambda *args, **kwargs: calls.append(kwargs))
+    result = CliRunner().invoke(app, ["review", str(path)])
+    assert result.exit_code == 0 and not calls
+    for flags in (
+        ["--accept"],
+        ["--accept", "--reviewer", "Reviewer", "--notes", "Inspected"],
+        ["--accept", "--reject"],
+    ):
+        result = CliRunner().invoke(app, ["review", str(path), *flags])
+        assert result.exit_code != 0 and not calls
+    result = CliRunner().invoke(
+        app,
+        [
+            "review",
+            str(path),
+            "--accept",
+            "--reviewer",
+            "Reviewer",
+            "--notes",
+            "Inspected",
+            "--attest-human-review",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0]["attested"] is True
+
+
+def test_cli_errors_do_not_print_untrusted_exception_payload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+
+    def fail(**kwargs: Any) -> int:
+        raise ValueError("SYNTHETIC_PRIVATE_SENTINEL")
+
+    monkeypatch.setattr(cli, "_mine_candidates", fail)
+    result = CliRunner().invoke(app, ["mine", "owner/toy"])
+    assert result.exit_code != 0
+    assert "SYNTHETIC_PRIVATE_SENTINEL" not in result.output
+
+
+def test_pipeline_persists_machine_pending_packet_without_human_approval(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import hashlib
+
+    from revertbench import build, cli, validate
+    from revertbench.build import BuiltCandidate
+    from revertbench.mine.models import MiningCandidate, candidate_to_json
+    from revertbench.review import load_case
+    from revertbench.schema import Case, GradeResult
+    from revertbench.validate import MachineValidationReport, ProbeResult
+    from revertbench.validate.baseline import BaselineResult
+
+    source = "def test_api():\n    assert True\n"
+    patch = "trusted synthetic patch\n"
+    digest = hashlib.sha256(patch.encode()).hexdigest()
+    candidate = MiningCandidate(
+        repo="owner/toy",
+        fix_commit="3" * 40,
+        fix_parent="4" * 40,
+        base_commit="1" * 40,
+        bad_commit="2" * 40,
+        reference_path="tests/test_api.py",
+        reference_node_id="tests/test_api.py::test_api",
+        reference_source=source,
+        production_patch=patch,
+        modified_source_paths=("toy.py",),
+        license_path="LICENSE",
+        license_text="Synthetic upstream license",
+    )
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(candidate_to_json(candidate))
+    built = BuiltCandidate(
+        case_id="toy",
+        repo=candidate.repo,
+        base_commit="1" * 40,
+        bad_commit="2" * 40,
+        fix_commit="3" * 40,
+        fix_parent="4" * 40,
+        base_tree=tmp_path,
+        bad_tree=tmp_path,
+        historical_fix_tree=tmp_path,
+        repaired_tree=tmp_path,
+        reference_source=source,
+        reference_path=candidate.reference_path,
+        reference_node_id=candidate.reference_node_id,
+        production_patch=patch,
+        patch_sha256=digest,
+        source_hashes={role: "a" * 64 for role in ("base", "bad", "historical_fix", "repaired")},
+        changed_lines={"toy.py": (2,)},
+        candidate=candidate,
+    )
+
+    class Repository:
+        def diff(self, *args: str) -> str:
+            return "synthetic diff\n"
+
+    monkeypatch.setattr(cli, "_repository", lambda *args: Repository())
+    monkeypatch.setattr(build, "materialize_candidate", lambda *args: built)
+    observed: list[dict[str, Any]] = []
+
+    def validate_fake(*args: Any, **kwargs: Any) -> MachineValidationReport:
+        observed.append(kwargs)
+        return MachineValidationReport(
+            status="machine_validated",
+            reason="all_machine_checks_passed",
+            case_id="toy",
+            image="sha256:" + "b" * 64,
+            environment_python="3.12.15",
+            dependency_lock_sha256="c" * 64,
+            source_hashes=built.source_hashes,
+            patch_sha256=digest,
+            reference_sha256=hashlib.sha256(source.encode()).hexdigest(),
+            baseline_reports={
+                role: BaselineResult(status="passed") for role in ("base", "bad", "repaired")
+            },
+            reference=GradeResult(status="passed", score=1, reason="passed"),
+            probes={"empty": ProbeResult(status="passed", reason="checked")},
+        )
+
+    monkeypatch.setattr(validate, "validate_built_candidate", validate_fake)
+    path = cli._process_candidate(
+        candidate_path=candidate_path,
+        cache_dir=tmp_path / "cache",
+        work_dir=tmp_path / "work",
+        output_dir=tmp_path / "packets",
+        local_repo=tmp_path,
+        image="sha256:" + "b" * 64,
+        good_commit=None,
+        validate=True,
+    )
+    case = load_case(path)
+    assert case.validation.status == "pending_human_review"
+    assert case.human_review is None and case.eligibility == "pending_metadata"
+    assert case.lineage_verified is True
+    assert case.env is not None and case.env.python == "3.12.15"
+    assert (path.parent / "upstream-license.txt").read_text() == "Synthetic upstream license"
+    assert len(observed) == 1
+
+    from datetime import UTC, datetime
+
+    from revertbench.review import write_case
+    from revertbench.schema import HumanReview, PublicationEvidence, PullRequestMetadata
+
+    prior = HumanReview(
+        decision="notes",
+        reviewer="Actual reviewer",
+        notes="Historical note.",
+        reviewed_at=datetime.now(UTC),
+    )
+    original = Case.model_validate(
+        {
+            **case.model_dump(mode="python"),
+            "bad_pr": PullRequestMetadata(number=7, url="https://github.com/owner/toy/pull/7"),
+            "publication_evidence": (
+                PublicationEvidence(
+                    artifact="issue",
+                    url="https://github.com/owner/toy/issues/8",
+                    observed_at=datetime.now(UTC),
+                ),
+            ),
+            "dataset_split": "validation",
+            "notes": "User-maintained provenance note",
+            "human_review": prior,
+            "review_history": (prior,),
+        }
+    )
+    write_case(original, path)
+    revalidated_path = cli._process_candidate(
+        candidate_path=path,
+        cache_dir=tmp_path / "cache",
+        work_dir=tmp_path / "work",
+        output_dir=tmp_path / "new-packets",
+        local_repo=tmp_path,
+        image="sha256:" + "b" * 64,
+        good_commit=None,
+        validate=True,
+    )
+    revalidated = load_case(revalidated_path)
+    assert revalidated.bad_pr == original.bad_pr
+    assert revalidated.publication_evidence == original.publication_evidence
+    assert revalidated.dataset_split == "validation" and revalidated.notes == original.notes
+    assert (
+        revalidated.human_review is None and revalidated.validation.status == "pending_human_review"
+    )
+    assert revalidated.review_history == original.review_history
+
+
+def test_mine_retains_bounded_discovery_funnel(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import json
+
+    from revertbench import cli
+    from revertbench.mine import candidates
+
+    report = candidates.DiscoveryReport(
+        candidates=(),
+        examined_commits=7,
+        matched_fixes=3,
+        rejections=(("a" * 40, "unsupported_reference_fixture"),),
+    )
+    monkeypatch.setattr(cli, "_repository", lambda *args: object())
+    monkeypatch.setattr(candidates, "discover_report", lambda *args, **kwargs: report)
+    count = cli._mine_candidates(
+        repo="owner/toy",
+        cache_dir=tmp_path / "cache",
+        output_dir=tmp_path / "out",
+        local_repo=tmp_path,
+        limit=20,
+        max_commits=10,
+    )
+    assert count == 0
+    stored = json.loads((tmp_path / "out" / "discovery.json").read_text())
+    assert stored["discovery_version"] == "1"
+    assert stored["examined_commits"] == 7 and stored["matched_fixes"] == 3
+    assert stored["candidate_count"] == 0
+    assert stored["rejections"][0]["commit"] == "a" * 40
+    assert stored["rejections"][0]["reason"] == "unsupported_reference_fixture"
+
+
+def test_cli_history_limit_matches_miner_maximum(monkeypatch: pytest.MonkeyPatch) -> None:
+    from revertbench import cli
+
+    called: list[object] = []
+    monkeypatch.setattr(cli, "_mine_candidates", lambda **kwargs: called.append(kwargs))
+    result = CliRunner().invoke(app, ["mine", "owner/toy", "--max-commits", "10001"])
+    assert result.exit_code != 0 and not called
