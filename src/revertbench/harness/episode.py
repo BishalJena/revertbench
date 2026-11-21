@@ -11,7 +11,14 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any, Protocol, cast
 
-from revertbench.harness.prompt import MAX_MODEL_CALLS, TOOL_DEFINITIONS, TaskPrompt, build_messages
+from revertbench.harness.prompt import (
+    MAX_MODEL_CALLS,
+    TOOL_DEFINITIONS,
+    CompletionPolicy,
+    TaskPrompt,
+    build_messages,
+    prompt_version,
+)
 from revertbench.models.budget import BudgetExceeded, CostBudget
 from revertbench.models.client import (
     JsonValue,
@@ -117,6 +124,7 @@ class _Session:
     scheduler: RateScheduler
     clock: Callable[[], float]
     sleep: Callable[[float], None]
+    completion_policy: CompletionPolicy
 
     def rows(self, event: str) -> list[dict[str, Any]]:
         return [
@@ -128,6 +136,17 @@ class _Session:
 
     def append(self, event: str, **data: Any) -> dict[str, Any]:
         return self.ledger.append(event, **asdict(self.identity), **data)
+
+    def completion_origin(self) -> str | None:
+        selected = self.rows("completion_selected")
+        if selected:
+            return cast(str, selected[-1]["completion_origin"])
+        if any(
+            row["name"] == "submit" and row["response"].get("submitted") is True
+            for row in self.rows("tool_result")
+        ):
+            return "explicit_submit"
+        return None
 
     def result(
         self, status: str, reason: str, score: int | None = None, **data: Any
@@ -143,6 +162,8 @@ class _Session:
         }
         return {
             **asdict(self.identity),
+            "completion_policy": self.completion_policy,
+            "completion_origin": self.completion_origin(),
             "status": status,
             "reason": reason,
             "score": score,
@@ -178,6 +199,105 @@ class _Session:
             None,
         )
 
+    def confirmed_submission(self) -> dict[str, Any] | None:
+        acknowledged = {
+            row["tool_id"]: row["response"]
+            for row in self.rows("tool_result")
+            if row["name"] == "write_test"
+        }
+        return next(
+            (
+                row
+                for row in reversed(self.rows("submission_intended"))
+                if acknowledged.get(row["tool_id"], {}).get("ok") is True
+            ),
+            None,
+        )
+
+    def bind_completion_policy(self) -> None:
+        recorded = self.rows("completion_policy_selected")
+        selected = {
+            "completion_policy": self.completion_policy,
+            "prompt_version": prompt_version(self.completion_policy),
+        }
+        if recorded:
+            if any(
+                any(row.get(key) != value for key, value in selected.items()) for row in recorded
+            ):
+                raise ValueError("Episode completion policy changed on resume")
+        elif any(
+            all(row.get(key) == value for key, value in asdict(self.identity).items())
+            for row in self.ledger.events
+        ):
+            if self.completion_policy != "explicit_submit":
+                raise ValueError("Legacy episode requires explicit-submit completion")
+        else:
+            self.append("completion_policy_selected", **selected)
+
+    def _require_settled_effects(self) -> None:
+        tools = {row["tool_id"] for row in self.rows("tool_result")}
+        models = {
+            row["call_id"]
+            for event in ("model_completed", "model_error")
+            for row in self.rows(event)
+        }
+        if any(row["tool_id"] not in tools for row in self.rows("tool_intent")) or any(
+            row["call_id"] not in models for row in self.rows("model_started")
+        ):
+            raise _Halt("invalid_run", "uncertain_completion_effects")
+
+    def complete_saved_test(self, response: dict[str, Any]) -> dict[str, Any]:
+        self._require_settled_effects()
+        intended = self.confirmed_submission()
+        if intended is None:
+            return self.result("completed", "no_submission", 0)
+        source = base64.b64decode(intended["source_b64"], validate=True)
+        source_sha = hashlib.sha256(source).hexdigest()
+        if intended["sha256"] != source_sha or self.runtime.get_submission() != source:
+            raise RuntimeError("Saved bytes differ from acknowledged submission")
+        terminal = next(
+            row for row in reversed(self.rows("model_completed")) if row["response"] == response
+        )
+        selection = dict(
+            completion_origin="saved_test_on_stop_v1",
+            completion_policy=self.completion_policy,
+            prompt_version=prompt_version(self.completion_policy),
+            call_id=terminal["call_id"],
+            request_hash=terminal["request_hash"],
+            response_sha256=hashlib.sha256(
+                json.dumps(response, sort_keys=True).encode()
+            ).hexdigest(),
+            tool_id=intended["tool_id"],
+            submission_sha256=source_sha,
+            case_inputs_sha256=self.rows("episode_prepared")[-1]["metadata"].get(
+                "case_inputs_sha256"
+            ),
+        )
+        previous = self.rows("completion_selected")
+        if previous:
+            if any(previous[-1].get(key) != value for key, value in selection.items()):
+                raise RuntimeError("Completion identity changed on resume")
+        else:
+            if self.rows("grade_completed") or self.rows("grade_started"):
+                raise RuntimeError("Grading has no matching completion selection")
+            self.append("completion_selected", **selection)
+        if self.rows("grade_completed"):
+            return self.grade()
+        if self.rows("grade_started"):
+            raise _Halt("invalid_run", "uncertain_grade")
+        if self.rows("completion_verification_started"):
+            self.append("completion_verification_recovered", submission_sha256=source_sha)
+        self.append(
+            "completion_verification_started", origin="harness", submission_sha256=source_sha
+        )
+        self.runtime.restore_submission(source)
+        if self.runtime.get_submission() != source:
+            raise RuntimeError("Restored bytes differ from acknowledged submission")
+        if self.runtime.tool("submit", {}).get("submitted") is not True:
+            raise RuntimeError("Fresh saved submission verification failed")
+        self.append("completion_verified", origin="harness", submission_sha256=source_sha)
+        return self.grade()
+
     def _settle(self, call_id: str, response: dict[str, Any]) -> None:
         usage = response["usage"]
         actual = None
@@ -206,7 +326,13 @@ class _Session:
             messages=cast(list[dict[str, JsonValue]], messages),
             tools=cast(list[dict[str, JsonValue]], TOOL_DEFINITIONS),
         )
-        request_hash = request_identity(prepared.body, {"config_sha256": prepared.config_sha256})
+        context = {"config_sha256": prepared.config_sha256}
+        if self.completion_policy != "explicit_submit":
+            context.update(
+                completion_policy=self.completion_policy,
+                prompt_version=prompt_version(self.completion_policy),
+            )
+        request_hash = request_identity(prepared.body, context)
         ceiling = (
             Decimal(self.config.model_context_tokens) * self.config.pricing.input_usd_per_million
             + Decimal(self.config.max_completion_tokens)
@@ -363,8 +489,12 @@ class _Session:
         ):
             raise RuntimeError("runtime task identity mismatch")
         task = TaskPrompt(self.identity.episode_id, safe["bad_pr_title"], safe["bad_diff"])
-        messages = build_messages(task)
-        intended = self.submission()
+        messages = build_messages(task, completion_policy=self.completion_policy)
+        intended = (
+            self.confirmed_submission()
+            if self.completion_policy != "explicit_submit"
+            else self.submission()
+        )
         if intended is not None:
             source = base64.b64decode(intended["source_b64"], validate=True)
             if hashlib.sha256(source).hexdigest() != intended["sha256"]:
@@ -377,6 +507,12 @@ class _Session:
             messages.append(message)
             calls = message.get("tool_calls")
             if not calls:
+                if (
+                    self.completion_policy == "saved_test_on_stop_v1"
+                    and response["finish_reason"] == "stop"
+                    and (calls is None or calls == [])
+                ):
+                    return self.complete_saved_test(response)
                 return self.result("completed", "no_submission", 0)
             if not isinstance(calls, list) or len(calls) != 1 or not isinstance(calls[0], dict):
                 return self.result("completed", "multiple_or_invalid_tools", 0)
@@ -396,11 +532,21 @@ class _Session:
 
     def grade(self) -> dict[str, Any]:
         source = self.runtime.get_submission()
-        intended = self.submission()
+        intended = (
+            self.confirmed_submission()
+            if self.completion_policy != "explicit_submit"
+            else self.submission()
+        )
         if intended is None or hashlib.sha256(source).hexdigest() != intended["sha256"]:
             raise RuntimeError("Submitted bytes differ from intended submission")
         completed = self.rows("grade_completed")
         if completed:
+            started = self.rows("grade_started")
+            if (
+                len(started) != 1
+                or started[0]["submission_sha256"] != hashlib.sha256(source).hexdigest()
+            ):
+                raise RuntimeError("Cached grading submission identity mismatch")
             grade = completed[-1]["grade"]
         else:
             if self.rows("grade_started"):
@@ -427,8 +573,24 @@ def run_episode(
     scheduler: RateScheduler,
     clock: Callable[[], float] = time.time,
     sleep: Callable[[float], None] = time.sleep,
+    completion_policy: CompletionPolicy = "explicit_submit",
 ) -> dict[str, Any]:
-    session = _Session(identity, config, client, runtime, ledger, budget, scheduler, clock, sleep)
+    prompt_version(completion_policy)
+    if completion_policy != "explicit_submit" and config.tool_choice != "auto":
+        raise ValueError("saved-test completion requires automatic tool selection")
+    session = _Session(
+        identity,
+        config,
+        client,
+        runtime,
+        ledger,
+        budget,
+        scheduler,
+        clock,
+        sleep,
+        completion_policy,
+    )
+    session.bind_completion_policy()
     finished = session.rows("episode_finished")
     if finished:
         return cast(dict[str, Any], finished[-1]["result"])
