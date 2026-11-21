@@ -231,7 +231,9 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
     original_report = json.loads((case_dir / "validation.json").read_bytes())
     original_official = json.loads((case_dir / "official-unittest/summary.json").read_bytes())
     image_module._BASE_IMAGE = publication["build"]["base_image"]
-    client = docker.from_env(timeout=10)
+    # Quiet official suites can emit nothing until completion. The transport
+    # timeout must exceed their independent 60-second command wall budget.
+    client = docker.from_env(timeout=70)
     try:
         client.ping()
         image = image_module.build_worker_image(client)
