@@ -29,6 +29,7 @@ def test_patch_identifies_only_changed_production_lines() -> None:
         "/outside.py",
         ".git/hooks/run.py",
         "tests/test_toy.py",
+        "test.py",
         "conftest.py",
         "setup.py",
         "pyproject.toml",
@@ -38,6 +39,11 @@ def test_patch_identifies_only_changed_production_lines() -> None:
 def test_patch_rejects_nonproduction_or_escaping_paths(path: str) -> None:
     with pytest.raises(BuildError):
         parse_production_patch(PATCH.replace("toy.py", path))
+
+
+@pytest.mark.parametrize("path", ["pkg/test.py", "foo_test.py"])
+def test_root_test_py_exclusion_does_not_reclassify_other_source_paths(path: str) -> None:
+    assert parse_production_patch(PATCH.replace("toy.py", path)).paths == (path,)
 
 
 @pytest.mark.parametrize(

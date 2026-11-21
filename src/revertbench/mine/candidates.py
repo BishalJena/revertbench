@@ -46,14 +46,14 @@ def production_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
         if path.endswith(".py")
         and not _EXCLUDED_SOURCE.intersection(PurePosixPath(path).parts)
         and PurePosixPath(path).name not in {"setup.py", "conftest.py", "noxfile.py"}
-        and not PurePosixPath(path).name.startswith("test_")
+        and not _test_path(path)
     )
 
 
 def _test_path(path: str) -> bool:
     selected = PurePosixPath(path)
     return selected.suffix == ".py" and (
-        "tests" in selected.parts or selected.name.startswith("test_")
+        path == "test.py" or "tests" in selected.parts or selected.name.startswith("test_")
     )
 
 

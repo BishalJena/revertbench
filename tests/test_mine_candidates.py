@@ -1,7 +1,9 @@
 import subprocess
 from pathlib import Path
 
-from revertbench.mine.candidates import discover_candidates, discover_report
+import pytest
+
+from revertbench.mine.candidates import discover_candidates, discover_report, production_paths
 from revertbench.mine.git import GitRepository
 
 
@@ -111,3 +113,48 @@ def test_unittest_candidate_retains_original_node_and_explicit_derivation(tmp_pa
     assert "self = _revertbench_test_case()" in selected.reference_source
     assert selected.reference_header == "# Copyright upstream example"
     assert selected.license_text == "Example upstream license\n"
+
+
+@pytest.mark.parametrize("unittest_method", [False, True])
+def test_root_test_py_reference_is_discovered_without_entering_production_patch(
+    tmp_path: Path, unittest_method: bool
+) -> None:
+    repository, _ = _repository(tmp_path)
+    (repository.path / "pkg.py").write_text(
+        "def normalize(value):\n    return value.strip().lower()\n"
+    )
+    reference = (
+        "from unittest import TestCase\nimport pkg\n"
+        "class NormalizeTests(TestCase):\n"
+        "    def test_whitespace(self):\n"
+        "        self.assertEqual(pkg.normalize(' X '), 'x')\n"
+        if unittest_method
+        else "import pkg\ndef test_whitespace():\n    assert pkg.normalize(' X ') == 'x'\n"
+    )
+    (repository.path / "test.py").write_text(reference)
+    fix = _commit(repository.path, "Fix whitespace regression with root test.py")
+
+    selected = [
+        candidate
+        for candidate in discover_candidates(repository, limit=5)
+        if candidate.fix_commit == fix
+    ]
+
+    assert len(selected) == 1
+    candidate = selected[0]
+    assert candidate.modified_source_paths == ("pkg.py",)
+    assert "test.py" not in candidate.production_patch
+    node = "NormalizeTests::test_whitespace" if unittest_method else "test_whitespace"
+    assert candidate.reference_node_id == f"test.py::{node}"
+    observation = (
+        "self.assertEqual(pkg.normalize(' X '), 'x')"
+        if unittest_method
+        else "assert pkg.normalize(' X ') == 'x'"
+    )
+    assert observation in candidate.reference_source
+
+
+def test_root_test_py_classification_preserves_other_production_filenames() -> None:
+    assert production_paths(
+        ("test.py", "pkg/test.py", "foo_test.py", "test_api.py", "tests/foo.py", "pkg.py")
+    ) == ("pkg/test.py", "foo_test.py", "pkg.py")
