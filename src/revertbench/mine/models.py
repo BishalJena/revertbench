@@ -56,6 +56,8 @@ class MiningCandidate:
     license_text: str | None = None
     reference_header: str | None = None
     reference_derivation: str = "standalone_function_dependency_closure"
+    repair_derivation: str = "historical_diff"
+    repair_target: str | None = None
 
     def __post_init__(self) -> None:
         nullable = {
@@ -66,6 +68,7 @@ class MiningCandidate:
             "license_path",
             "license_text",
             "reference_header",
+            "repair_target",
         }
         for field in fields(self):
             value = getattr(self, field.name)
@@ -129,6 +132,20 @@ class MiningCandidate:
             raise ValueError("A verified regression boundary needs both base and bad commits")
         if self.license_path is not None:
             relative_path(self.license_path)
+        if self.repair_derivation == "historical_diff":
+            if self.repair_target is not None:
+                raise ValueError("native historical repairs cannot declare a derived target")
+        elif self.repair_derivation == "historical_function_body_v1":
+            if (
+                self.repair_target is None
+                or not self.repair_target.isidentifier()
+                or len(self.modified_source_paths) != 1
+            ):
+                raise ValueError(
+                    "function-body repairs require one source path and one function name"
+                )
+        else:
+            raise ValueError("unknown repair derivation")
 
 
 def candidate_to_json(candidate: MiningCandidate) -> str:

@@ -154,6 +154,35 @@ A later fix commit may have no known fix-side PR.
 
 ## Review and decisions
 
+Native candidates default to `repair_derivation: historical_diff`: their production
+patch must remain the exact historical diff. Explicit
+`repair_derivation: historical_function_body_v1` with `repair_target` naming one
+top-level function supports historical formatting drift. Exactly one production
+path must be declared. Its complete bad executable body must equal the historical
+fix-parent body AST, excluding only the function's initial docstring. The full
+signature and decorators must match. The historical fix cannot change executable
+source outside that target or introduce dependencies; referenced module bindings
+must already match the bad tree. The builder derives the changed statement span
+from the historical before/after bodies, generates its patch against the bad tree
+and requires exact candidate-patch equality. It then verifies the complete
+repaired body equals the historical fixed algorithm and that all bad-tree bytes
+outside the selected span remain unchanged.
+Version 1 further restricts targets to undecorated, nonannotated functions without
+type parameters and with only inert, call-free literal defaults. Statements that
+share a line with the function header or other unselected code are rejected;
+changed spans must begin after indentation only. These conservative restrictions
+avoid definition-time dependency drift or rewriting bytes outside the body span.
+
+Derived packets additionally retain `historical-production.diff`, the original
+historical production diff. Optional case-level `repair_derivation` records its
+digest, the target, derivation version, signature and before/after body digests,
+and derived patch digest. The machine report binds the canonical proof digest;
+review and reproduction verify this binding and the extra artifact. Publications
+permit exactly this one additional file for derived cases. No test input,
+assertion, dependency installation or arbitrary repair override is introduced.
+Native cases omit the proof from their review input digest, preserving existing
+accepted payloads and their pinned environments.
+
 Review is read-only by default; `--json` returns a versioned review packet. The
 renderer verifies recorded artifact hashes, bounds reads/previews, rejects links,
 private or escaping paths, and escapes terminal control characters. A truncated

@@ -50,6 +50,9 @@ def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path:
         "official-unittest/repaired.json",
         "official-unittest/summary.json",
     }
+    if case.repair_derivation is not None:
+        assert case.repair_derivation.historical_diff.path == "historical-production.diff"
+        expected.add("historical-production.diff")
     assert set(manifest["files"]) == expected
     actual = {
         path.relative_to(case_path.parent).as_posix()

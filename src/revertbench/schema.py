@@ -218,6 +218,40 @@ class CaseArtifact(EvidenceModel):
     _validate_path = field_validator("path")(_relative_path)
 
 
+class RepairDerivation(EvidenceModel):
+    """Recomputed provenance for an explicit historical function-body repair."""
+
+    version: Literal["historical_function_body_v1"] = "historical_function_body_v1"
+    path: str
+    function: str
+    signature_sha256: ContentDigest
+    before_body_sha256: ContentDigest
+    after_body_sha256: ContentDigest
+    derived_patch_sha256: ContentDigest
+    historical_diff: CaseArtifact
+
+    _validate_path = field_validator("path")(_relative_path)
+
+    @field_validator("function")
+    @classmethod
+    def validate_function(cls, value: str) -> str:
+        if not value.isidentifier():
+            raise ValueError("repair target must be one top-level function name")
+        return value
+
+    @model_validator(mode="after")
+    def check_historical_artifact(self) -> Self:
+        if self.historical_diff.path != "historical-production.diff":
+            raise ValueError("derived repairs require the fixed historical production artifact")
+        return self
+
+    def content_digest(self) -> str:
+        encoded = json.dumps(
+            self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        ).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
 class GlobalSuiteEvidence(EvidenceModel):
     """An independently observed CI result applied to a compatible case image.
 
@@ -250,6 +284,7 @@ class Case(EvidenceModel):
     bad_commit: CommitId
     fix_commit: CommitId
     repair: RepairSpec
+    repair_derivation: RepairDerivation | None = None
     changed_lines: dict[str, tuple[int, ...]] = Field(default_factory=dict)
     source_hashes: dict[str, ContentDigest] = Field(default_factory=dict)
     global_suite_evidence: GlobalSuiteEvidence | None = None
@@ -326,6 +361,8 @@ class Case(EvidenceModel):
             "global_suite_evidence",
         }
         payload = self.model_dump(mode="json", include=fields)
+        if self.repair_derivation is not None:
+            payload["repair_derivation"] = self.repair_derivation.model_dump(mode="json")
         payload["validation_report_sha256"] = self.validation.report_sha256
         payload["validation_implementation"] = self.validation.model_dump(
             mode="json",
@@ -342,6 +379,11 @@ class Case(EvidenceModel):
 
     @model_validator(mode="after")
     def check_acceptance(self) -> Self:
+        if (
+            self.repair_derivation is not None
+            and self.repair_derivation.derived_patch_sha256 != self.repair.patch_sha256
+        ):
+            raise ValueError("repair derivation must bind the scored repair patch")
         if self.human_review is not None and self.agent_review is not None:
             raise ValueError("a case can have only one active human or agent review")
         if self.validation.status != "accepted":

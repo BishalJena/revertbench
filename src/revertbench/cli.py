@@ -204,6 +204,16 @@ def _process_candidate(
             "historical_fix.diff",
             repository.diff(built.fix_parent, built.fix_commit).encode("utf-8"),
         )
+        if built.repair_derivation is not None:
+            if built.historical_production_diff is None:
+                raise ValueError("derived repair lacks historical production diff")
+            original_production = _save_artifact(
+                root,
+                built.repair_derivation.historical_diff.path,
+                built.historical_production_diff.encode("utf-8"),
+            )
+            if original_production != built.repair_derivation.historical_diff:
+                raise ValueError("historical production artifact identity differs")
         original = _save_artifact(
             root, "candidate.json", candidate_to_json(candidate).encode("utf-8")
         )
@@ -224,6 +234,7 @@ def _process_candidate(
                 patch_sha256=repair.sha256,
                 repaired_tree_sha256=built.source_hashes["repaired"],
             ),
+            repair_derivation=built.repair_derivation,
             changed_lines=built.changed_lines,
             source_hashes=built.source_hashes,
             changed_files=tuple(sorted(built.changed_lines)),
@@ -264,6 +275,8 @@ def _process_candidate(
             old_reference = previous_case.reference_test
             if old_reference is None or old_reference.source_sha256 != reference.sha256:
                 raise ValueError("original reference identity does not match reconstruction")
+            if previous_case.repair_derivation != case.repair_derivation:
+                raise ValueError("original repair derivation does not match reconstruction")
             data = case.model_dump(mode="python")
             for field in (
                 "bad_pr",

@@ -48,6 +48,41 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
     base = manifest.get("build", {}).get("base_image", "")
     if re.fullmatch(r"python@sha256:[0-9a-f]{64}", base) is None:
         raise ReproductionError("reproduction requires an immutable official Python base")
+    case = json.loads((case_dir / "case.json").read_bytes())
+    if case.get("repair_derivation") is not None:
+        proof = case["repair_derivation"]
+        expected = {
+            "case.json",
+            "candidate.json",
+            "reference.py",
+            "repair.patch",
+            "bad.diff",
+            "historical_fix.diff",
+            "validation.json",
+            "upstream-license.txt",
+            "upstream-reference-header.txt",
+            "official-unittest/base.json",
+            "official-unittest/bad.json",
+            "official-unittest/repaired.json",
+            "official-unittest/summary.json",
+            "historical-production.diff",
+        }
+        historical = proof.get("historical_diff") if isinstance(proof, dict) else None
+        actual = {
+            path.relative_to(case_dir).as_posix()
+            for path in case_dir.rglob("*")
+            if path.is_file() or path.is_symlink()
+        }
+        if (
+            not isinstance(proof, dict)
+            or proof.get("version") != "historical_function_body_v1"
+            or not isinstance(historical, dict)
+            or historical.get("path") != "historical-production.diff"
+            or set(files) != expected
+            or actual != expected | {"publication-manifest.json"}
+            or historical.get("sha256") != files["historical-production.diff"]["sha256"]
+        ):
+            raise ReproductionError("derived repair publication has an invalid artifact allowlist")
     return manifest
 
 
@@ -295,6 +330,10 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
         image = image_module.build_worker_image(client)
         with TemporaryDirectory(prefix="trees-", dir=cache) as temporary:
             built = materialize_candidate(repository, candidate, Path(temporary) / "case")
+            case_proof = getattr(case, "repair_derivation", None)
+            built_proof = getattr(built, "repair_derivation", None)
+            expected_proof = None if case_proof is None else case_proof.content_digest()
+            fresh_proof = None if built_proof is None else built_proof.content_digest()
             if (
                 built.case_id != case.id
                 or built.source_hashes != case.source_hashes
@@ -302,6 +341,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 or built.patch_sha256 != case.repair.patch_sha256
                 or hashlib.sha256(built.reference_source.encode()).hexdigest()
                 != case.reference_test.source_sha256
+                or fresh_proof != expected_proof
             ):
                 raise ReproductionError("reconstructed immutable case inputs differ")
             kwargs: dict[str, Any] = {"image": image, "client": client}
@@ -321,6 +361,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 or fresh.patch_sha256 != case.repair.patch_sha256
                 or fresh.reference_sha256 != case.reference_test.source_sha256
                 or getattr(fresh, "baseline_pids_limit", 64) != baseline_pids
+                or getattr(fresh, "repair_derivation_sha256", None) != expected_proof
             ):
                 raise ReproductionError(
                     "fresh validation did not reproduce approved identities and behavior"
@@ -354,6 +395,7 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
                 "source_hashes": fresh.source_hashes,
                 "baseline_profile": profile,
                 "baseline_pids_limit": baseline_pids,
+                "repair_derivation_sha256": expected_proof,
                 "reference_score": fresh.reference.score,
                 "official_command": case.env.test_cmd,
                 "official_suites": official,
