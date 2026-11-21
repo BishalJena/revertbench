@@ -1,0 +1,24 @@
+{
+  "execution_status": "completed",
+  "exit_code": 0,
+  "source_sha256": "c0fb9162869906127baa8ad7560f97693caf319d41e2c40ab408b27aaf818136",
+  "observed_container_limits": {
+    "PidsLimit": 256,
+    "Memory": 268435456,
+    "MemorySwap": 268435456,
+    "NanoCpus": 1000000000,
+    "ShmSize": 8388608,
+    "NetworkMode": "none",
+    "ReadonlyRootfs": true
+  },
+  "stdout": "",
+  "stderr": "----------------------------------------------------------------------\nRan 863 tests in 13.777s\n\nOK\n",
+  "tests_run": 863,
+  "status": "passed",
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "expected_failures": 0,
+  "unexpected_successes": 0,
+  "passed": 863
+}
