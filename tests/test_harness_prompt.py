@@ -91,3 +91,20 @@ def test_policy_feedback_contract_is_versioned_and_preserves_saved_test_semantic
     assert "ineligible" in system and "before pytest" in system
     assert "does not predict" in system
     assert "submit" in system
+
+
+def test_saved_test_completion_prompt_is_explicit_and_default_is_unchanged() -> None:
+    from revertbench.harness.prompt import prompt_version
+
+    task = TaskPrompt("episode-001", "Title", "diff")
+    default = build_messages(task)
+    assert prompt_version("explicit_submit") == PROMPT_VERSION
+    assert build_messages(task, completion_policy="explicit_submit") == default
+    variant = build_messages(task, completion_policy="saved_test_on_stop_v1")
+    assert prompt_version("saved_test_on_stop_v1") == "saved-test-on-stop-v1"
+    assert "Only submit ends" in default[0]["content"]
+    assert "normal stop" in variant[0]["content"]
+    assert "last successfully saved" in variant[0]["content"]
+    assert "Only submit ends" not in variant[0]["content"]
+    assert variant[1] == default[1]
+    assert "budget" in variant[0]["content"] and "no test is extracted" in variant[0]["content"]

@@ -3,11 +3,20 @@
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 PROMPT_VERSION = "bad-only-policy-feedback-v2"
 PR_BODY_POLICY = "omitted_all_cases_v1"
 MAX_MODEL_CALLS = 15
+CompletionPolicy = Literal["explicit_submit", "saved_test_on_stop_v1"]
+
+
+def prompt_version(completion_policy: CompletionPolicy = "explicit_submit") -> str:
+    if completion_policy == "explicit_submit":
+        return PROMPT_VERSION
+    if completion_policy == "saved_test_on_stop_v1":
+        return "saved-test-on-stop-v1"
+    raise ValueError("unknown completion policy")
 
 
 @dataclass(frozen=True)
@@ -70,8 +79,25 @@ answer is not a saved submission. You never receive the repair or reference test
 """
 
 
-def build_messages(task: TaskPrompt) -> list[dict[str, Any]]:
+_SAVED_TEST_SYSTEM = _SYSTEM.replace(
+    "run_tests to check it on the bad tree, then submit.",
+    "run_tests to check it on the bad tree, then finish with a normal stop or submit.",
+).replace(
+    "or incidental changes. Only submit ends the episode successfully; a plain final\n"
+    "answer is not a saved submission.",
+    "or incidental changes. A normal stop with no tool call finalizes your "
+    "last successfully saved\n"
+    "test, or you can call submit explicitly. Saving alone does not end the episode.\n"
+    "If no file was successfully saved, no test is extracted from your answer. Truncation,\n"
+    "errors, or exhausted call budget do not finalize a saved test.",
+)
+
+
+def build_messages(
+    task: TaskPrompt, *, completion_policy: CompletionPolicy = "explicit_submit"
+) -> list[dict[str, Any]]:
     """Construct context by whitelist; mutable PR bodies are uniformly omitted."""
+    prompt_version(completion_policy)
     payload = {
         "episode": task.episode_id,
         "bad_pr_title": task.bad_pr_title,
@@ -79,7 +105,10 @@ def build_messages(task: TaskPrompt) -> list[dict[str, Any]]:
         "pr_body_policy": PR_BODY_POLICY,
     }
     return [
-        {"role": "system", "content": _SYSTEM},
+        {
+            "role": "system",
+            "content": _SYSTEM if completion_policy == "explicit_submit" else _SAVED_TEST_SYSTEM,
+        },
         {"role": "user", "content": json.dumps(payload, ensure_ascii=True, sort_keys=True)},
     ]
 
