@@ -64,7 +64,7 @@ def test_accepts_supported_behavioral_tests(bad_tree: Path, source: str) -> None
 
     assert result.allowed, result
     assert result.reason is None
-    assert POLICY_VERSION == "2"
+    assert POLICY_VERSION == "3"
 
 
 @pytest.mark.parametrize(
@@ -834,3 +834,150 @@ def test_project_source_accepts_only_recognized_utf8_cookies(bad_tree: Path, enc
         "    assert normalize('x') == 'x'\n",
         bad_tree,
     ).allowed
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "assert [list(c) for c in normalize('x')] == []",
+        "assert [value for value in [1, 2]].count(1) == 1",
+        "assert [normalize for normalize in normalize('x')] == ['x']",
+        "actual = [normalize for normalize in []]\n    assert normalize('x') == 'x'",
+        "actual = [list for list in []]\n    assert list([1]) == [1]",
+        "actual = [toy for toy in []]\n    assert toy.normalize('x') == 'x'",
+    ],
+)
+def test_one_list_comprehension_has_its_own_unknown_target_scope(bad_tree: Path, body: str) -> None:
+    source = f"import toy\nfrom toy import normalize\ndef test_behavior():\n    {body}\n"
+    result = check_submission(source, bad_tree)
+    assert result.allowed, result
+
+
+def test_ichunked_original_full_method_observations_are_admitted(bad_tree: Path) -> None:
+    (bad_tree / "toy" / "chunks.py").write_text("def ichunked(iterable, size):\n    return []\n")
+    source = (
+        "from unittest import TestCase\nfrom toy.chunks import ichunked\n"
+        "def test_zero_nonempty():\n"
+        "    self = TestCase()\n"
+        "    iterable = [1, 2, 3]\n"
+        "    actual = [list(c) for c in ichunked(iterable, 0)]\n"
+        "    self.assertEqual(actual, [])\n"
+        "    source = iter([1, 2, 3])\n"
+        "    self.assertEqual([list(c) for c in ichunked(source, 0)], [])\n"
+        "    self.assertEqual(list(source), [1, 2, 3])\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert result.allowed, result
+
+
+@pytest.mark.parametrize(
+    "expression,reason",
+    [
+        ("[added_in_fix() for value in []]", "unresolved_symbol"),
+        ("[value for value in toy.added_in_fix()]", "unresolved_symbol"),
+        ("[value() for value in []]", "unsupported_call"),
+        ("[list([]) for list in []]", "unsupported_call"),
+        ("[toy.normalize('x') for toy in []]", "unresolved_symbol"),
+        ("[value.lower() for value in normalize('x')]", "unresolved_symbol"),
+        ("[value.__class__ for value in []]", "introspection"),
+        ("[value for __version__ in []]", "introspection"),
+    ],
+)
+def test_empty_comprehensions_still_check_every_expression_and_binding(
+    bad_tree: Path, expression: str, reason: str
+) -> None:
+    source = (
+        "import toy\nfrom toy import normalize\ndef test_cheat():\n"
+        f"    normalize('x')\n    assert {expression} == []\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert not result.allowed and result.reason == reason, result
+
+
+def test_comprehension_target_does_not_leak_to_later_statements(bad_tree: Path) -> None:
+    result = check_submission(
+        "def test_cheat():\n    actual = [value for value in []]\n    assert value == 1\n",
+        bad_tree,
+    )
+    assert not result.allowed and result.reason == "unresolved_symbol", result
+
+
+@pytest.mark.parametrize(
+    "access",
+    [
+        "[row['version'] for row in output()]",
+        "[row for row in output()]['version']",
+        "[output() for row in []]['version']",
+        "[list(row) for row in output()]['ver' + 'sion']",
+        "dict([row for row in output()]).get('version')",
+    ],
+)
+def test_comprehensions_retain_project_origin_for_elements_and_materialized_lists(
+    bad_tree: Path, access: str
+) -> None:
+    (bad_tree / "toy" / "data.py").write_text("def output() -> list:\n    return []\n")
+    result = check_submission(
+        "from toy import normalize\nfrom toy.data import output\ndef test_cheat():\n"
+        f"    normalize('x')\n    assert {access} == 'new'\n",
+        bad_tree,
+    )
+    assert not result.allowed and result.reason == "introspection", result
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "[x for x in [1] if x]",
+        "[x for x in [] for y in []]",
+        "[x for x, y in []]",
+        "[x for [x] in []]",
+        "[x async for x in []]",
+        "[[y for y in []] for x in []]",
+        "[x for x in [y for y in []]]",
+        "[len([y for y in []]) for x in []]",
+        "[(value := x) for x in []]",
+        "(x for x in [])",
+        "{x for x in []}",
+        "{x: x for x in []}",
+        "[lambda: x for x in []]",
+    ],
+)
+def test_list_comprehension_profile_keeps_other_forms_unsupported(
+    bad_tree: Path, expression: str
+) -> None:
+    result = check_submission(f"def test_cheat():\n    assert {expression} == []\n", bad_tree)
+    assert not result.allowed and result.reason == "unsupported_syntax", result
+
+
+@pytest.mark.parametrize(
+    "source,reason",
+    [
+        (
+            "VALUES = [x for x in []]\ndef test_behavior():\n    assert VALUES == []\n",
+            "top_level_effect",
+        ),
+        (
+            "import pytest\n@pytest.mark.parametrize('value', [x for x in []])\n"
+            "def test_behavior(value):\n    assert value\n",
+            "unsupported_decorator",
+        ),
+    ],
+)
+def test_comprehensions_do_not_expand_literal_only_collection_contexts(
+    bad_tree: Path, source: str, reason: str
+) -> None:
+    result = check_submission(source, bad_tree)
+    assert not result.allowed and result.reason == reason, result
+
+
+def test_project_export_lists_stay_call_free_literals_not_comprehensions(bad_tree: Path) -> None:
+    _export_package(
+        bad_tree,
+        "from .api import *\n",
+        {"api": "__all__ = [name for name in ['normalize']]\ndef normalize(x):\n    return x\n"},
+    )
+    result = check_submission(
+        "from exports import normalize\ndef test_behavior():\n    assert normalize('x') == 'x'\n",
+        bad_tree,
+    )
+    assert not result.allowed and result.reason == "unresolved_symbol", result

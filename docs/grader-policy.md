@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 2
+# Behavioral-test submission policy, version 3
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,7 +6,7 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 2 intentionally supports a restricted Python test format. A rejected
+Version 3 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
@@ -29,8 +29,25 @@ Inside functions, supported operations are assertions, literals, name assignment
 arithmetic/comparison/boolean expressions, indexing/slicing, returns, `if`, `for`,
 `while`, and calls whose targets can be resolved statically. Assignment may bind
 local names or unpack names; it cannot overwrite attributes or indexed objects.
-Comprehensions, lambdas, starred argument expansion, dictionary/keyword unpacking,
+Lambdas, starred argument expansion, dictionary/keyword unpacking,
 `try`, `raise`, custom context managers and imports inside functions are excluded.
+
+Version 3 additionally admits list comprehensions inside functions of the form
+`[element for name in iterable]`. It requires exactly one synchronous generator,
+a simple name target, no filters and no nested comprehension. The iterable is
+checked in the outer scope first; the target shadows existing names only inside
+the comprehension and does not leak afterward. Its unknown value gains neither
+callability nor arbitrary member access. Every element expression is checked even
+when the iterable is empty. Existing calls, fix-only symbol resolution, private
+member and direct metadata-key restrictions apply throughout. Known project
+origin from the iterable or element is retained on the materialized list.
+Generator, set and dictionary comprehensions, async clauses, multiple generators,
+unpacking targets and assignment expressions remain excluded. Module constants,
+parametrization and project export lists remain call-free literals. Extraction
+preserves the complete original comprehension AST and its true outer dependencies;
+it never rewrites the test to fit this profile. Previously accepted cases retain
+their pinned policy version and engine.
+
 A test must contain an assertion, an approved exception context or a known
 project API call; a bare `pass` is not a submission.
 
@@ -54,7 +71,7 @@ constructor can be resolved from source. Return annotations on project functions
 can identify builtin value types or directly named project classes. A method or
 attribute that cannot be resolved is rejected. Inherited members, runtime
 attribute creation, string annotations and namespace packages are not resolved
-by version 2.
+by version 3.
 
 ## Imports and calls
 
@@ -153,7 +170,7 @@ invoke host-registered codec search hooks. Only then does the checker confirm th
 canonical UTF-8 name, without decoding source through a caller-selected codec.
 It then parses the exact UTF-8 bytes supplied to the worker, so an encoding such
 as `unicode_escape` cannot transform an apparent comment into executable imports
-at collection time. BOM-prefixed source is explicitly outside version 2.
+at collection time. BOM-prefixed source is explicitly outside version 3.
 Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover
@@ -196,7 +213,7 @@ The complete grader must independently require the same actual tests on both
 trees, meaningful bad-tree failures, passes on the controlled repair, changed
 line coverage from each failing test's call phase, and stable repeated outcomes.
 Coverage demonstrates execution, not causation: an unrelated assertion in the
-same test can still execute changed lines. Human review of reference tests and
+same test can still execute changed lines. Explicit review of reference tests and
 controlled repair construction establish case relevance; grading generated
 tests remains evidence under the stated limitations rather than a semantic
 proof.

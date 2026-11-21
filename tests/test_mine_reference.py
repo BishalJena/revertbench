@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from revertbench.mine.reference import ReferenceError, changed_test_functions, extract_reference
@@ -404,3 +406,120 @@ def test_unittest_loader_requires_exact_unrebound_doctest_import(binding: str) -
     )
     with pytest.raises(ReferenceError, match="module_context"):
         extract_reference(source, "ProductTests::test_api")
+
+
+@pytest.mark.parametrize(
+    "prefix,body,required",
+    [
+        (
+            "from pkg import c\n",
+            "actual = [c for c in [1]]\n    assert c() == 2",
+            "from pkg import c",
+        ),
+        ("c = [1]\n", "assert [c for c in c] == [1]", "c = [1]"),
+        (
+            "from pkg import run as list\n",
+            "actual = [list for list in [1]]\n    assert list() == 2",
+            "from pkg import run as list",
+        ),
+        (
+            "def c():\n    return 2\n",
+            "actual = [c for c in []]\n    assert c() == 2",
+            "def c():",
+        ),
+    ],
+)
+def test_comprehension_local_binding_does_not_drop_outer_dependencies(
+    prefix: str, body: str, required: str
+) -> None:
+    extracted = extract_reference(prefix + f"def test_behavior():\n    {body}\n", "test_behavior")
+    assert required in extracted
+
+
+def test_comprehension_target_is_not_a_spurious_module_dependency() -> None:
+    source = (
+        "UNUSED = object()\ndef test_behavior():\n    assert [UNUSED for UNUSED in [1]] == [1]\n"
+    )
+    assert "UNUSED = object()" not in extract_reference(source, "test_behavior")
+
+
+def test_missing_outer_name_is_not_hidden_by_a_comprehension_target() -> None:
+    source = "def test_behavior():\n    values = [c for c in []]\n    assert c()\n"
+    with pytest.raises(ReferenceError, match="unresolved_module_dependency:c"):
+        extract_reference(source, "test_behavior")
+
+
+def test_qualified_method_list_comprehensions_preserve_all_original_observations() -> None:
+    import ast
+
+    source = (
+        "from unittest import TestCase\nimport pkg as mi\n"
+        "class IchunkedTests(TestCase):\n"
+        "    def test_zero_nonempty(self):\n"
+        "        iterable = [1, 2, 3]\n"
+        "        actual = [list(c) for c in mi.ichunked(iterable, 0)]\n"
+        "        self.assertEqual(actual, [])\n"
+        "        source = iter([1, 2, 3])\n"
+        "        self.assertEqual([list(c) for c in mi.ichunked(source, 0)], [])\n"
+        "        self.assertEqual(list(source), [1, 2, 3])\n"
+    )
+    extracted = extract_reference(source, "IchunkedTests::test_zero_nonempty")
+    original_class = ast.parse(source).body[-1]
+    assert isinstance(original_class, ast.ClassDef)
+    original = original_class.body[0]
+    lifted = ast.parse(extracted).body[-1]
+    assert isinstance(original, ast.FunctionDef) and isinstance(lifted, ast.FunctionDef)
+    assert ast.dump(ast.Module(body=original.body, type_ignores=[])) == ast.dump(
+        ast.Module(body=lifted.body[1:], type_ignores=[])
+    )
+    assert sum(isinstance(node, ast.Assert) for node in ast.walk(lifted)) == 0
+    assert (
+        sum(
+            isinstance(node, ast.Attribute) and node.attr == "assertEqual"
+            for node in ast.walk(lifted)
+        )
+        == 3
+    )
+    assert "import pkg as mi" in extracted
+
+
+def test_comprehension_shadow_cannot_hide_a_qualified_method_helper_dependency() -> None:
+    source = (
+        "from unittest import TestCase\ndef c():\n    return 1\n"
+        "class TestAPI(TestCase):\n    def test_behavior(self):\n"
+        "        values = [c for c in []]\n        self.assertEqual(c(), 1)\n"
+    )
+    with pytest.raises(ReferenceError, match="helper_dependency"):
+        extract_reference(source, "TestAPI::test_behavior")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "[x for x in [] if x]",
+        "[x for x in [] for y in []]",
+        "[x for x, y in []]",
+        "[x async for x in []]",
+        "[[y for y in []] for x in []]",
+        "[x for x in [y for y in []]]",
+        "[(y := x) for x in []]",
+        "(x for x in [])",
+        "{x for x in []}",
+        "{x: x for x in []}",
+        "[lambda: x for x in []]",
+    ],
+)
+def test_reference_does_not_admit_other_comprehension_forms(
+    tmp_path: Path, expression: str
+) -> None:
+    with pytest.raises(ReferenceError):
+        extract_reference(
+            f"def test_behavior():\n    assert {expression} == []\n",
+            "test_behavior",
+            bad_tree=tmp_path,
+        )
+
+
+def test_imported_first_iterable_is_loaded_before_its_same_named_target() -> None:
+    source = "from pkg import c\ndef test_behavior():\n    assert [c for c in c()] == [1]\n"
+    assert "from pkg import c" in extract_reference(source, "test_behavior")

@@ -425,17 +425,51 @@ def _parameters(function: ast.FunctionDef, *, test: bool) -> None:
 
 
 def _loads(function: ast.FunctionDef) -> set[str]:
+    """Collect outer dependencies without leaking a comprehension's local target."""
     local = {argument.arg for argument in (*function.args.posonlyargs, *function.args.args)}
-    local.update(
-        node.id
-        for node in ast.walk(function)
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
-    )
-    return {
-        node.id
-        for node in ast.walk(function)
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
-    } - local
+
+    class Bindings(ast.NodeVisitor):
+        def visit_Name(self, node: ast.Name) -> None:
+            if isinstance(node.ctx, ast.Store):
+                local.add(node.id)
+
+        def visit_ListComp(self, node: ast.ListComp) -> None:
+            # Its target belongs to Python's implicit comprehension scope.
+            pass
+
+    Bindings().visit(function)
+    loaded: set[str] = set()
+
+    class Loads(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.bound = local
+
+        def visit_Name(self, node: ast.Name) -> None:
+            if isinstance(node.ctx, ast.Load) and node.id not in self.bound:
+                loaded.add(node.id)
+
+        def visit_ListComp(self, node: ast.ListComp) -> None:
+            if (
+                len(node.generators) != 1
+                or node.generators[0].is_async
+                or node.generators[0].ifs
+                or not isinstance(node.generators[0].target, ast.Name)
+                or any(
+                    isinstance(child, ast.ListComp) and child is not node
+                    for child in ast.walk(node)
+                )
+            ):
+                raise ReferenceError("unsupported_reference_comprehension")
+            generator = node.generators[0]
+            self.visit(generator.iter)
+            assert isinstance(generator.target, ast.Name)
+            outer = self.bound
+            self.bound = outer | {generator.target.id}
+            self.visit(node.elt)
+            self.bound = outer
+
+    Loads().visit(function)
+    return loaded
 
 
 def _segment(source: str, node: ast.stmt) -> str:

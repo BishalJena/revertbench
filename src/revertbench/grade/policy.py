@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "2"
+POLICY_VERSION = "3"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -866,6 +866,8 @@ class _Submission:
             return self._member(self._expression(node.value, env), node.attr)
         if isinstance(node, ast.Call):
             return self._call(node, env)
+        if isinstance(node, ast.ListComp):
+            return self._list_comprehension(node, env)
         if isinstance(node, ast.Constant):
             return _value_symbol(node)
         if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
@@ -897,6 +899,28 @@ class _Submission:
                     self._expression(child, env)
             return _UNKNOWN
         _reject("unsupported_syntax", f"Unsupported expression: {type(node).__name__}")
+
+    def _list_comprehension(self, node: ast.ListComp, env: dict[str, _Symbol]) -> _Symbol:
+        if (
+            len(node.generators) != 1
+            or node.generators[0].is_async
+            or node.generators[0].ifs
+            or not isinstance(node.generators[0].target, ast.Name)
+            or any(
+                isinstance(child, ast.ListComp) and child is not node for child in ast.walk(node)
+            )
+        ):
+            _reject(
+                "unsupported_syntax",
+                "List comprehensions require one synchronous simple target "
+                "and no filters or nesting",
+            )
+        generator = node.generators[0]
+        iterable = self._expression(generator.iter, env)
+        inner = env.copy()
+        self._bind(generator.target, _with_origin(_UNKNOWN, iterable.module), inner)
+        element = self._expression(node.elt, inner)
+        return _Symbol("value", module=iterable.module or element.module, type_name="list")
 
     def _member(self, symbol: _Symbol, name: str) -> _Symbol:
         _check_member(name)
