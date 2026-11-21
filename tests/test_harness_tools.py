@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -122,3 +124,145 @@ def test_large_submission_rehydration_stays_under_exec_argument_limit(
     assert len(content.encode()) < 65536
     worker._write_submission(content.encode())
     assert (project / "tests/test_revertbench_submission.py").read_text() == content
+
+
+@pytest.fixture
+def feedback_worker(project: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    worker = _BRIDGE.EpisodeWorker(project, project, project, project, "opaque")
+
+    class BadOnly:
+        bad_tree = project
+
+        def __getattr__(self, name: str) -> Any:
+            raise AssertionError(f"Policy feedback accessed hidden input {name}")
+
+    class NoPreview:
+        def exec(self, *_args: Any, **_kwargs: Any) -> None:
+            raise AssertionError("Inadmissible submission reached pytest")
+
+    worker.built = BadOnly()
+    worker.box = NoPreview()
+    worker.metadata = {"case_id": "HIDDEN_CASE_FIX", "reference": "HIDDEN_REFERENCE"}
+    monkeypatch.setattr(worker, "_new_box", lambda: None)
+    return worker
+
+
+def test_saved_write_is_successful_even_when_bad_only_policy_rejects(
+    feedback_worker: Any,
+    project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+
+    observed = []
+
+    def checker(source: str, bad_tree: Path) -> PolicyResult:
+        observed.append((source, bad_tree))
+        return PolicyResult(
+            False, "unsupported_import", ("Import is outside the supported subset",)
+        )
+
+    monkeypatch.setattr("revertbench.grade.policy.check_submission", checker)
+    source = "import os\ndef test_behavior():\n    assert True\n"
+    reply = feedback_worker.tool("write_test", {"content": source})
+    assert reply["ok"] is True
+    assert reply["policy"] == {
+        "allowed": False,
+        "reason": "unsupported_import",
+        "details": ["Import is outside the supported subset"],
+    }
+    assert feedback_worker.submission == source.encode()
+    assert (project / "submission.py").read_text() == source
+    assert observed == [(source, project)]
+    preview = feedback_worker.tool("run_tests", {"node_ids": []})
+    assert preview["status"] == "policy_rejected"
+    assert preview["executed"] is False
+    assert preview["policy"] == reply["policy"]
+    assert feedback_worker.submission == source.encode()
+    assert observed == [(source, project), (source, project)]
+
+
+def test_admitted_bad_only_preview_keeps_policy_feedback_and_real_output(
+    feedback_worker: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+
+    monkeypatch.setattr(
+        "revertbench.grade.policy.check_submission", lambda *_args: PolicyResult(True, None)
+    )
+    feedback_worker.submission = b"def test_behavior():\n    assert False\n"
+    feedback_worker.box = SimpleNamespace(
+        exec=lambda *_args, **_kwargs: SimpleNamespace(
+            status="completed", exit_code=1, stdout_text="AssertionError", stderr_text=""
+        )
+    )
+    reply = feedback_worker.tool("run_tests", {"node_ids": []})
+    assert reply["executed"] is True
+    assert reply["exit_code"] == 1 and reply["stdout"] == "AssertionError"
+    assert reply["policy"] == {"allowed": True, "reason": None, "details": []}
+
+
+@pytest.mark.parametrize("failure", ["project_unavailable", "io_error"])
+def test_policy_analysis_infrastructure_fault_is_not_a_model_rejection(
+    feedback_worker: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+
+    def checker(*_args: Any) -> PolicyResult:
+        if failure == "io_error":
+            raise OSError("/Users/private/HIDDEN_REFERENCE")
+        return PolicyResult(False, "project_unavailable", ("Cannot read bad source",))
+
+    monkeypatch.setattr("revertbench.grade.policy.check_submission", checker)
+    source = "def test_behavior():\n    assert True\n"
+    with pytest.raises(RuntimeError, match="policy_analysis_unavailable"):
+        feedback_worker.tool("write_test", {"content": source})
+    assert feedback_worker.submission == source.encode()
+    with pytest.raises(RuntimeError, match="policy_analysis_unavailable"):
+        feedback_worker.tool("run_tests", {"node_ids": []})
+
+
+def test_policy_feedback_hides_paths_and_preserves_saved_success_with_utf8_cap(
+    feedback_worker: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+
+    details = ("Unsupported call /Users/private folder/HIDDEN_CASE_FIX/HIDDEN_REFERENCE.py",) + (
+        '雪\\"\x01' * 5000,
+    ) * 12
+    monkeypatch.setattr(
+        "revertbench.grade.policy.check_submission",
+        lambda *_args: PolicyResult(False, "unsupported_call", details),
+    )
+    reply = feedback_worker.tool(
+        "write_test", {"content": "def test_behavior():\n    assert True\n"}
+    )
+    raw = json.dumps(reply, ensure_ascii=False).encode()
+    assert len(raw) <= 8192
+    assert reply["ok"] is True and reply["policy"]["allowed"] is False
+    assert reply["policy"]["reason"] == "unsupported_call"
+    assert all(
+        secret not in raw for secret in (b"HIDDEN_CASE_FIX", b"HIDDEN_REFERENCE", b"/Users/")
+    )
+    assert reply["policy"]["truncated"] is True
+
+
+def test_policy_control_character_expansion_cannot_turn_saved_ok_into_false(
+    feedback_worker: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+
+    monkeypatch.setattr(
+        "revertbench.grade.policy.check_submission",
+        lambda *_args: PolicyResult(False, "unsupported_call", ("\x01" * 9000,) * 8),
+    )
+    reply = feedback_worker.tool(
+        "write_test", {"content": "def test_behavior():\n    assert True\n"}
+    )
+    assert reply["ok"] is True and reply["policy"]["allowed"] is False
+    assert len(json.dumps(reply, ensure_ascii=False).encode()) <= 8192

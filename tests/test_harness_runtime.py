@@ -228,3 +228,17 @@ print(json.dumps({**request,'result':{'closed':False}}),flush=True)
     with pytest.raises(ValueError, match="original"), runtime:
         raise ValueError("original")
     assert runtime._process is not None and runtime._process.poll() is not None
+
+
+def test_policy_analysis_worker_fault_is_a_runtime_failure_not_feedback(tmp_path: Path) -> None:
+    worker = """import json,os,sys,time
+request=json.loads(sys.stdin.readline())
+os.close(1)
+os.close(2)
+time.sleep(3)
+"""
+    runtime = _protocol_worker(tmp_path, worker)
+    with pytest.raises(RuntimeFailure, match="worker_lost"):
+        runtime.tool("run_tests", {"node_ids": []})
+    assert runtime._process is not None and runtime._process.poll() is not None
+    runtime.close()

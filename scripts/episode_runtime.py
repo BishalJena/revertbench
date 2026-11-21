@@ -448,6 +448,40 @@ class EpisodeWorker:
         temporary.replace(target)
         self._new_box()
 
+    def _policy_feedback(self) -> dict[str, Any]:
+        """Use only the imported pinned policy and pristine bad source, never an oracle."""
+        from revertbench.grade.policy import check_submission
+
+        if self.submission is None:
+            raise RuntimeError("no_submission")
+        try:
+            decision = check_submission(self.submission.decode("utf-8"), self.built.bad_tree)
+        except OSError as error:
+            raise RuntimeError("policy_analysis_unavailable") from error
+        if decision.reason == "project_unavailable":
+            raise RuntimeError("policy_analysis_unavailable")
+        reason = decision.reason
+        if reason is not None and re.fullmatch(r"[a-z][a-z0-9_]{0,127}", reason) is None:
+            reason = "policy_rejected"
+        details: list[str] = []
+        truncated = len(decision.details) > 4
+        for detail in decision.details[:4]:
+            # Keep useful admission explanations, without absolute host paths or controls.
+            text = "".join(character if character.isprintable() else " " for character in detail)
+            text = " ".join(text.split())
+            text = re.sub(r"(?<![\w.])(?:/[^\s]|[A-Za-z]:\\).*", "<path>", text)
+            raw = text.encode("utf-8", errors="replace")
+            truncated |= len(raw) > 512
+            details.append(raw[:512].decode("utf-8", errors="ignore"))
+        feedback: dict[str, Any] = {
+            "allowed": decision.allowed,
+            "reason": reason,
+            "details": details,
+        }
+        if truncated:
+            feedback["truncated"] = True
+        return feedback
+
     def tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         if self.built is None:
             raise RuntimeError("not_prepared")
@@ -469,6 +503,9 @@ class EpisodeWorker:
                 return {"ok": False, "error": "invalid_node_ids"}
             if self.submission is None:
                 return {"ok": False, "error": "no_submission"}
+            policy = self._policy_feedback()
+            if not policy["allowed"]:
+                return {"status": "policy_rejected", "executed": False, "policy": policy}
             try:
                 result = self.box.exec(
                     ["/usr/local/bin/python", "-I", "-c", _PREVIEW, json.dumps(nodes)],
@@ -481,6 +518,8 @@ class EpisodeWorker:
                     "stdout": result.stdout_text,
                     "stderr": result.stderr_text,
                     "truncated": result.status == "output_limit",
+                    "executed": True,
+                    "policy": policy,
                 }
             finally:
                 self._new_box()
@@ -494,7 +533,13 @@ class EpisodeWorker:
                 self.restore_submission(arguments["content"].encode("utf-8"))
             except (UnicodeError, ValueError):
                 return {"ok": False, "error": "invalid_content"}
-            return {"ok": True, "bytes": len(self.submission or b"")}
+            return model_reply(
+                {
+                    "ok": True,
+                    "bytes": len(self.submission or b""),
+                    "policy": self._policy_feedback(),
+                }
+            )
         return model_reply(self._files(name, arguments))
 
     def grade(self) -> dict[str, Any]:
