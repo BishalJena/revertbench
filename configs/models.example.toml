@@ -13,6 +13,9 @@ provider = "groq"
 model_id = "openai/gpt-oss-120b"
 model_context_tokens = 131072
 max_completion_tokens = 2048
+# Prospective profile: verify required-tools compatibility before any live cohort.
+# Omit this field (or use "auto") to retain the original selection behavior.
+tool_choice = "required"
 temperature = 0.6
 reasoning_effort = "low"
 timeout_seconds = 60

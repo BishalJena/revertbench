@@ -195,7 +195,7 @@ def prepare_request(
         "model": config.model_id,
         "messages": list(messages),
         "tools": list(tools),
-        "tool_choice": "auto" if tools else "none",
+        "tool_choice": config.tool_choice if tools else "none",
         "parallel_tool_calls": False,
         "stream": False,
         "n": 1,

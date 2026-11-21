@@ -80,6 +80,7 @@ class ModelConfig(SafeConfig):
     model_id: Annotated[str, Field(min_length=1, max_length=256)]
     model_context_tokens: PositiveInt
     max_completion_tokens: PositiveInt = 2048
+    tool_choice: Literal["auto", "required"] = "auto"
     temperature: Annotated[float, Field(ge=0, le=2, allow_inf_nan=False)] = 0.6
     reasoning_effort: Literal["low", "medium", "high"] = "low"
     timeout_seconds: Annotated[float, Field(gt=0, le=120, allow_inf_nan=False)] = 60
