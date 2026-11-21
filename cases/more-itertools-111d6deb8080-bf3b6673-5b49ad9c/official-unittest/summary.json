@@ -1,0 +1,64 @@
+{
+  "profile": "official_unittest_discovery",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "unittest",
+    "-q"
+  ],
+  "cwd": "/workspace/repo",
+  "image": "sha256:abaee8aa061ac732d8f5479beafa715b40792e5e8c5ec5903f9890e605ab8ba6",
+  "case_id": "more-itertools-111d6deb8080-bf3b6673-5b49ad9c",
+  "validation_report_sha256": "288c1e135b8835e047d328bd593c40100ca08977e69ade0a80158820a33c498c",
+  "base_commit": "0d97c55616fb9563be69fdeeda13bf4038834b7c",
+  "bad_commit": "111d6deb8080040f8ec28db32eeb44b61238d860",
+  "fix_commit": "bf3b6673e4d28e19333464f5a662bef3bd564263",
+  "roles": {
+    "base": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "8a4a05149cfff63ae56ec1ae887564f2d094d7e3fea5555d0e0952d890100055",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:378: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 445 tests in 0.475s\n\nOK\n",
+      "tests_run": 445,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 445
+    },
+    "bad": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "1ecb530c5a3aec9eda7e830118e0dcca71ae9d91ca61a534e88460b78aeaba95",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:378: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 445 tests in 0.471s\n\nOK\n",
+      "tests_run": 445,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 445
+    },
+    "repaired": {
+      "execution_status": "completed",
+      "exit_code": 0,
+      "source_sha256": "7fefb054661d71d1763b10ef058b36e84578f02fc4e5bd053bbbe94d365fb8db",
+      "stdout": "",
+      "stderr": "/workspace/repo/more_itertools/more.py:378: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 445 tests in 0.472s\n\nOK\n",
+      "tests_run": 445,
+      "status": "passed",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "passed": 445
+    }
+  },
+  "status": "passed"
+}

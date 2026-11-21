@@ -21,6 +21,16 @@ the official unittest supplement, including doctests, passed 850 per tree. Bisha
 Jena explicitly reviewed and approved this first case; its original human review
 and published evidence remain unchanged.
 
+The second case is
+[more-itertools partition None-predicate regression](more-itertools-111d6deb8080-bf3b6673-5b49ad9c/case.json):
+merged PR310 stopped treating `None` as a truth-value predicate; PR368 restored
+the `bool` fallback. Both assertions in the original test remain unchanged:
+`partition(None, range(3))` produces `[0]` and `[1, 2]`. The reference passes on
+base, raises `TypeError` on bad, and passes on the controlled repair across three
+repeats. All 445 upstream unittest tests pass on each tree. This case records
+an authorized agent review, with no human attestation, and pins its own grader
+and environment independently of the first case.
+
 Inspect the packet without executing its historical code on the host:
 
 ```bash
