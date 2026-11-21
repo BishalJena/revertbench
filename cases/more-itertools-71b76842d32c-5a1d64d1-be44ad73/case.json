@@ -1,0 +1,158 @@
+{
+  "schema_version": "2",
+  "id": "more-itertools-71b76842d32c-5a1d64d1-be44ad73",
+  "repo": "more-itertools/more-itertools",
+  "base_commit": "3331507287761a35d7aa8d583f76d022dd9da958",
+  "bad_commit": "71b76842d32c0b25cfc992fad21f83a606606667",
+  "fix_commit": "5a1d64d1915df11481dcd31ffaf7165419064116",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "28b2ba72b9e9e05ec2459392c95f9d3fdf5d645ee0ceca2236cfb597a20646c7",
+    "repaired_tree_sha256": "8d77a6e62dd8b65c646a1e78a894864d63ee65cda6af562715e597431947b057"
+  },
+  "changed_lines": {
+    "more_itertools/more.py": [
+      4329,
+      4330,
+      4331,
+      4332,
+      4334,
+      4335,
+      4336
+    ]
+  },
+  "source_hashes": {
+    "base": "219a06b27429842fb96580c71c6d0a883f648be143a649c6e5ef1e8c23854bf8",
+    "bad": "a7f3ab46713d2ce75c0a294dee0622262fbe424aea1a0d9a6d29aa614fb6c118",
+    "historical_fix": "f9b13f605408b81a1b1c5efac82051eed1fa8b7e5b07e395c9e744af54566352",
+    "repaired": "8d77a6e62dd8b65c646a1e78a894864d63ee65cda6af562715e597431947b057"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44860730265",
+    "implementation_commit": "7b5c9ffe450c74c786c5d763db9a71808b9dd8f1",
+    "applies_to_image": "sha256:60feabcbd85fb1fa7c12597b0c7882621434600577d0b61dde8cadd40ef5572c",
+    "grader_sha256": "0e1a9efcc683ae6cf59b79ab1df37bdb88f6798facb91fa98cdb64762772c2ad",
+    "policy_sha256": "c3811acc75bfc8db043daa151a8239a9a1252d640bd240a24d031ec7714e4323",
+    "observed_at": "2026-11-21T04:02:07.809724Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "more-itertools/more-itertools:71b76842d32c0b25cfc992fad21f83a606606667",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1079,
+    "title": "Remove unnecessary fillvalue trick from product_index()",
+    "body": "Spinoff from Issue 900.  Remove another unnecessary use of zip_longest with fillvalue.  \r\n\r\nThis hoists the size check out of the loop, and it tests for a size match in a more straightforward and reliable manner.",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1079",
+    "published_at": "2025-10-09T17:55:54Z",
+    "merged_at": "2025-10-09T19:38:29Z",
+    "observed_at": "2026-11-21T03:17:14.474229Z",
+    "updated_at": "2026-04-02T12:17:35Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "71b76842d32c0b25cfc992fad21f83a606606667"
+  },
+  "fix_pr": {
+    "number": 1082,
+    "title": "Fix product_index() with iterator input",
+    "body": "* Fix typo in previous edit that precluded use of iterator inputs.\r\n* Add test that would have caught the error.",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1082",
+    "published_at": "2025-10-10T13:15:16Z",
+    "merged_at": "2025-10-10T15:36:08Z",
+    "observed_at": "2026-11-21T03:17:14.474229Z",
+    "updated_at": "2026-04-02T12:13:31Z",
+    "body_snapshot": "current_observed",
+    "association_verified": true,
+    "associated_commit": "5a1d64d1915df11481dcd31ffaf7165419064116"
+  },
+  "reference_test": {
+    "path": "tests/test_more.py",
+    "node_ids": [
+      "tests/test_more.py::ProductIndexTests::test_iterator_input"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "60756939d3de9bde02ac23d36d2b8e1a1717e3b268d32168ab082e45a1f462d1"
+  },
+  "changed_files": [
+    "more_itertools/more.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2025-10-10T10:36:08-05:00",
+  "publication_evidence": [
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1082",
+      "published_at": "2025-10-10T13:15:16Z",
+      "observed_at": "2026-11-21T03:17:14.474229Z"
+    },
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1079",
+      "published_at": "2025-10-09T17:55:54Z",
+      "observed_at": "2026-11-21T03:17:14.474229Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:60feabcbd85fb1fa7c12597b0c7882621434600577d0b61dde8cadd40ef5572c",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "ce342dbf65105b3ef0b027deca04a0da397be7be5b032f3cea9fca7ecb7375b8",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "unittest",
+      "-q"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "5b3cb078551f5552d0473886ea7c5dec05edb0ef12a2be98a6861e1192752cc4",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "2",
+    "grader_sha256": "0e1a9efcc683ae6cf59b79ab1df37bdb88f6798facb91fa98cdb64762772c2ad",
+    "policy_sha256": "c3811acc75bfc8db043daa151a8239a9a1252d640bd240a24d031ec7714e4323",
+    "validator_version": "1"
+  },
+  "human_review": {
+    "review_version": "1",
+    "decision": "accept",
+    "reviewer": "Bishal Jena",
+    "notes": "Owner explicitly reviewed the product-index reference and minimal repair and answered: Reviewed and approve. Confirmed base-pass/bad-TypeError/repair-pass evidence across three repeats, per-node changed-line coverage, verified merged PR provenance, policy v2 and passing CI. Official unittest supplement: 850 passing tests on each tree; summary SHA256 6fe435074a55e71448586675466bd92b3827a8047c3a16ae79791cf3c11a8171.",
+    "reviewed_at": "2026-11-21T04:04:40.432562Z",
+    "attested": true,
+    "validation_report_sha256": "5b3cb078551f5552d0473886ea7c5dec05edb0ef12a2be98a6861e1192752cc4",
+    "case_inputs_sha256": "e7e6b240eaaa9f271840dc488e49e2f39acad6b569f1f69570df3c0a923ce8fb"
+  },
+  "review_history": [
+    {
+      "review_version": "1",
+      "decision": "accept",
+      "reviewer": "Bishal Jena",
+      "notes": "Owner explicitly reviewed the product-index reference and minimal repair and answered: Reviewed and approve. Confirmed base-pass/bad-TypeError/repair-pass evidence across three repeats, per-node changed-line coverage, verified merged PR provenance, policy v2 and passing CI. Official unittest supplement: 850 passing tests on each tree; summary SHA256 6fe435074a55e71448586675466bd92b3827a8047c3a16ae79791cf3c11a8171.",
+      "reviewed_at": "2026-11-21T04:04:40.432562Z",
+      "attested": true,
+      "validation_report_sha256": "5b3cb078551f5552d0473886ea7c5dec05edb0ef12a2be98a6861e1192752cc4",
+      "case_inputs_sha256": "e7e6b240eaaa9f271840dc488e49e2f39acad6b569f1f69570df3c0a923ce8fb"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "17d8eecf588d26528f37ee0ad6086f05ec851708d75d75661573a7ba70d0fc39"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "b396f52b63ac7e931e10bef7526dacf04d848362a2de7c0f4ac95b56648b2a19"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "cd072ac79c5c6cdeccff0b8383ddc938b7c3bade1b46d2f50163070b1e3970c5"
+  },
+  "notes": "Reference derivation: unittest_method_dependency_closure; original qualified method body AST unchanged, with exact standard-library TestCase self injection. Policy 2 normal machine validation passed. The configured pytest existing-suite subset passed 690 tests on each base/bad/repaired tree. The official maintainer command /usr/local/bin/python -m unittest -q additionally passed 850 tests including doctests on each identical tree/image; supplement official-unittest/summary.json sha256:6fe435074a55e71448586675466bd92b3827a8047c3a16ae79791cf3c11a8171 binds validation report sha256:5b3cb078551f5552d0473886ea7c5dec05edb0ef12a2be98a6861e1192752cc4. PR metadata is current observed text; creation, merge and update timestamps are distinct. Matching global implementation CI evidence is verified and bound; human review remains pending."
+}

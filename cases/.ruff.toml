@@ -1,0 +1,4 @@
+# Published historical test bytes are content-addressed review evidence.
+# Formatting or import sorting would invalidate the accepted reference digest.
+exclude = ["*.py"]
+force-exclude = true

@@ -1,0 +1,15 @@
+{
+  "execution_status": "completed",
+  "exit_code": 0,
+  "source_sha256": "8d77a6e62dd8b65c646a1e78a894864d63ee65cda6af562715e597431947b057",
+  "stdout": "",
+  "stderr": "----------------------------------------------------------------------\nRan 850 tests in 7.749s\n\nOK\n",
+  "tests_run": 850,
+  "status": "passed",
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "expected_failures": 0,
+  "unexpected_successes": 0,
+  "passed": 850
+}

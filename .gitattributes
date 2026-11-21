@@ -1,0 +1,6 @@
+cases/**/validation.json linguist-generated=true
+cases/**/official-unittest/*.json linguist-generated=true
+# Unified-diff context lines intentionally contain a leading space, including
+# empty source lines. Preserve the reviewed artifact bytes exactly.
+cases/**/*.diff -whitespace
+cases/**/*.patch -whitespace
