@@ -127,6 +127,16 @@ execute project startup code.
 ## Input and resolution bounds
 
 Submissions are limited to 65,536 UTF-8 bytes, 3,000 AST nodes and AST depth 64.
+The supported source format is UTF-8 without a BOM. An encoding cookie in either
+of Python's first two recognized source lines may be omitted or name UTF-8
+(case-insensitive `utf-8`, `utf8`, or `utf_8`); other spellings and encodings are
+rejected before AST parsing. A raw-byte allowlist checks recognized first/second
+line cookies before `tokenize` or codec-registry lookup, so unknown names cannot
+invoke host-registered codec search hooks. Only then does the checker confirm the
+canonical UTF-8 name, without decoding source through a caller-selected codec.
+It then parses the exact UTF-8 bytes supplied to the worker, so an encoding such
+as `unicode_escape` cannot transform an apparent comment into executable imports
+at collection time. BOM-prefixed source is explicitly outside version 1.
 Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover

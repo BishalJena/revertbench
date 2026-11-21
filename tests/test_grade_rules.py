@@ -4,6 +4,7 @@ from collections.abc import Collection, Mapping
 from pathlib import Path
 
 import pytest
+from docker import DockerClient
 
 from revertbench.grade import rules
 from revertbench.grade.coverage_check import changed_line_hits, normalize_changed_lines
@@ -466,3 +467,186 @@ def test_policy_project_access_failure_is_not_a_model_failure(
     assert result.status == "invalid_run"
     assert result.score is None
     assert calls == []
+
+
+def test_selected_execution_backend_is_used_for_every_scored_repeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad, repaired = _trees(tmp_path)
+    calls: list[tuple[Path, int, float, int]] = []
+
+    def host_forbidden(
+        tree: Path,
+        submission: str,
+        *,
+        seed: int,
+        timeout_seconds: float = 10,
+        output_limit_bytes: int = 65536,
+    ) -> ExecutionResult:
+        raise AssertionError("selected backend must never fall back to host execution")
+
+    def selected(
+        tree: Path,
+        submission: str,
+        *,
+        seed: int,
+        timeout_seconds: float = 10,
+        output_limit_bytes: int = 65536,
+    ) -> ExecutionResult:
+        assert submission == SUBMISSION
+        calls.append((tree, seed, timeout_seconds, output_limit_bytes))
+        return _execution(_test(failed=tree == bad), seed=seed)
+
+    monkeypatch.setattr(rules, "run_tree", host_forbidden)
+    result = rules.grade_submission(
+        bad,
+        repaired,
+        SUBMISSION,
+        {"project.py": {2}},
+        timeout_seconds=21,
+        output_limit_bytes=4096,
+        execution_backend=selected,
+    )
+    assert result.status == "passed"
+    assert set(calls) == {(tree, seed, 21, 4096) for tree in (bad, repaired) for seed in SEEDS}
+    assert len(calls) == 6
+
+
+def test_static_rejection_does_not_invoke_selected_backend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad, repaired = _trees(tmp_path)
+
+    def forbidden(
+        tree: Path,
+        submission: str,
+        *,
+        seed: int,
+        timeout_seconds: float = 10,
+        output_limit_bytes: int = 65536,
+    ) -> ExecutionResult:
+        raise AssertionError("static rejection must precede every execution backend")
+
+    monkeypatch.setattr(rules, "run_tree", forbidden)
+    source = "import os\ndef test_bad():\n    assert os.environ\n"
+    result = rules.grade_submission(
+        bad,
+        repaired,
+        source,
+        {"project.py": {2}},
+        execution_backend=forbidden,
+    )
+    assert result.reason == "policy_rejected"
+    assert result.score == 0
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize(
+    "mode", ["always_pass", "always_fail", "missing_dependency", "flaky", "skip", "exception_alias"]
+)
+def test_docker_backend_enforces_the_same_differential_conditions(
+    tmp_path: Path, docker_client: DockerClient, worker_image: str, mode: str
+) -> None:
+    from revertbench.sandbox.worker import DockerRunner
+
+    bad, repaired = _trees(tmp_path)
+    source = SUBMISSION
+    changed = {"project.py": {2}}
+    if mode == "always_pass":
+        source = (
+            "from project import normalize\ndef test_regression():\n"
+            "    assert normalize('x') == 'x'\n"
+        )
+    elif mode == "always_fail":
+        source = (
+            "from project import normalize\ndef test_regression():\n"
+            "    normalize('x')\n    assert False\n"
+        )
+    elif mode == "missing_dependency":
+        (bad / "project.py").write_text(
+            "def normalize(value):\n    from nonexistent_case_dependency import unused\n"
+            "    return unused\n"
+        )
+    elif mode == "flaky":
+        (bad / "project.py").write_text(
+            "def normalize(value):\n    import random\n"
+            "    return value if random.random() < 0.5 else value.strip().lower()\n"
+        )
+        changed = {"project.py": {3}}
+    elif mode == "skip":
+        (bad / "project.py").write_text(
+            "def normalize(value):\n    import pytest\n"
+            "    pytest.skip('not a regression failure')\n"
+        )
+    elif mode == "exception_alias":
+        (bad / "project.py").write_text(
+            "class ValueError(Exception):\n    pass\n\n"
+            "def normalize(value):\n    raise ValueError('not the builtin exception')\n"
+        )
+        changed = {"project.py": {5}}
+    backend = DockerRunner(worker_image, client=docker_client)
+
+    result = rules.grade_submission(bad, repaired, source, changed, execution_backend=backend)
+
+    assert result.status == "rejected", result.model_dump()
+    assert result.score == 0
+    assert len(result.executions) == 6
+
+
+@pytest.mark.docker
+def test_docker_backend_cannot_borrow_coverage_from_a_different_test(
+    tmp_path: Path, docker_client: DockerClient, worker_image: str
+) -> None:
+    from revertbench.sandbox.worker import DockerRunner
+
+    bad, repaired = _trees(tmp_path)
+    with (bad / "project.py").open("a") as stream:
+        stream.write("\ndef unrelated():\n    return 'old'\n")
+    with (repaired / "project.py").open("a") as stream:
+        stream.write("\ndef unrelated():\n    return 'new'\n")
+    source = (
+        "from project import normalize, unrelated\n"
+        "def test_regression():\n    assert normalize(' X ') == 'x'\n"
+        "def test_borrow():\n    assert unrelated() == 'new'\n"
+    )
+    result = rules.grade_submission(
+        bad,
+        repaired,
+        source,
+        {"project.py": {2}},
+        execution_backend=DockerRunner(worker_image, client=docker_client),
+    )
+    assert result.status == "rejected", result.model_dump()
+    assert result.reason == "coverage_missing"
+
+
+@pytest.mark.docker
+def test_docker_backend_still_rejects_static_cheats_without_execution(
+    tmp_path: Path, docker_client: DockerClient, worker_image: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from revertbench.sandbox.worker import DockerRunner
+
+    bad, repaired = _trees(tmp_path)
+    backend = DockerRunner(worker_image, client=docker_client)
+
+    def forbidden(
+        tree: Path,
+        submission: str,
+        *,
+        seed: int,
+        timeout_seconds: float = 10,
+        output_limit_bytes: int = 65536,
+    ) -> ExecutionResult:
+        raise AssertionError("a policy rejection must not execute in any environment")
+
+    monkeypatch.setattr(rules, "run_tree", forbidden)
+    source = (
+        "import project\ndef test_cheat():\n    project.normalize('x')\n"
+        "    assert hasattr(project, 'repair_only')\n"
+    )
+    result = rules.grade_submission(
+        bad, repaired, source, {"project.py": {2}}, execution_backend=backend
+    )
+    assert result.reason == "policy_rejected"
+    assert result.score == 0
+    assert result.executions == ()

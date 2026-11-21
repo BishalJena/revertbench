@@ -6,6 +6,10 @@ Admission is not sandboxing or a proof that an assertion detects the intended bu
 from __future__ import annotations
 
 import ast
+import codecs
+import io
+import re
+import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Never
@@ -16,6 +20,9 @@ MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
 _MAX_MODULE_BYTES = 1_048_576
 _MAX_MODULES = 64
+_SOURCE_COOKIE = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)")
+_SOURCE_BLANK = re.compile(rb"^[ \t\f]*(?:[#\r\n]|$)")
+_UTF8_COOKIE_NAMES = frozenset({b"utf-8", b"utf8"})
 
 
 @dataclass(frozen=True)
@@ -866,15 +873,42 @@ class _Submission:
         )
 
 
+def _raw_utf8_cookie(data: bytes) -> None:
+    readline = io.BytesIO(data).readline
+    first = readline()
+    cookie = _SOURCE_COOKIE.match(first)
+    if cookie is None and _SOURCE_BLANK.match(first):
+        cookie = _SOURCE_COOKIE.match(readline())
+    if cookie is not None:
+        name = cookie.group(1).lower().replace(b"_", b"-")
+        if name not in _UTF8_COOKIE_NAMES:
+            _reject("unsupported_encoding", "Source cookie must use an approved UTF-8 name")
+
+
+def _utf8_source_encoding(data: bytes) -> None:
+    if data.startswith(codecs.BOM_UTF8):
+        _reject("unsupported_encoding", "UTF-8 BOM is outside the supported source format")
+    _raw_utf8_cookie(data)
+    try:
+        encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+        canonical = codecs.lookup(encoding).name
+    except (SyntaxError, LookupError, UnicodeError):
+        _reject("unsupported_encoding", "Source encoding declaration must identify UTF-8")
+    if canonical != "utf-8":
+        _reject("unsupported_encoding", "Only UTF-8 source encoding is supported")
+
+
 def _bounded_parse(source: str) -> ast.Module:
     try:
-        length = len(source.encode("utf-8"))
+        data = source.encode("utf-8")
+        length = len(data)
     except UnicodeError:
         _reject("invalid_source", "Source must be valid UTF-8 text")
     if length > MAX_SOURCE_BYTES:
         _reject("source_too_large", f"Submission exceeds {MAX_SOURCE_BYTES} UTF-8 bytes")
+    _utf8_source_encoding(data)
     try:
-        tree = ast.parse(source, filename="test_submission.py")
+        tree = ast.parse(data, filename="test_submission.py")
     except (SyntaxError, ValueError, RecursionError):
         _reject("invalid_source", "Submission cannot be parsed as supported Python")
     pending: list[tuple[ast.AST, int]] = [(tree, 0)]
