@@ -13,6 +13,8 @@ from pydantic import Field, model_validator
 
 from revertbench import __version__
 from revertbench.build import BuildError, BuiltCandidate, canonical_tree_digest
+from revertbench.build.derivation import function_identity
+from revertbench.build.patch import production_path
 from revertbench.grade.backend import ExecutionBackend
 from revertbench.grade.policy import POLICY_VERSION, check_submission
 from revertbench.grade.rules import grade_submission
@@ -58,6 +60,7 @@ class MachineValidationReport(EvidenceModel):
     source_hashes: dict[str, str]
     patch_sha256: str
     reference_sha256: str
+    repair_derivation_sha256: ContentDigest | None = None
     baseline_reports: dict[str, BaselineResult] = Field(default_factory=dict)
     reference: GradeResult | None = None
     probes: dict[str, ProbeResult] = Field(default_factory=dict)
@@ -194,6 +197,9 @@ def validate_built_candidate(
             source_hashes=built.source_hashes,
             patch_sha256=built.patch_sha256,
             reference_sha256=hashlib.sha256(built.reference_source.encode("utf-8")).hexdigest(),
+            repair_derivation_sha256=None
+            if built.repair_derivation is None
+            else built.repair_derivation.content_digest(),
             baseline_reports=baselines,
             reference=reference,
             probes=probes,
@@ -214,6 +220,29 @@ def validate_built_candidate(
             return report("rejected", "source_identity_changed")
         if hashlib.sha256(built.production_patch.encode("utf-8")).hexdigest() != built.patch_sha256:
             return report("rejected", "patch_identity_changed")
+        proof = built.repair_derivation
+        if proof is not None:
+            production_path(proof.path)
+            before_identity = function_identity(
+                (built.bad_tree / proof.path).read_text(encoding="utf-8"), proof.function
+            )
+            after_identity = function_identity(
+                (built.repaired_tree / proof.path).read_text(encoding="utf-8"), proof.function
+            )
+            if (
+                built.candidate.repair_derivation != "historical_function_body_v1"
+                or built.candidate.repair_target != proof.function
+                or built.candidate.modified_source_paths != (proof.path,)
+                or proof.derived_patch_sha256 != built.patch_sha256
+                or built.historical_production_diff is None
+                or hashlib.sha256(built.historical_production_diff.encode()).hexdigest()
+                != proof.historical_diff.sha256
+                or before_identity != (proof.signature_sha256, proof.before_body_sha256)
+                or after_identity != (proof.signature_sha256, proof.after_body_sha256)
+            ):
+                return report("rejected", "repair_derivation_mismatch")
+        elif built.candidate.repair_derivation != "historical_diff":
+            return report("rejected", "repair_derivation_missing")
         policy = check_submission(built.reference_source, built.bad_tree)
         if not policy.allowed:
             return report("rejected", "reference_policy_rejected")

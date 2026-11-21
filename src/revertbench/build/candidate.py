@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from revertbench.build.derivation import DerivedFunctionRepair, derive_function_body_patch
 from revertbench.build.patch import BuildError, parse_production_patch, production_path
 from revertbench.grade.coverage_check import normalize_changed_lines
 from revertbench.mine.models import MiningCandidate, exact_commit
 from revertbench.mine.reference import ReferenceError, changed_test_functions, extract_reference
 from revertbench.sandbox.archives import ArchiveError, archive_tree
+from revertbench.schema import RepairDerivation
 
 
 class RepositorySnapshotter(Protocol):
@@ -47,6 +49,8 @@ class BuiltCandidate:
     source_hashes: dict[str, str]
     changed_lines: dict[str, tuple[int, ...]]
     candidate: MiningCandidate
+    repair_derivation: RepairDerivation | None = None
+    historical_production_diff: str | None = None
 
 
 def canonical_tree_digest(tree: Path) -> str:
@@ -116,6 +120,7 @@ def materialize_candidate(
     repository: RepositorySnapshotter, candidate: MiningCandidate, destination: Path
 ) -> BuiltCandidate:
     """Build pinned snapshots and a production-only historical repair."""
+    destination = destination.absolute()
     base, bad = _verified_pins(repository, candidate)
     parsed = parse_production_patch(candidate.production_patch, max_changed_lines=200)
     if set(parsed.paths) != set(candidate.modified_source_paths):
@@ -123,8 +128,47 @@ def materialize_candidate(
     historical_patch = repository.diff(
         candidate.fix_parent, candidate.fix_commit, paths=parsed.paths
     )
-    if historical_patch != candidate.production_patch:
-        raise BuildError("repair_is_not_the_historical_production_diff")
+    derived: DerivedFunctionRepair | None = None
+    if candidate.repair_derivation == "historical_diff":
+        if historical_patch != candidate.production_patch:
+            raise BuildError("repair_is_not_the_historical_production_diff")
+    else:
+        if len(parsed.paths) != 1 or candidate.repair_target is None:
+            raise BuildError("ambiguous_historical_repair_derivation")
+        path = parsed.paths[0]
+        for changed_path in repository.changed_paths(candidate.fix_parent, candidate.fix_commit):
+            if Path(changed_path).name in {
+                "pyproject.toml",
+                "setup.py",
+                "setup.cfg",
+                "requirements.txt",
+                "Pipfile",
+                "Pipfile.lock",
+                "poetry.lock",
+                "uv.lock",
+            }:
+                raise BuildError("historical_dependency_change")
+            try:
+                changed_production = production_path(changed_path)
+            except BuildError:
+                continue
+            if changed_production != path:
+                raise BuildError("historical_changes_outside_repair_target")
+        if not all(
+            repository.file_exists(commit, path)
+            for commit in (candidate.fix_parent, candidate.fix_commit, bad)
+        ):
+            raise BuildError("missing_historical_repair_source")
+        derived = derive_function_body_patch(
+            repository.file_text(candidate.fix_parent, path),
+            repository.file_text(candidate.fix_commit, path),
+            repository.file_text(bad, path),
+            path=path,
+            function_name=candidate.repair_target,
+            historical_patch=historical_patch,
+        )
+        if derived.patch != candidate.production_patch:
+            raise BuildError("candidate_patch_is_not_the_derived_historical_repair")
     node_parts = candidate.reference_node_id.split("::")
     if (
         len(node_parts) not in (2, 3)
@@ -168,6 +212,10 @@ def materialize_candidate(
     repository.apply_patch(repaired, candidate.production_patch, check=True)
     repository.apply_patch(repaired, candidate.production_patch)
     archives["repaired"] = _source_archive(repaired)
+    if derived is not None and (
+        repaired / derived.proof.path
+    ).read_bytes() != derived.repaired_source.encode("utf-8"):
+        raise BuildError("unexpected_derived_repair_bytes")
     before, after = _file_hashes(archives["bad"]), _file_hashes(archives["repaired"])
     changed = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
     if changed != set(parsed.paths):
@@ -195,4 +243,6 @@ def materialize_candidate(
         {role: hashlib.sha256(payload).hexdigest() for role, payload in archives.items()},
         changed_lines,
         candidate,
+        None if derived is None else derived.proof,
+        None if derived is None else historical_patch,
     )

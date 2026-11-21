@@ -185,6 +185,15 @@ def build_review_packet(path: Path, *, max_preview_bytes: int = 65536) -> Review
     ):
         if artifact is not None:
             artifacts.append((label, artifact.path, artifact.sha256, "diff"))
+    if case.repair_derivation is not None:
+        original = case.repair_derivation.historical_diff
+        artifacts.append(("Historical production repair", original.path, original.sha256, "diff"))
+        sections.append(
+            ReviewSection(
+                label="Repair derivation",
+                content=_escape(case.repair_derivation.model_dump_json(indent=2)),
+            )
+        )
     reference = case.reference_test
     if (
         reference is not None
@@ -276,6 +285,9 @@ def _machine_passed(case: Case, root: Path) -> None:
     ):
         raise ReviewError("acceptance requires passing machine evidence")
     raw = _verified(root, case.validation.report, case.validation.report_sha256, "report")
+    if case.repair_derivation is not None:
+        original = case.repair_derivation.historical_diff
+        _verified(root, original.path, original.sha256, "diff")
     from revertbench.validate import MachineValidationReport
 
     try:
@@ -296,6 +308,8 @@ def _machine_passed(case: Case, root: Path) -> None:
         report.status != "machine_validated"
         or report.case_id != case.id
         or report.patch_sha256 != case.repair.patch_sha256
+        or report.repair_derivation_sha256
+        != (None if case.repair_derivation is None else case.repair_derivation.content_digest())
         or report.source_hashes != case.source_hashes
         or report.grader_sha256 is None
         or report.policy_sha256 is None
