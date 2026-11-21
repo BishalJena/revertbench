@@ -10,6 +10,7 @@ dependencies = [
     "docker>=7.1.0",
     "pydantic>=2.14.3",
     "pytest>=9.2.0",
+    "six==1.17.0",
     "typer>=0.29.1",
 ]
 

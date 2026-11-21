@@ -20,7 +20,13 @@ from revertbench.grade.validation import validate_reference
 from revertbench.sandbox.agent import AgentSandbox
 from revertbench.sandbox.worker import DockerRunner, SandboxError
 from revertbench.schema import ContentDigest, EvidenceModel, GradeResult
-from revertbench.validate.baseline import BaselineBackend, BaselineResult, DockerBaselineRunner
+from revertbench.validate.baseline import (
+    BaselineBackend,
+    BaselineProfile,
+    BaselineResult,
+    DockerBaselineRunner,
+    baseline_command,
+)
 from revertbench.validate.identity import host_code_identity
 
 
@@ -43,6 +49,8 @@ class MachineValidationReport(EvidenceModel):
     grader_version: str = __version__
     policy_version: str = POLICY_VERSION
     validator_version: Literal["1"] = "1"
+    baseline_profile: BaselineProfile = "pytest"
+    baseline_command: tuple[str, ...] = ()
     probe_scope: Literal["case_specific"] = "case_specific"
     global_suite_evidence: Literal["separate_ci_required"] = "separate_ci_required"
     source_hashes: dict[str, str]
@@ -144,8 +152,10 @@ def validate_built_candidate(
     baseline_backend: BaselineBackend | None = None,
     execution_backend: ExecutionBackend | None = None,
     transfer_backend: TransferBackend | None = None,
+    baseline_profile: BaselineProfile = "pytest",
 ) -> MachineValidationReport:
     """Require existing suites, differential reference, and explicit adversarial probes."""
+    command = baseline_command(baseline_profile)
     baselines: dict[str, BaselineResult] = {}
     probes: dict[str, ProbeResult] = {}
     reference: GradeResult | None = None
@@ -158,6 +168,8 @@ def validate_built_candidate(
             reason=reason,
             case_id=built.case_id,
             image=image,
+            baseline_profile=baseline_profile,
+            baseline_command=command,
             environment_python=next(
                 (value.environment_python for value in baselines.values()), None
             ),
@@ -192,7 +204,9 @@ def validate_built_candidate(
         policy = check_submission(built.reference_source, built.bad_tree)
         if not policy.allowed:
             return report("rejected", "reference_policy_rejected")
-        baseline = baseline_backend or DockerBaselineRunner(image, client=client)
+        baseline = baseline_backend or DockerBaselineRunner(
+            image, client=client, profile=baseline_profile
+        )
         for role in ("base", "bad", "repaired"):
             baselines[role] = baseline(trees[role])
         if any(value.status == "invalid_run" for value in baselines.values()):
@@ -223,6 +237,11 @@ def validate_built_candidate(
             for value in baselines.values()
         ):
             return report("pending_infrastructure", "worker_code_mismatch")
+        if any(
+            value.profile != baseline_profile or value.command != command
+            for value in baselines.values()
+        ):
+            return report("pending_infrastructure", "baseline_profile_mismatch")
         execute = execution_backend or DockerRunner(image, client=client)
         reference = validate_reference(
             built.base_tree,

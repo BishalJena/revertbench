@@ -129,7 +129,7 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
     from revertbench.review import load_case
     from revertbench.schema import Case, GradeResult
     from revertbench.validate import MachineValidationReport, ProbeResult
-    from revertbench.validate.baseline import BaselineResult
+    from revertbench.validate.baseline import BaselineResult, baseline_command
 
     source = "def test_api():\n    assert True\n"
     patch = "trusted synthetic patch\n"
@@ -186,6 +186,8 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
             reason="all_machine_checks_passed",
             case_id="toy",
             image="sha256:" + "b" * 64,
+            baseline_profile=kwargs["baseline_profile"],
+            baseline_command=baseline_command(kwargs["baseline_profile"]),
             environment_python="3.12.15",
             dependency_lock_sha256="c" * 64,
             source_hashes=built.source_hashes,
@@ -208,12 +210,14 @@ def test_pipeline_persists_machine_pending_packet_without_human_approval(
         image="sha256:" + "b" * 64,
         good_commit=None,
         validate=True,
+        baseline_profile="unittest",
     )
     case = load_case(path)
     assert case.validation.status == "pending_human_review"
     assert case.human_review is None and case.eligibility == "pending_metadata"
     assert case.lineage_verified is True
     assert case.env is not None and case.env.python == "3.12.15"
+    assert case.env.test_cmd == baseline_command("unittest")
     assert (path.parent / "upstream-license.txt").read_text() == "Synthetic upstream license"
     assert len(observed) == 1
 
@@ -306,3 +310,45 @@ def test_cli_history_limit_matches_miner_maximum(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(cli, "_mine_candidates", lambda **kwargs: called.append(kwargs))
     result = CliRunner().invoke(app, ["mine", "owner/toy", "--max-commits", "10001"])
     assert result.exit_code != 0 and not called
+
+
+def test_validate_selects_explicit_fixed_baseline_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from revertbench import cli
+
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text("{}")
+    calls: list[dict[str, Any]] = []
+
+    def capture(**kwargs: Any) -> Path:
+        calls.append(kwargs)
+        return tmp_path / "case.json"
+
+    monkeypatch.setattr(cli, "_process_candidate", capture)
+    result = CliRunner().invoke(
+        app,
+        [
+            "validate",
+            str(candidate),
+            "--image",
+            "sha256:" + "a" * 64,
+            "--baseline-profile",
+            "unittest",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0]["baseline_profile"] == "unittest"
+    bad = CliRunner().invoke(
+        app,
+        [
+            "validate",
+            str(candidate),
+            "--image",
+            "sha256:" + "a" * 64,
+            "--baseline-profile",
+            "arbitrary",
+        ],
+    )
+    assert bad.exit_code != 0
+    assert len(calls) == 1

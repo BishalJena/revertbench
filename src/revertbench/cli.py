@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 if TYPE_CHECKING:
     from revertbench.mine.git import GitRepository
@@ -155,6 +155,7 @@ def _process_candidate(
     image: str | None,
     good_commit: str | None,
     validate: bool,
+    baseline_profile: Literal["pytest", "unittest"] = "pytest",
 ) -> Path:
     from dataclasses import replace
     from tempfile import TemporaryDirectory
@@ -285,7 +286,7 @@ def _process_candidate(
                 raise ValueError("validation requires an immutable --image")
             from revertbench.validate import validate_built_candidate
 
-            report = validate_built_candidate(built, image=image)
+            report = validate_built_candidate(built, image=image, baseline_profile=baseline_profile)
             report_artifact = _save_artifact(
                 root, "validation.json", report.model_dump_json(indent=2).encode("utf-8")
             )
@@ -310,6 +311,7 @@ def _process_candidate(
                     image=report.image,
                     python=report.environment_python,
                     dependency_lock_sha256=report.dependency_lock_sha256,
+                    test_cmd=report.baseline_command,
                 )
             case = Case.model_validate(data)
         destination = root / "case.json"
@@ -327,6 +329,7 @@ def _pipeline_command(
     good_commit: str | None,
     *,
     validate: bool,
+    baseline_profile: Literal["pytest", "unittest"] = "pytest",
 ) -> None:
     try:
         destination = _process_candidate(
@@ -338,6 +341,7 @@ def _pipeline_command(
             image=image,
             good_commit=good_commit,
             validate=validate,
+            baseline_profile=baseline_profile,
         )
     except (OSError, ValueError, RuntimeError) as error:
         raise typer.BadParameter(
@@ -372,10 +376,24 @@ def validate(
     output_dir: Annotated[Path, typer.Option()] = Path("artifacts/validated-cases"),
     local_repo: Annotated[Path | None, typer.Option()] = None,
     good_commit: Annotated[str | None, typer.Option()] = None,
+    baseline_profile: Annotated[
+        Literal["pytest", "unittest"],
+        typer.Option(
+            help="Fixed upstream suite profile; unittest includes load_tests and doctests."
+        ),
+    ] = "pytest",
 ) -> None:
     """Prove baseline, reference and adversarial checks in Docker; retain human review."""
     _pipeline_command(
-        candidate, cache_dir, work_dir, output_dir, local_repo, image, good_commit, validate=True
+        candidate,
+        cache_dir,
+        work_dir,
+        output_dir,
+        local_repo,
+        image,
+        good_commit,
+        validate=True,
+        baseline_profile=baseline_profile,
     )
 
 
