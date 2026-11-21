@@ -139,3 +139,83 @@ def test_missing_tool_selector_retains_auto_default() -> None:
 def test_unsupported_tool_selector_is_not_passthrough(choice: object) -> None:
     with pytest.raises(ValueError):
         ModelConfig.model_validate({**config_data(), "tool_choice": choice})
+
+
+def qwen_data() -> dict[str, object]:
+    data = config_data()
+    data.update(
+        alias="qwen-candidate",
+        model_id="qwen/qwen3.8-27b",
+        profile="qwen3_8_parsed",
+        reasoning_effort="low",
+    )
+    data["pricing"] = {
+        "input_usd_per_million": "0.80",
+        "output_usd_per_million": "4.00",
+        "source_url": "https://console.groq.com/docs/model/qwen/qwen3.8-27b",
+        "observed_at": datetime(2026, 11, 21, tzinfo=UTC),
+    }
+    return data
+
+
+def test_explicit_qwen_profile_retains_unknown_hosted_revision_and_cutoff() -> None:
+    selected = ModelConfig.model_validate(qwen_data())
+    assert selected.profile == "qwen3_8_parsed" and selected.model_id == "qwen/qwen3.8-27b"
+    assert selected.model_revision is None and selected.declared_cutoff is None
+    assert selected.cutoff_source_url is None
+    assert selected.model_context_tokens == 131072
+    assert selected.max_completion_tokens == 2048
+    assert selected.pricing.input_usd_per_million == Decimal("0.80")
+    assert selected.pricing.output_usd_per_million == Decimal("4.00")
+
+
+@pytest.mark.parametrize(
+    "model_id", ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+)
+@pytest.mark.parametrize("context", [4096, 131071, 131073])
+def test_native_context_fact_cannot_shrink_financial_reservations(
+    model_id: str, context: int
+) -> None:
+    data = qwen_data() if model_id.startswith("qwen/") else config_data()
+    data.update(model_id=model_id, model_context_tokens=context)
+    with pytest.raises(ValueError):
+        ModelConfig.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"profile": "gpt_oss"},
+        {"profile": "auto"},
+        {"profile": True},
+        {"model_id": "qwen/qwen3.6-27b"},
+        {"model_id": "qwen/qwen3.8-27b:latest"},
+        {"max_completion_tokens": 16385},
+        {"reasoning_effort": "medium"},
+        {"reasoning_effort": "default"},
+    ],
+)
+def test_qwen_rejects_unsupported_or_ambiguous_profile_options(changes: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        ModelConfig.model_validate({**qwen_data(), **changes})
+
+
+def test_qwen_requires_explicit_profile_and_gpt_oss_rejects_qwen_profile() -> None:
+    missing = qwen_data()
+    missing.pop("profile")
+    with pytest.raises(ValueError):
+        ModelConfig.model_validate(missing)
+    with pytest.raises(ValueError):
+        ModelConfig.model_validate({**config_data(), "profile": "qwen3_8_parsed"})
+
+
+@pytest.mark.parametrize("maximum", [512, 16384])
+def test_qwen_native_output_boundary_is_usable(maximum: int) -> None:
+    selected = ModelConfig.model_validate({**qwen_data(), "max_completion_tokens": maximum})
+    assert selected.max_completion_tokens == maximum
+
+
+def test_gpt_oss_keeps_its_default_profile_and_native_output_cap() -> None:
+    selected = ModelConfig.model_validate({**config_data(), "max_completion_tokens": 65536})
+    assert selected.profile == "gpt_oss"
+    assert selected.max_completion_tokens == 65536

@@ -172,6 +172,16 @@ def _usage(value: JsonValue) -> TokenUsage | None:
     return TokenUsage(prompt, completion, total, value)
 
 
+def _wire_messages(config: ModelConfig, messages: list[dict[str, JsonValue]]) -> list[JsonValue]:
+    """Project only Qwen's documented assistant reasoning; keep raw evidence untouched."""
+    return [
+        {key: value for key, value in message.items() if key != "reasoning"}
+        if config.profile == "qwen3_8_parsed" and message.get("role") == "assistant"
+        else dict(message)
+        for message in messages
+    ]
+
+
 def prepare_request(
     config: ModelConfig,
     *,
@@ -193,7 +203,7 @@ def prepare_request(
         raise ProviderError("invalid_seed", delivery_state="not_sent")
     body: dict[str, JsonValue] = {
         "model": config.model_id,
-        "messages": list(messages),
+        "messages": _wire_messages(config, messages),
         "tools": list(tools),
         "tool_choice": config.tool_choice if tools else "none",
         "parallel_tool_calls": False,
@@ -202,9 +212,12 @@ def prepare_request(
         "max_completion_tokens": config.max_completion_tokens,
         "temperature": config.temperature,
         "reasoning_effort": config.reasoning_effort,
-        "include_reasoning": True,
         "service_tier": "on_demand",
     }
+    if config.profile == "qwen3_8_parsed":
+        body["reasoning_format"] = "parsed"
+    else:
+        body["include_reasoning"] = True
     if seed is not None:
         body["seed"] = seed
     try:
@@ -290,7 +303,11 @@ def _parse_response(
 def config_digest(config: ModelConfig) -> str:
     """Bind honest transport identity and model facts without credentials."""
     raw = json.dumps(
-        {"model_config": config.model_dump(mode="json"), "http_user_agent": CLIENT_USER_AGENT},
+        {
+            "model_config": config.model_dump(mode="json"),
+            "http_user_agent": CLIENT_USER_AGENT,
+            "assistant_projection": config.assistant_projection,
+        },
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,

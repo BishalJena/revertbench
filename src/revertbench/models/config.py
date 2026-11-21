@@ -78,6 +78,7 @@ class ModelConfig(SafeConfig):
     alias: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._-]+$")]
     provider: ProviderConfig
     model_id: Annotated[str, Field(min_length=1, max_length=256)]
+    profile: Literal["gpt_oss", "qwen3_8_parsed"] = "gpt_oss"
     model_context_tokens: PositiveInt
     max_completion_tokens: PositiveInt = 2048
     tool_choice: Literal["auto", "required"] = "auto"
@@ -109,19 +110,34 @@ class ModelConfig(SafeConfig):
 
     @model_validator(mode="after")
     def bounds(self) -> Self:
-        if (
-            self.provider.id != "groq"
-            or self.provider.base_url != "https://api.groq.com/openai/v1"
-            or self.model_id not in {"openai/gpt-oss-120b", "openai/gpt-oss-20b"}
-        ):
-            raise ValueError("first client profile supports explicit Groq GPT-OSS models only")
-        if self.max_completion_tokens > min(65536, self.model_context_tokens):
-            raise ValueError("completion exceeds configured model limits")
+        if self.provider.id != "groq" or self.provider.base_url != "https://api.groq.com/openai/v1":
+            raise ValueError("only the documented Groq profiles are supported")
+        if self.profile == "gpt_oss":
+            if self.model_id not in {"openai/gpt-oss-120b", "openai/gpt-oss-20b"}:
+                raise ValueError("GPT-OSS profile requires an exact supported model ID")
+            native_output_limit = 65536
+        else:
+            if self.model_id != "qwen/qwen3.8-27b" or self.reasoning_effort != "low":
+                raise ValueError("Qwen parsed profile requires its exact model ID and low effort")
+            native_output_limit = 16384
+        if self.model_context_tokens != 131072:
+            raise ValueError("native model context must remain 131072 for financial reservations")
+        if self.max_completion_tokens > native_output_limit:
+            raise ValueError("completion exceeds the profile's native output limit")
         if (self.declared_cutoff is None) != (self.cutoff_source_url is None):
             raise ValueError("declared cutoff requires its source")
         if self.cutoff_source_url is not None:
             _url(self.cutoff_source_url)
         return self
+
+    @property
+    def assistant_projection(self) -> str:
+        """A fixed wire-history policy, separately bound into request identity."""
+        return (
+            "qwen-assistant-without-reasoning-v1"
+            if self.profile == "qwen3_8_parsed"
+            else "assistant-verbatim-v1"
+        )
 
 
 def load_model(path: Path, alias: str) -> ModelConfig:
