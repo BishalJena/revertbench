@@ -440,3 +440,87 @@ def test_simple_wrappers_and_literal_key_concatenation_keep_metadata_checks(
 
     assert not result.allowed
     assert result.reason == "introspection"
+
+
+@pytest.mark.parametrize("encoding", ["unicode_escape", "utf7", "latin1", "iso-8859-1"])
+@pytest.mark.parametrize("prefix", ["", "#!/usr/bin/env python\n"])
+def test_rejects_non_utf8_source_cookies_before_parsing(
+    bad_tree: Path, encoding: str, prefix: str
+) -> None:
+    source = (
+        f"{prefix}# coding: {encoding}\n"
+        "from toy import normalize\ndef test_behavior():\n"
+        "    assert normalize('x') == 'x'\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert not result.allowed
+    assert result.reason == "unsupported_encoding"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf8", "utf_8", "UTF-8", "UTF8"])
+def test_accepts_canonical_utf8_source_cookie_aliases(bad_tree: Path, encoding: str) -> None:
+    source = (
+        f"# coding: {encoding}\n"
+        "from toy import normalize\ndef test_behavior():\n"
+        "    assert normalize('x') == 'x'\n"
+    )
+    assert check_submission(source, bad_tree).allowed
+
+
+def test_escaped_newline_comment_cannot_hide_runtime_imports(bad_tree: Path) -> None:
+    import ast
+
+    source = (
+        "# coding: unicode_escape\n# "
+        r"\u000aimport os\u000aos.getcwd()"
+        "\nfrom toy import normalize\ndef test_behavior():\n"
+        "    assert normalize('x') == 'x'\n"
+    )
+    # Demonstrate the mismatch on this fixed fixture without executing either AST
+    # or decoding an untrusted submission with a user-selected codec.
+    original = ast.parse(source)
+    diagnostic = ast.parse(source.replace(r"\u000a", "\n"))
+    assert not any(isinstance(node, ast.Import) for node in original.body)
+    assert any(
+        isinstance(node, ast.Import) and any(alias.name == "os" for alias in node.names)
+        for node in diagnostic.body
+    )
+    result = check_submission(source, bad_tree)
+    assert not result.allowed
+    assert result.reason == "unsupported_encoding"
+
+
+def test_utf8_bom_is_outside_supported_source_format(bad_tree: Path) -> None:
+    source = (
+        "\ufefffrom toy import normalize\ndef test_behavior():\n    assert normalize('x') == 'x'\n"
+    )
+    result = check_submission(source, bad_tree)
+    assert not result.allowed
+    assert result.reason == "unsupported_encoding"
+
+
+@pytest.mark.parametrize("prefix", ["", "#!/usr/bin/env python\n"])
+def test_unknown_encoding_cookie_never_reaches_registered_codec_search(
+    bad_tree: Path, prefix: str
+) -> None:
+    import codecs
+
+    searched: list[str] = []
+
+    def record_search(name: str) -> codecs.CodecInfo | None:
+        searched.append(name)
+        return None
+
+    source = (
+        f"{prefix}# coding: revertbench_untrusted_source_codec\n"
+        "from toy import normalize\ndef test_behavior():\n"
+        "    assert normalize('x') == 'x'\n"
+    )
+    codecs.register(record_search)
+    try:
+        result = check_submission(source, bad_tree)
+    finally:
+        codecs.unregister(record_search)
+    assert not result.allowed
+    assert result.reason == "unsupported_encoding"
+    assert searched == []

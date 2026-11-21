@@ -3,6 +3,7 @@
 from collections.abc import Collection, Mapping
 from pathlib import Path
 
+from revertbench.grade.backend import ExecutionBackend
 from revertbench.grade.policy import check_submission
 from revertbench.grade.rules import (
     execution_failure,
@@ -26,6 +27,7 @@ def validate_reference(
     seeds: tuple[int, int, int] = (11, 23, 37),
     timeout_seconds: float = 10,
     output_limit_bytes: int = 65536,
+    execution_backend: ExecutionBackend | None = None,
 ) -> GradeResult:
     """Require the same reference to pass before introduction and after repair."""
     try:
@@ -47,8 +49,9 @@ def validate_reference(
             "invalid_run" if policy.reason == "project_unavailable" else "policy_rejected"
         )
         return result_for(reason, details=(policy.reason or "policy rejected", *policy.details))
+    execute = run_tree if execution_backend is None else execution_backend
     base_runs = tuple(
-        run_tree(
+        execute(
             base_tree,
             submission,
             seed=seed,
@@ -76,6 +79,7 @@ def validate_reference(
         seeds=seeds,
         timeout_seconds=timeout_seconds,
         output_limit_bytes=output_limit_bytes,
+        execution_backend=execution_backend,
     )
     executions = base_runs + pair.executions
     conditions = {**pair.conditions, "base_passes": True}

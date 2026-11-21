@@ -9,6 +9,7 @@ from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Literal
 
+from revertbench.grade.backend import ExecutionBackend
 from revertbench.grade.coverage_check import (
     changed_line_hits,
     normalize_changed_lines,
@@ -236,8 +237,13 @@ def grade_submission(
     seeds: tuple[int, int, int] = (11, 23, 37),
     timeout_seconds: float = 10,
     output_limit_bytes: int = 65536,
+    execution_backend: ExecutionBackend | None = None,
 ) -> GradeResult:
-    """Grade trusted fixtures against bad plus a controlled repaired tree."""
+    """Grade a controlled pair using one selected backend for every repeat.
+
+    The default local backend is only for explicitly trusted toy submissions.
+    Generated submissions require an isolated execution backend.
+    """
     try:
         changed = validate_inputs(
             (bad_tree, repaired_tree), changed_lines, seeds, timeout_seconds, output_limit_bytes
@@ -254,10 +260,11 @@ def grade_submission(
         )
         return result_for(reason, details=(policy.reason or "policy rejected", *policy.details))
     runs: list[tuple[ExecutionResult, ...]] = []
+    execute = run_tree if execution_backend is None else execution_backend
     for tree in (bad_tree, repaired_tree):
         runs.append(
             tuple(
-                run_tree(
+                execute(
                     tree,
                     submission,
                     seed=seed,
