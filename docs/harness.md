@@ -8,14 +8,24 @@ snapshots. A completed sample can score zero; infrastructure failures stay unsco
 ## Run and inspect
 
 Run from a full-history Git checkout with uv and Docker available. The runtime
-exports historical grader commits from that checkout. The first client profile
-supports Groq's `openai/gpt-oss-120b` and `openai/gpt-oss-20b` models; other hosted
-profiles require a separate compatibility implementation and verification.
+exports historical grader commits from that checkout. The default `gpt_oss`
+client profile supports Groq's `openai/gpt-oss-120b` and `openai/gpt-oss-20b`.
+The explicit `qwen3_8_parsed` profile supports `qwen/qwen3.8-27b` with low
+reasoning effort. It retains raw responses but omits top-level assistant reasoning
+when sending conversation history, as required by that model's documented format.
+Other hosted profiles require separate compatibility implementation and verification.
 
 Copy `configs/models.example.toml` to the ignored `configs/models.toml`, review its
 dated model, pricing and quota evidence, and export the configured API-key variable
 in the invoking process. The CLI does not load `.env` automatically. Keep credentials,
 real configuration and run outputs outside version control.
+
+`tool_choice` defaults to `auto`; the example selects `required`. Required selection
+asks the provider for a tool call on every turn. It does not choose `submit`, prove
+test quality or guarantee completion within the call budget. Use a fresh experiment
+when changing this setting or the client profile. Verify each model's actual
+tool continuation, usage and quota evidence before scheduling a cohort; a compatible
+API handshake is not a benchmark result.
 
 ```bash
 uv run revertbench run cases \
@@ -50,8 +60,8 @@ weights; preserve missing revision and effective-cutoff evidence as unknown.
 | `list_dir(path)` | Bounded listing of one relative repository directory |
 | `read_file(path, start, end)` | Inclusive, one-based line range |
 | `search(pattern, path)` | Bounded literal substring search |
-| `write_test(content)` | Replace the single UTF-8 submission file |
-| `run_tests(node_ids)` | Preview only the submission on buggy code; `[]` selects it all |
+| `write_test(content)` | Save the UTF-8 test and report separate static policy feedback |
+| `run_tests(node_ids)` | Check eligibility, then preview on buggy code; `[]` selects it all |
 | `submit()` | End model interaction with the saved test |
 
 There is no shell or arbitrary production-file write tool. Paths stay inside the
@@ -61,6 +71,12 @@ from pristine buggy source and that test. Preview output never includes a repair
 run or final score. The `preview_invoked` diagnostic records a pytest invocation;
 it does not prove that a test body ran, because collection or setup can fail. Each episode allows at most 15 physical model requests,
 including any recorded retries. A plain final answer is not a saved submission.
+
+For `write_test`, `ok=true` means the bytes were saved. The separate `policy.allowed`,
+`reason` and bounded `details` describe admission under the case's pinned checker,
+using only the saved test and pristine buggy source. An ineligible preview returns
+`policy_rejected` and `executed=false` before pytest. Revise the saved test using
+that feedback; static eligibility does not predict its paired behavioral grade.
 
 The prompt describes a conservative syntax subset shared by all published case
 policies. Actual admission uses each case's pinned policy. Mutable PR bodies are
