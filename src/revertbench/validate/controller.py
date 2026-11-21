@@ -67,6 +67,22 @@ class MachineValidationReport(EvidenceModel):
     human_review: Literal["pending"] = "pending"
 
     @model_validator(mode="after")
+    def check_fixed_profile_selection(self) -> MachineValidationReport:
+        if self.status != "machine_validated" or self.baseline_profile in ("pytest", "unittest"):
+            return self
+        command = baseline_command(self.baseline_profile)
+        if (
+            self.baseline_command != command
+            or set(self.baseline_reports) != {"base", "bad", "repaired"}
+            or any(
+                value.profile != self.baseline_profile or value.command != command
+                for value in self.baseline_reports.values()
+            )
+        ):
+            raise ValueError("validated upstream profiles require the exact fixed suite selection")
+        return self
+
+    @model_validator(mode="after")
     def check_baseline_resources(self) -> MachineValidationReport:
         if self.status == "machine_validated" and any(
             value.pids_limit != self.baseline_pids_limit for value in self.baseline_reports.values()

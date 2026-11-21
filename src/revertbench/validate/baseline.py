@@ -23,7 +23,12 @@ from revertbench.schema import ContentDigest, EvidenceModel
 
 _COUNT = Annotated[int, Field(ge=0)]
 BaselinePidsLimit = Annotated[int, Field(ge=8, le=256)]
-BaselineProfile = Literal["pytest", "unittest"]
+BaselineProfile = Literal[
+    "pytest",
+    "unittest",
+    "boltons_upstream_default_behavior_v1",
+    "pydash_upstream_default_behavior_v1",
+]
 _PREFIX = b"REVERTBENCH_BASELINE="
 _ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
 _MAX_REPORT_BYTES = 2_097_152
@@ -40,14 +45,35 @@ _PYTEST_ARGS = (
     "tests",
 )
 
+_PYTEST_PROFILE_ARGS: dict[str, tuple[str, ...]] = {
+    "pytest": _PYTEST_ARGS,
+    "boltons_upstream_default_behavior_v1": (
+        *_PYTEST_ARGS[:-1],
+        "--doctest-modules",
+        "-o",
+        "doctest_optionflags=ALLOW_UNICODE ELLIPSIS IGNORE_EXCEPTION_DETAIL NORMALIZE_WHITESPACE",
+        "boltons",
+        "tests",
+    ),
+    "pydash_upstream_default_behavior_v1": (
+        *_PYTEST_ARGS[:-1],
+        "--doctest-modules",
+        "--ignore=tests/pytest_mypy_testing",
+        "src/pydash",
+        "tests",
+    ),
+}
+
 
 def baseline_command(profile: BaselineProfile) -> tuple[str, ...]:
     """Return the fixed effective test command; a trusted reporting shim runs it."""
-    if profile == "pytest":
-        return ("/usr/local/bin/python", "-m", "pytest", *_PYTEST_ARGS)
+    if not isinstance(profile, str):
+        raise ValueError("unknown fixed baseline profile")
+    if profile in _PYTEST_PROFILE_ARGS:
+        return ("/usr/local/bin/python", "-m", "pytest", *_PYTEST_PROFILE_ARGS[profile])
     if profile == "unittest":
         return ("/usr/local/bin/python", "-m", "unittest", "-q")
-    raise ValueError("baseline profile must be pytest or unittest")
+    raise ValueError("unknown fixed baseline profile")
 
 
 # This trusted controller is executed by isolated Python inside the container.
@@ -107,25 +133,42 @@ class Evidence:
 
 plugin = Evidence()
 sys.path[:0] = [root + '/src', root]
-command = ['/usr/local/bin/python', '-m', 'pytest',
-    '-q', '--disable-warnings', '-c', '/opt/revertbench/pytest.ini',
-    '--rootdir', root, '--basetemp=/tmp/revertbench-baseline',
-    '-p', 'no:cacheprovider', 'tests',
-]
+command = __FIXED_COMMAND__
 code = int(pytest.main(command[3:], plugins=[plugin]))
 passed = sum(value == 'passed' and node not in plugin.xpasses
     for node, value in plugin.calls.items())
 failed = sum(value == 'failed' for value in plugin.calls.values())
-payload = dict(profile='pytest', command=command, collected=len(plugin.nodes),
+payload = dict(profile=__FIXED_PROFILE__, command=command, collected=len(plugin.nodes),
     passed=passed, failed=failed,
     skipped=len(plugin.skips), xfailed=len(plugin.xfails), xpassed=len(plugin.xpasses),
     errors=len(plugin.errors), details=plugin.errors, node_ids=plugin.nodes,
     deselected=plugin.deselected, environment_python=python_version,
     dependency_lock_sha256=lock_digest, grader_sha256=grader_digest, policy_sha256=policy_digest)
-print('\nREVERTBENCH_BASELINE=' + json.dumps(payload, separators=(',', ':')), flush=True)
+__FIXED_REPORT_OUTPUT__
 sys.exit(code)
 """
 )
+
+
+def _pytest_script(profile: BaselineProfile) -> str:
+    command = baseline_command(profile)
+    if profile == "unittest":
+        raise ValueError("unittest is not a pytest profile")
+    report = (
+        "print('\\nREVERTBENCH_BASELINE=' + json.dumps(payload, separators=(',', ':')), flush=True)"
+    )
+    if profile != "pytest":
+        report = (
+            "import base64, zlib\n"
+            "encoded = base64.b64encode(zlib.compress("
+            "json.dumps(payload, separators=(',', ':')).encode()))\n"
+            "print('\\nREVERTBENCH_BASELINE_ZLIB=' + encoded.decode('ascii'), flush=True)"
+        )
+    return (
+        _BASELINE_SCRIPT.replace("__FIXED_COMMAND__", repr(list(command)))
+        .replace("__FIXED_PROFILE__", repr(profile))
+        .replace("__FIXED_REPORT_OUTPUT__", report)
+    )
 
 
 _UNITTEST_SCRIPT = (
@@ -250,6 +293,7 @@ def parse_baseline_output(
     expected_pids_limit: int = 64,
 ) -> BaselineResult:
     SandboxLimits(pids=expected_pids_limit)
+    expected_command = baseline_command(expected_profile)
     common = {
         "pids_limit": expected_pids_limit,
         "stdout": stdout.decode("utf-8", errors="replace"),
@@ -269,11 +313,13 @@ def parse_baseline_output(
         )
     if result.profile != expected_profile:
         return result.model_copy(update={"reason": "baseline_profile_mismatch"})
+    if expected_profile not in ("pytest", "unittest") and result.command != expected_command:
+        return result.model_copy(update={"reason": "baseline_command_mismatch"})
     if result.errors and any("SyntaxError:" in detail for detail in result.details):
         return result.model_copy(update={"status": "failed", "reason": "unsupported_environment"})
     if (
         result.collection_errors
-        or (result.profile == "pytest" and result.errors)
+        or (result.profile != "unittest" and result.errors)
         or exit_code in (2, 3, 4)
         or exit_code not in (0, 1, 5)
     ):
@@ -289,7 +335,7 @@ def parse_baseline_output(
         or any(not node or node in result.node_ids for node in result.extra_skip_node_ids)
         or (exit_code == 0 and result.failed)
     )
-    if result.profile == "pytest":
+    if result.profile != "unittest":
         inconsistent |= counted != result.collected or bool(result.extra_skip_node_ids)
     elif not (result.failed or result.errors or result.xpassed):
         inconsistent |= counted - len(result.extra_skip_node_ids) != result.collected
@@ -337,7 +383,9 @@ class DockerBaselineRunner:
                             "/usr/local/bin/python",
                             "-I",
                             "-c",
-                            _BASELINE_SCRIPT if self.profile == "pytest" else _UNITTEST_SCRIPT,
+                            _UNITTEST_SCRIPT
+                            if self.profile == "unittest"
+                            else _pytest_script(self.profile),
                         ],
                         timeout_seconds=60,
                         output_limit_bytes=65_536,
