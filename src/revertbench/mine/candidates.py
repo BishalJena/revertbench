@@ -151,6 +151,11 @@ def _fix_candidates(repository: GitRepository, fix: str) -> tuple[list[MiningCan
                         license_path=license_path,
                         license_text=license_text,
                         reference_header=header,
+                        reference_derivation=(
+                            "unittest_method_dependency_closure"
+                            if "::" in function
+                            else "standalone_function_dependency_closure"
+                        ),
                     )
                 )
                 break  # Initial yield counts distinct fixes, not reference variants.

@@ -14,12 +14,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "1"
+POLICY_VERSION = "2"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
 _MAX_MODULE_BYTES = 1_048_576
 _MAX_MODULES = 64
+_MAX_EXPORTS = 1024
+_MAX_EXPORT_NAME = 128
 _SOURCE_COOKIE = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)")
 _SOURCE_BLANK = re.compile(rb"^[ \t\f]*(?:[#\r\n]|$)")
 _UTF8_COOKIE_NAMES = frozenset({b"utf-8", b"utf8"})
@@ -346,6 +348,7 @@ class _Module:
     package: bool
     definitions: dict[str, ast.AST] = field(default_factory=dict)
     imports: dict[str, tuple[str, str | None]] = field(default_factory=dict)
+    star_imports: list[str] = field(default_factory=list)
 
 
 class _SourceIndex:
@@ -355,6 +358,13 @@ class _SourceIndex:
         self.root = root.resolve()
         self.modules: dict[str, _Module] = {}
         self.resolving: set[tuple[str, str]] = set()
+        self.exports: dict[str, frozenset[str]] = {}
+
+    def reject_stdlib_shadow(self, name: str) -> None:
+        for base in (self.root / "src", self.root):
+            for candidate in (base / name, base / f"{name}.py"):
+                if candidate.exists() or candidate.is_symlink():
+                    _reject("unsupported_import", f"Project source shadows approved stdlib: {name}")
 
     def module(self, name: str) -> _Symbol:
         self._load(name)
@@ -401,12 +411,20 @@ class _SourceIndex:
                 data = stream.read(_MAX_MODULE_BYTES + 1)
             if len(data) > _MAX_MODULE_BYTES:
                 _reject("unresolved_symbol", "Project module exceeds source-resolution limit")
+            _utf8_source_encoding(data)
             tree = ast.parse(data, filename=str(path))
         except OSError:
             _reject("project_unavailable", "Project module cannot be read")
         except (SyntaxError, ValueError, RecursionError):
             _reject("unresolved_symbol", "Project module could not be parsed safely")
         result = _Module(tree=tree, package=is_package)
+        for child in ast.walk(tree):
+            if (
+                isinstance(child, ast.ImportFrom)
+                and any(alias.name == "*" for alias in child.names)
+                and child not in tree.body
+            ):
+                _reject("unresolved_symbol", "Conditional project wildcard imports are unsupported")
         self.modules[name] = result
         for node in tree.body:
             self._index_statement(name, result, node)
@@ -428,8 +446,63 @@ class _SourceIndex:
         elif isinstance(node, ast.ImportFrom):
             target_module = self._relative_module(name, result.package, node)
             for alias in node.names:
-                if alias.name != "*":
+                if alias.name == "*":
+                    result.star_imports.append(target_module)
+                else:
                     result.imports[alias.asname or alias.name] = (target_module, alias.name)
+
+    def _exports(self, module: str) -> frozenset[str]:
+        if module in self.exports:
+            return self.exports[module]
+        tree = self._load(module).tree
+        declarations = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "__all__"
+        ]
+        if len(declarations) != 1:
+            _reject("unresolved_symbol", "Project wildcard provider needs one literal __all__")
+        declaration = declarations[0]
+        target = declaration.targets[0]
+        for child in ast.walk(tree):
+            if isinstance(child, ast.Name) and child.id == "__all__" and child is not target:
+                _reject("unresolved_symbol", "Rebound, aliased or mutated project __all__")
+            if (
+                (isinstance(child, ast.alias) and (child.asname or child.name) == "__all__")
+                or (isinstance(child, (ast.FunctionDef, ast.ClassDef)) and child.name == "__all__")
+                or (isinstance(child, ast.keyword) and child.arg == "__all__")
+            ):
+                _reject("unresolved_symbol", "Rebound or mutated project __all__")
+        value = _literal(
+            declaration.value, "unresolved_symbol", "Project __all__ must be call-free literal"
+        )
+        if (
+            not isinstance(value, (list, tuple))
+            or len(value) > _MAX_EXPORTS
+            or any(
+                not isinstance(name, str)
+                or not name.isidentifier()
+                or name.startswith("_")
+                or len(name) > _MAX_EXPORT_NAME
+                for name in value
+            )
+            or len(set(value)) != len(value)
+        ):
+            _reject("unresolved_symbol", "Project __all__ needs bounded distinct public names")
+        result = frozenset(value)
+        self.exports[module] = result
+        return result
+
+    def _star_symbol(self, module: str, name: str, info: _Module) -> _Symbol | None:
+        providers = [provider for provider in info.star_imports if name in self._exports(provider)]
+        if len(providers) > 1 or (providers and (name in info.definitions or name in info.imports)):
+            _reject(
+                "unresolved_symbol", "Ambiguous or explicitly shadowed project wildcard binding"
+            )
+        return self.symbol(providers[0], name) if providers else None
 
     @staticmethod
     def _relative_module(name: str, package: bool, node: ast.ImportFrom) -> str:
@@ -454,6 +527,9 @@ class _SourceIndex:
 
     def _resolve_symbol(self, module: str, name: str) -> _Symbol:
         info = self._load(module)
+        exported = self._star_symbol(module, name, info)
+        if exported is not None:
+            return exported
         node = info.definitions.get(name)
         if isinstance(node, ast.FunctionDef):
             return _Symbol("function", module=module, node=node)
@@ -580,6 +656,9 @@ class _Submission:
         self.globals[name] = symbol
 
     def _module(self, name: str) -> _Symbol:
+        if name == "unittest":
+            self.index.reject_stdlib_shadow(name)
+            return _Symbol("unittest")
         if name == "pytest":
             return _Symbol("pytest")
         if name == "math":
@@ -776,6 +855,8 @@ class _Submission:
             _check_name(node.id)
             if node.id in env:
                 return env[node.id]
+            if node.id == "iter":
+                return _Symbol("iter")
             if node.id in _BUILTIN_RETURNS:
                 return _Symbol("builtin", type_name=_BUILTIN_RETURNS[node.id])
             if node.id in _EXCEPTIONS:
@@ -819,6 +900,10 @@ class _Submission:
 
     def _member(self, symbol: _Symbol, name: str) -> _Symbol:
         _check_member(name)
+        if symbol.kind == "unittest" and name == "TestCase":
+            return _Symbol("test_case_constructor")
+        if symbol.kind == "test_case" and name == "assertEqual":
+            return _Symbol("assert_equal")
         if symbol.kind == "pytest" and name == "raises":
             return _Symbol("raises")
         if symbol.kind == "pytest" and name == "mark":
@@ -849,6 +934,19 @@ class _Submission:
                 _reject("unsupported_syntax", "Keyword unpacking is outside the subset")
             _check_name(keyword.arg)
             arguments.append(self._expression(keyword.value, env))
+        if symbol.kind in {"test_case_constructor", "assert_equal", "iter"}:
+            expected = {"test_case_constructor": 0, "assert_equal": 2, "iter": 1}[symbol.kind]
+            if node.keywords or len(node.args) != expected:
+                _reject(
+                    "unsupported_call",
+                    "Approved observation and iterator calls require exact positional arity",
+                )
+            if symbol.kind == "test_case_constructor":
+                return _Symbol("test_case")
+            if symbol.kind == "assert_equal":
+                self.observed = True
+                return _UNKNOWN
+            return _with_origin(_UNKNOWN, arguments[0].module)
         if symbol.kind == "function":
             self.observed = True
             return self.index.return_value(symbol)

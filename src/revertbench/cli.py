@@ -240,8 +240,8 @@ def _process_candidate(
             if candidate.committed_at is None
             else datetime.fromisoformat(candidate.committed_at.replace("Z", "+00:00")),
             notes=(
-                "Standalone reference dependency closure; upstream notices are retained "
-                "separately. PR metadata remains unverified."
+                f"Reference derivation: {candidate.reference_derivation}; "
+                "upstream notices are retained separately. PR metadata remains unverified."
             ),
         )
         if previous_case is not None:

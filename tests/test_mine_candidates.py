@@ -89,3 +89,25 @@ def test_mining_never_imports_target_code(tmp_path: Path) -> None:
     _commit(repository.path, "Fix another regression with a test")
     discover_candidates(repository)
     assert not marker.exists()
+
+
+def test_unittest_candidate_retains_original_node_and_explicit_derivation(tmp_path: Path) -> None:
+    repository, _ = _repository(tmp_path)
+    (repository.path / "pkg.py").write_text(
+        "def normalize(value):\n    return value.strip().lower()\n"
+    )
+    (repository.path / "tests" / "test_api.py").write_text(
+        "# Copyright upstream example\nfrom unittest import TestCase\nimport pkg\n"
+        "class ProductTests(TestCase):\n"
+        "    def test_whitespace(self):\n"
+        "        self.assertEqual(pkg.normalize(' X '), 'x')\n"
+    )
+    fix = _commit(repository.path, "Fix whitespace regression")
+    candidates = discover_candidates(repository, limit=5)
+    selected = next(candidate for candidate in candidates if candidate.fix_commit == fix)
+    assert selected.reference_node_id == "tests/test_api.py::ProductTests::test_whitespace"
+    assert selected.reference_derivation == "unittest_method_dependency_closure"
+    assert "self.assertEqual(pkg.normalize(' X '), 'x')" in selected.reference_source
+    assert "self = _revertbench_test_case()" in selected.reference_source
+    assert selected.reference_header == "# Copyright upstream example"
+    assert selected.license_text == "Example upstream license\n"

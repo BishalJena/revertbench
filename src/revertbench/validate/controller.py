@@ -21,6 +21,7 @@ from revertbench.sandbox.agent import AgentSandbox
 from revertbench.sandbox.worker import DockerRunner, SandboxError
 from revertbench.schema import ContentDigest, EvidenceModel, GradeResult
 from revertbench.validate.baseline import BaselineBackend, BaselineResult, DockerBaselineRunner
+from revertbench.validate.identity import host_code_identity
 
 
 class ProbeResult(EvidenceModel):
@@ -212,8 +213,16 @@ def validate_built_candidate(
             )
             for value in baselines.values()
         }
+        if any(any(value is None for value in identity) for identity in identities):
+            return report("pending_infrastructure", "environment_identity_missing")
         if len(identities) != 1:
             return report("pending_infrastructure", "baseline_environment_mismatch")
+        host_grader, host_policy = host_code_identity()
+        if any(
+            value.grader_sha256 != host_grader or value.policy_sha256 != host_policy
+            for value in baselines.values()
+        ):
+            return report("pending_infrastructure", "worker_code_mismatch")
         execute = execution_backend or DockerRunner(image, client=client)
         reference = validate_reference(
             built.base_tree,
