@@ -1,0 +1,24 @@
+{
+  "execution_status": "completed",
+  "exit_code": 0,
+  "source_sha256": "7d805526ddd6656a41f2d155564c7dd516aae8d5bd86f1dce682a4d1917e7c8d",
+  "stdout": "",
+  "stderr": "/workspace/repo/more_itertools/more.py:401: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n  warnings.warn(\n----------------------------------------------------------------------\nRan 494 tests in 0.552s\n\nOK\n",
+  "tests_run": 494,
+  "status": "passed",
+  "pids_limit": 64,
+  "observed_container_limits": {
+    "PidsLimit": 64,
+    "Memory": 268435456,
+    "MemorySwap": 268435456,
+    "NanoCpus": 1000000000,
+    "NetworkMode": "none",
+    "ReadonlyRootfs": true
+  },
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "expected_failures": 0,
+  "unexpected_successes": 0,
+  "passed": 494
+}

@@ -1,0 +1,71 @@
+{
+  "manifest_version": "1",
+  "case_id": "more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf",
+  "publication_scope": "explicitly allowlisted public accepted-case evidence only",
+  "files": {
+    "case.json": {
+      "sha256": "346e64de2837025b72993d7e9793b28201c47dd467a37940b1dd33ebfca81b10",
+      "bytes": 14302
+    },
+    "candidate.json": {
+      "sha256": "e2b0d785aad0c7e932f6138662fd38d37db17e053cb176cf36475ede811487f9",
+      "bytes": 4506
+    },
+    "reference.py": {
+      "sha256": "1ac023f65d57b0fa1ced2c449ac4abef9050e0958b917f28eb805543ccecec73",
+      "bytes": 913
+    },
+    "repair.patch": {
+      "sha256": "3828f92ea7e689402877189d144232b52aa3880cbb130f5c68999d13a1fa20c3",
+      "bytes": 1375
+    },
+    "bad.diff": {
+      "sha256": "4d66074e7aa6d78df291b7e8a02e937da3ce2a924ad205294ac8b26ec1ce43d4",
+      "bytes": 4680
+    },
+    "historical_fix.diff": {
+      "sha256": "650c14a7bfc63f86436da9014fb0930a665143e6582271f9aeb22ab723bb7558",
+      "bytes": 7201
+    },
+    "historical-production.diff": {
+      "sha256": "9b9d15a5f9ce6f7a6dc2d0d69f4bf34fd904ee0dd3bb25507c3e21d57d1c562b",
+      "bytes": 2087
+    },
+    "validation.json": {
+      "sha256": "735de5b23f559f15587bd44f586596b8fe0a74839df9d4d1b4bb9ccf0c11f2aa",
+      "bytes": 237751
+    },
+    "upstream-license.txt": {
+      "sha256": "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46",
+      "bytes": 1053
+    },
+    "upstream-reference-header.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "official-unittest/base.json": {
+      "sha256": "b67ce7d33282cfeb95fc93b9e385ac5001f5ae8e5ea54ce6d88f0a8a22b7ad73",
+      "bytes": 799
+    },
+    "official-unittest/bad.json": {
+      "sha256": "af14e112f09021bc454480ab82427c45c066a0247090507f38678b47822d41a6",
+      "bytes": 799
+    },
+    "official-unittest/repaired.json": {
+      "sha256": "dc257f41bfd79d21bb71faf18cdd42c889a9147c7c7c43bce02a1b1a52261845",
+      "bytes": 799
+    },
+    "official-unittest/summary.json": {
+      "sha256": "169e78d69b0f1c96a594f599140534e0ab350cca31d0eca8f24d8e1f07bb3475",
+      "bytes": 3503
+    }
+  },
+  "build": {
+    "base_image": "python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df",
+    "validated_architecture": "amd64",
+    "original_worker_image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+    "verification": "Review agent inspected the original worker image: official Python base RootFS layers match its prefix.",
+    "reproduction": "Use the pinned grader implementation and lock; report the actual reproduction image ID separately."
+  },
+  "prepared_at": "2026-11-21T08:31:50.594898+00:00"
+}

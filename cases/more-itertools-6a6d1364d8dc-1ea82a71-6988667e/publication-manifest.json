@@ -4,8 +4,8 @@
   "publication_scope": "explicitly allowlisted public accepted-case evidence only",
   "files": {
     "case.json": {
-      "sha256": "a8b1a93e2b8072780a0047072bc7d2733dee1d0dc0022656f944129d9d812cf4",
-      "bytes": 12322
+      "sha256": "6d1d8a2981b9950f73581a81dbdaa8bd01afa6e0674630e386fe80c0f28d4b6c",
+      "bytes": 12346
     },
     "candidate.json": {
       "sha256": "b486b484245e1675f0c0dbcaa1285e134a8566e612c0aec9b5e80aafb6720fc8",

@@ -1,0 +1,175 @@
+{
+  "schema_version": "2",
+  "id": "more-itertools-f9cdcb990dbb-f42daddf-9f00df42",
+  "repo": "more-itertools/more-itertools",
+  "base_commit": "da37f9de442b69fbcaa9f54fb042c2a6999473a6",
+  "bad_commit": "f9cdcb990dbb87a9748e61a9a28c2ad737e60452",
+  "fix_commit": "f42daddf205f335fea6e200dad46049f33e71221",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "ab32c29a9684af5d080c4a3c4321e85174c7544d2b70c36fc26e3c4a9491fb9f",
+    "repaired_tree_sha256": "4a333013e7ba86396f7c54964b2a1290774e4f05f62311444921c149ed86177b"
+  },
+  "repair_derivation": null,
+  "changed_lines": {
+    "more_itertools/more.py": [
+      2344,
+      2345,
+      2347,
+      2348,
+      2350,
+      2351,
+      2354,
+      2355,
+      2357,
+      2358,
+      2360,
+      2361,
+      2363,
+      2385,
+      2386,
+      2387,
+      2388,
+      2389,
+      2390
+    ]
+  },
+  "source_hashes": {
+    "base": "31ba9f3dce97e841071e4c082dc15932a6ac4663a6e17df7c7d17983f048cdee",
+    "bad": "0d7b0a6a8382adfb8c67a1231010e568ea167be3e127f0fba6b6ef3ec74e544c",
+    "historical_fix": "9652875ae87c54740ba417be298b10b501d8113d64ea088bdace86272e957401",
+    "repaired": "4a333013e7ba86396f7c54964b2a1290774e4f05f62311444921c149ed86177b"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44884290444",
+    "implementation_commit": "4c3d1e4ef9db2177410942d8aa2021d1892bee80",
+    "applies_to_image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+    "grader_sha256": "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+    "policy_sha256": "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd",
+    "observed_at": "2026-11-21T08:31:31.409564Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "more-itertools/more-itertools:f9cdcb990dbb87a9748e61a9a28c2ad737e60452",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1216,
+    "title": "Issue 1214: Update __eq__ and __hash__ for numeric_range",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1216",
+    "published_at": "2026-07-16T19:20:28Z",
+    "merged_at": "2026-07-17T14:33:42Z",
+    "observed_at": "2026-11-21T08:31:31.409564Z",
+    "updated_at": "2026-07-17T14:35:44Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "f9cdcb990dbb87a9748e61a9a28c2ad737e60452"
+  },
+  "fix_pr": {
+    "number": 1345,
+    "title": "Fix numeric_range equality and hashing above sys.maxsize",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/more-itertools/more-itertools/pull/1345",
+    "published_at": "2026-10-31T12:50:27Z",
+    "merged_at": "2026-11-04T00:20:44Z",
+    "observed_at": "2026-11-21T08:31:31.409564Z",
+    "updated_at": "2026-11-04T00:20:44Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "f42daddf205f335fea6e200dad46049f33e71221"
+  },
+  "reference_test": {
+    "path": "tests/test_more.py",
+    "node_ids": [
+      "tests/test_more.py::NumericRangeTests::test_eq_above_maxsize"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "4cdb0d0008b073d994600ca3aca66f00f8ef66425480ba02769dbdf6c6adaf57"
+  },
+  "changed_files": [
+    "more_itertools/more.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2026-11-03T18:20:44-06:00",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1216",
+      "published_at": "2026-07-16T19:20:28Z",
+      "observed_at": "2026-11-21T08:31:31.409564Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/more-itertools/more-itertools/pull/1345",
+      "published_at": "2026-10-31T12:50:27Z",
+      "observed_at": "2026-11-21T08:31:31.409564Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:959e9ddba32fbf73525feb5a4a85ae6b005a402d940d955782e45ca1520421ee",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "d26850a838a626cf4a6a2bfecc3280cbd75fdba8f1ba423b4e2878163fa3968d",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "unittest",
+      "-q"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "9448d877875d535bfd1bda4f62270b26b999d22a56d90fc41d0b0a1981ad432b",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "4",
+    "grader_sha256": "6ef66594568a461e8e2dd292b45e6b0dc3e2e1981c5cfe725a3772ed97b53991",
+    "policy_sha256": "cedc10df1959055ee806b58c6d6f96d8ed2a42cbf19a10d1c944fef18b363acd",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "agent:regression-reviewer-b",
+    "authorization_note": "Owner explicitly delegated routine case reviews and resulting actions to project agents on 2026-11-21; the orchestrator assigned this case review to the regression reviewer role.",
+    "notes": "Reviewed the complete original NumericRangeTests::test_eq_above_maxsize body, including all six input rows and both original assertEqual observations, with unchanged body AST. Verified exact merged PR 1216 introducing commit and its passing first parent, merged PR 1345 fix and ancestry. PR 1216 introduced equality calls to public len(), causing OverflowError for valid ranges longer than sys.maxsize. The native historical production patch replaces those calls with cached arbitrary-precision _len and applies byte-for-byte without retargeting; its related hashing hunk is retained honestly but this selected reference directly proves equality behavior. Fresh normal validation passed base 3 times, failed bad 3 times with eligible builtin OverflowError and own introducing call coverage at lines 2344/2347/2350, and passed repaired 3 times. All applicable probes passed; fix_only is not applicable because no public API symbols were added. Complete upstream unittest baselines passed 897/896/896, and an independent official supplement passed the same counts on identical trees/image with summary SHA256 559eb9856950bbecc8ca3061dc732e0da95f70d03d1cc331199ea7e071feb2be. Verified image, Python 3.12.16, frozen dependency lock, grader/policy fingerprints, official Python base layer prefix on amd64, and successful matching implementation CI at 4c3d1e4. Trusted suite PID 256 and transport 70 are recorded; scored reference/probe limits remain PID 64 and transport/wall 10. Fresh standalone TestCase subTest propagates the first failure rather than producing six graded nodes. Upstream PR bodies are omitted rather than edited; exact raw snapshots remain private. Three seeds demonstrate bounded stability. Accept this genuine distinct mainline regression under the supported policy. This is an owner-delegated agent decision, not human attestation.",
+    "reviewed_at": "2026-11-21T08:32:27.164202Z",
+    "validation_report_sha256": "9448d877875d535bfd1bda4f62270b26b999d22a56d90fc41d0b0a1981ad432b",
+    "case_inputs_sha256": "2096f338c3c6d1d68019dbe8d54f7cd287bf3543a48fa05a7d85f1e4b356480a"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "agent:regression-reviewer-b",
+      "authorization_note": "Owner explicitly delegated routine case reviews and resulting actions to project agents on 2026-11-21; the orchestrator assigned this case review to the regression reviewer role.",
+      "notes": "Reviewed the complete original NumericRangeTests::test_eq_above_maxsize body, including all six input rows and both original assertEqual observations, with unchanged body AST. Verified exact merged PR 1216 introducing commit and its passing first parent, merged PR 1345 fix and ancestry. PR 1216 introduced equality calls to public len(), causing OverflowError for valid ranges longer than sys.maxsize. The native historical production patch replaces those calls with cached arbitrary-precision _len and applies byte-for-byte without retargeting; its related hashing hunk is retained honestly but this selected reference directly proves equality behavior. Fresh normal validation passed base 3 times, failed bad 3 times with eligible builtin OverflowError and own introducing call coverage at lines 2344/2347/2350, and passed repaired 3 times. All applicable probes passed; fix_only is not applicable because no public API symbols were added. Complete upstream unittest baselines passed 897/896/896, and an independent official supplement passed the same counts on identical trees/image with summary SHA256 559eb9856950bbecc8ca3061dc732e0da95f70d03d1cc331199ea7e071feb2be. Verified image, Python 3.12.16, frozen dependency lock, grader/policy fingerprints, official Python base layer prefix on amd64, and successful matching implementation CI at 4c3d1e4. Trusted suite PID 256 and transport 70 are recorded; scored reference/probe limits remain PID 64 and transport/wall 10. Fresh standalone TestCase subTest propagates the first failure rather than producing six graded nodes. Upstream PR bodies are omitted rather than edited; exact raw snapshots remain private. Three seeds demonstrate bounded stability. Accept this genuine distinct mainline regression under the supported policy. This is an owner-delegated agent decision, not human attestation.",
+      "reviewed_at": "2026-11-21T08:32:27.164202Z",
+      "validation_report_sha256": "9448d877875d535bfd1bda4f62270b26b999d22a56d90fc41d0b0a1981ad432b",
+      "case_inputs_sha256": "2096f338c3c6d1d68019dbe8d54f7cd287bf3543a48fa05a7d85f1e4b356480a"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "ef57e3f383fbf04e23ab97545584c2afe41dab7a4b53fc0afeaf1829107d5237"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "71c185c9ef5b5d82e6816c88724d0628e81484b6d0c0a7585eac59db7feb77e4"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "b5c1ec6115cf42d90eb8fd3054c6a6bead77ff981a6a154d6e27a556a3208620"
+  },
+  "notes": "Reference derivation: unittest_method_dependency_closure. Complete original six-input equality method and both assertEqual statements preserved without rewriting. The fresh standalone TestCase propagates the first failure; subTest labels do not create six independently graded nodes. Native historical production repair applied byte-for-byte, with no retargeting. The repair also changes related hashing logic; this reference directly exercises equality, not every repair line. PR1216 replaced arbitrary-precision endpoint equality with public len calls, causing OverflowError above sys.maxsize; PR1345 restores equality using cached arbitrary-precision _len. Upstream PR body text is intentionally omitted; titles, URLs, publication/merge/update timestamps and exact commit associations remain verified. No historical merge-time body snapshot is claimed. Normal unittest baselines passed 897/896/896 with PID 256 and baseline-only owned transport 70; scored reference/probe PID 64, transport 10 and wall 10 defaults remain unchanged. Fresh normal reference runs passed 3/failed 3 (OverflowError with own introduced-line coverage 2344/2347/2350)/passed 3; six applicable probes passed and fix_only is not applicable because no public symbols were added. Independent official unittest supplement passed 897/896/896 on the same source trees/image: official-unittest/summary.json SHA256 559eb9856950bbecc8ca3061dc732e0da95f70d03d1cc331199ea7e071feb2be. Supplement uses PID 256, transport 70, wall 60, output 65536, memory 256 MiB and CPU 1. Exact CI implementation 4c3d1e4 fingerprints match this case; applies_to_image records compatibility and does not claim CI executed the original Docker image ID. Three seeds provide bounded stability evidence; no universal model training cutoff is asserted."
+}

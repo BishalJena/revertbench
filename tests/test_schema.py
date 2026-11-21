@@ -148,7 +148,7 @@ def test_agent_acceptance_has_separate_authorization_and_no_human_attestation() 
     assert case.validation.report_sha256 is not None
     review = AgentReview(
         decision="accept",
-        reviewer="Codex regression reviewer",
+        reviewer="agent:regression-reviewer-a",
         authorization_note="User explicitly delegated case review.",
         notes="Inspected the original test and controlled repair.",
         reviewed_at=datetime.now(UTC),
@@ -194,7 +194,7 @@ def test_agent_review_has_no_human_attestation_and_requires_aware_time() -> None
 
     values = dict(
         decision="accept",
-        reviewer="Codex",
+        reviewer="agent:regression-reviewer-a",
         notes="Checked",
         authorization_note="User delegated review",
         reviewed_at=datetime.now(UTC),
@@ -215,7 +215,7 @@ def test_agent_review_requires_identity_authorization_and_bound_inputs(field: st
 
     data: dict[str, object] = dict(
         decision="notes",
-        reviewer="Codex",
+        reviewer="agent:regression-reviewer-a",
         notes="Observed",
         authorization_note="Delegated by user",
         reviewed_at=datetime.now(UTC),

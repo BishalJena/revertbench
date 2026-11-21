@@ -128,7 +128,7 @@ def test_agent_review_cli_requires_explicit_kind_and_authorization(
         "--reviewer-kind",
         "agent",
         "--reviewer",
-        "Codex reviewer",
+        "agent:regression-reviewer-a",
         "--notes",
         "Inspected",
     ]
@@ -283,7 +283,7 @@ def test_pipeline_persists_machine_pending_packet_without_review_decision(
     assert case.validation.report_sha256 is not None
     agent_prior = AgentReview(
         decision="reject",
-        reviewer="Codex",
+        reviewer="agent:regression-reviewer-a",
         notes="Historical agent observation.",
         authorization_note="User delegated review",
         reviewed_at=datetime.now(UTC),
