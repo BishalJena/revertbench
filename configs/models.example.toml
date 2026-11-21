@@ -1,0 +1,32 @@
+# Copy to configs/models.toml (gitignored) and adjust.
+# Free-tier limits change often; check each provider's console before a run.
+# Keys are read from environment variables, never written here.
+
+[providers.gemini]
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+api_key_env = "GEMINI_API_KEY"
+
+[providers.openrouter]
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+
+[providers.ollama]
+base_url = "http://localhost:11434/v1"
+api_key_env = ""
+
+# One block per model used in a run. Limits are enforced by the scheduler.
+[[models]]
+id = "gemini-flash-lite"
+provider = "gemini"
+model = "gemini-3.5-flash-lite"
+rpm = 15
+tpm = 250000
+rpd = 500
+
+[[models]]
+id = "local-small"
+provider = "ollama"
+model = "qwen3:8b"
+rpm = 60
+tpm = 1000000
+rpd = 100000
