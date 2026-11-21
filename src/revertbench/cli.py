@@ -1,4 +1,4 @@
-"""Source-only mining, controlled Docker validation and explicit case review."""
+"""Historical case validation and bounded hosted-model evaluation."""
 
 import hashlib
 import json
@@ -30,7 +30,7 @@ from revertbench.schema import (
     RepairSpec,
 )
 
-app = typer.Typer(help="RevertBench: mine, build, validate and review regression cases.")
+app = typer.Typer(help="RevertBench: validate historical regressions and evaluate models.")
 
 
 @app.callback()
@@ -491,3 +491,83 @@ def review(
         )
     except ReviewError as error:
         raise typer.BadParameter(str(error)) from error
+
+
+def _run_experiment(
+    *,
+    case_dirs: list[Path],
+    config_path: Path,
+    model_id: str,
+    output: Path,
+    cache: Path,
+    experiment_id: str,
+    budget_usd: float,
+    resume: bool,
+) -> dict[str, object]:
+    from revertbench.harness.experiment import run_experiment
+
+    return run_experiment(
+        case_dirs=case_dirs,
+        config_path=config_path,
+        model_id=model_id,
+        output=output,
+        cache=cache,
+        experiment_id=experiment_id,
+        budget_usd=budget_usd,
+        resume=resume,
+    )
+
+
+@app.command()
+def run(
+    cases_root: Annotated[Path, typer.Argument(exists=True, file_okay=False, readable=True)] = Path(
+        "cases"
+    ),
+    *,
+    model: Annotated[str, typer.Option(help="Explicit model alias in the model config.")],
+    experiment_id: Annotated[str, typer.Option(help="Durable identity; reuse only with --resume.")],
+    output: Annotated[Path, typer.Option(help="Private experiment directory (keep gitignored).")],
+    config: Annotated[Path, typer.Option()] = Path("configs/models.toml"),
+    cache: Annotated[Path, typer.Option()] = Path("cache"),
+    budget_usd: Annotated[
+        float, typer.Option(min=0.000001, max=5, help="Experiment cost ceiling in USD.")
+    ] = 0.25,
+    resume: Annotated[
+        bool, typer.Option(help="Reuse completed calls and exact saved state.")
+    ] = False,
+) -> None:
+    """Evaluate one hosted model with bad-only tools and pinned case graders."""
+    case_dirs = [path.parent for path in sorted(cases_root.glob("*/case.json"))]
+    if not case_dirs:
+        raise typer.BadParameter("no case directories found beneath cases-root")
+    try:
+        _run_experiment(
+            case_dirs=case_dirs,
+            config_path=config,
+            model_id=model,
+            output=output,
+            cache=cache,
+            experiment_id=experiment_id,
+            budget_usd=budget_usd,
+            resume=resume,
+        )
+    except (OSError, ValueError, RuntimeError) as error:
+        raise typer.BadParameter(
+            "evaluation could not complete; inspect the private experiment journal"
+        ) from error
+    typer.echo(f"Experiment records saved in {output}.")
+
+
+@app.command()
+def report(
+    experiment: Annotated[Path, typer.Argument(exists=True, file_okay=False, readable=True)],
+) -> None:
+    """Read saved experiment counts without model calls or container execution."""
+    try:
+        manifest = json.loads((experiment / "manifest.json").read_bytes())
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("metrics"), dict):
+            raise ValueError("manifest has no metrics")
+        metrics = manifest["metrics"]
+    except (OSError, ValueError, TypeError) as error:
+        raise typer.BadParameter("could not read saved experiment counts") from error
+    typer.echo(json.dumps(metrics, indent=2, ensure_ascii=True, sort_keys=True))
