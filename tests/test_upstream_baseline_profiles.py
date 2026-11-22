@@ -1,18 +1,25 @@
 """Fixed upstream runtime selections retain actual unit and doctest evidence."""
 
 import base64
+import hashlib
 import json
+import os
+import subprocess
+import sys
 import zlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import docker
 import pytest
 from typer.testing import CliRunner
 
+from revertbench.sandbox.worker import SandboxLimits
 from revertbench.validate.baseline import (
     BaselineProfile,
+    BaselineResult,
     DockerBaselineRunner,
+    _pytest_script,
     baseline_command,
     parse_baseline_output,
 )
@@ -20,6 +27,12 @@ from revertbench.validate.baseline import (
 BOLTONS = "boltons_upstream_default_behavior_v1"
 PYDASH = "pydash_upstream_default_behavior_v1"
 BLINKER = "blinker_upstream_default_behavior_v1"
+BABEL: Final = "babel_upstream_default_behavior_v1"
+BABEL_DATA_SHA256 = "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e"
+BABEL_COLLECTION_SKIPS = (
+    "tests/interop/test_jinja2_interop.py",
+    "tests/messages/test_setuptools_frontend.py",
+)
 PROFILES = (BOLTONS, PYDASH, BLINKER)
 PREFIX = (
     "/usr/local/bin/python",
@@ -92,6 +105,219 @@ def test_blinker_command_preserves_native_async_and_warning_contract() -> None:
     )
 
 
+def test_babel_command_preserves_native_root_collection() -> None:
+    assert baseline_command(BABEL) == (
+        "/usr/local/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        "-c",
+        "/workspace/repo/setup.cfg",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        ".",
+    )
+
+
+def test_babel_fixes_native_baseline_memory_and_preserves_other_runner_limits() -> None:
+    image = "sha256:" + "a" * 64
+    limits = SandboxLimits(pids=96, cpus=2.0)
+    legacy = DockerBaselineRunner(image, limits=limits)
+    babel = DockerBaselineRunner(image, limits=limits, profile=BABEL)
+    assert legacy.limits == limits
+    assert babel.limits == SandboxLimits(memory_bytes=512 * 1024**2, pids=96, cpus=2.0)
+    assert DockerBaselineRunner(image, profile=BABEL).limits == SandboxLimits(
+        memory_bytes=512 * 1024**2
+    )
+
+
+@pytest.mark.parametrize(
+    "extras,skipped,status",
+    [
+        (BABEL_COLLECTION_SKIPS, 2, "passed"),
+        (BABEL_COLLECTION_SKIPS, 3, "invalid_run"),
+        (BABEL_COLLECTION_SKIPS[:1], 1, "invalid_run"),
+        ((BABEL_COLLECTION_SKIPS[0],) * 2, 2, "invalid_run"),
+        ((*BABEL_COLLECTION_SKIPS, "tests/test_other.py"), 3, "invalid_run"),
+    ],
+)
+def test_babel_report_accepts_only_the_two_native_collection_skips(
+    extras: tuple[str, ...], skipped: int, status: str
+) -> None:
+    data = {
+        "profile": BABEL,
+        "command": baseline_command(BABEL),
+        "collected": 1,
+        "passed": 1,
+        "skipped": skipped,
+        "node_ids": ["babel/numbers.py::babel.numbers.format_decimal"],
+        "extra_skip_node_ids": extras,
+    }
+    packed = base64.b64encode(zlib.compress(json.dumps(data).encode()))
+    result = parse_baseline_output(
+        b"REVERTBENCH_BASELINE_ZLIB=" + packed, b"", 0, expected_profile=BABEL
+    )
+    assert result.status == status
+
+
+def _babel_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
+    repo = tmp_path / "repo"
+    package = repo / "babel"
+    (package / "locale-data").mkdir(parents=True)
+    (package / "__init__.py").write_text(
+        '"""Original doctest.\n>>> print("native  flags enabled")\nnative flags enabled\n"""\n'
+        "from pathlib import Path\n"
+        "assert Path(__file__).with_name('global.dat').read_bytes() == b'toy globals'\n"
+    )
+    (repo / "setup.cfg").write_text("[tool:pytest]\ndoctest_optionflags = NORMALIZE_WHITESPACE\n")
+    (repo / "pytest.ini").write_text("[pytest]\naddopts = --ignore=tests\n")
+    (repo / "conftest.py").write_text(
+        "from _pytest.doctest import DoctestModule\n"
+        "def pytest_collect_file(file_path, parent):\n"
+        "    if file_path.name == '__init__.py' and file_path.parent.name == 'babel':\n"
+        "        return DoctestModule.from_parent(parent, path=file_path)\n"
+    )
+    for path, dependency in zip(BABEL_COLLECTION_SKIPS, ("jinja2", "setuptools"), strict=True):
+        module = repo / path
+        module.parent.mkdir(parents=True, exist_ok=True)
+        module.write_text(
+            "import pytest\n"
+            f"pytest.skip(\"could not import '{dependency}': No module named '{dependency}'\", "
+            "allow_module_level=True)\n"
+        )
+    (repo / "tests/test_localedata.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.skip(reason='windows-only test')\n"
+        "def test_reserved_locale_names(): pass\n"
+    )
+    (repo / "tests/test_example.py").write_text(
+        "def test_native_unit():\n"
+        "    from pathlib import Path\n"
+        "    import babel\n"
+        "    data = Path(babel.__file__).with_name('locale-data') / 'root.dat'\n"
+        "    assert data.read_bytes() == b'toy locale'\n"
+    )
+    overlay = tmp_path / "overlay"
+    data = overlay / "data/babel"
+    (data / "locale-data").mkdir(parents=True)
+    deps = overlay / "deps"
+    for name, version in (("freezegun", "1.5.1"), ("python_dateutil", "2.9.0.post0")):
+        metadata = deps / f"{name}-{version}.dist-info"
+        metadata.mkdir(parents=True)
+        (metadata / "METADATA").write_text(f"Name: {name}\nVersion: {version}\n")
+    files = {"global.dat": b"toy globals", "locale-data/root.dat": b"toy locale"}
+    manifest = hashlib.sha256()
+    for relative, content in files.items():
+        (data / relative).write_bytes(content)
+        manifest.update(f"babel/{relative} {hashlib.sha256(content).hexdigest()}\n".encode())
+    return repo, overlay, manifest.hexdigest()
+
+
+def _run_babel_fixture(
+    tmp_path: Path, repo: Path, overlay: Path, data_digest: str
+) -> subprocess.CompletedProcess[bytes]:
+    trusted = tmp_path / "trusted"
+    (trusted / "src/revertbench/grade").mkdir(parents=True)
+    (trusted / "src/revertbench/grade/policy.py").touch()
+    (trusted / "uv.lock").touch()
+    script = (
+        _pytest_script(BABEL)
+        .replace(BABEL_DATA_SHA256, data_digest)
+        .replace("/opt/revertbench/babel", str(overlay))
+        .replace("/opt/revertbench", str(trusted))
+        .replace("/workspace/repo", str(repo))
+        .replace("/tmp/revertbench-baseline", str(tmp_path / "pytest-basetemp"))
+    )
+    return subprocess.run(
+        [sys.executable, "-I", "-c", script],
+        cwd=repo,
+        env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_ADDOPTS": ""},
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+
+
+def test_babel_prepares_frozen_data_and_keeps_native_doctests_and_skips(tmp_path: Path) -> None:
+    repo, overlay, digest = _babel_fixture(tmp_path)
+    run = _run_babel_fixture(tmp_path, repo, overlay, digest)
+    assert run.returncode == 0, (run.stdout, run.stderr)
+    result = _parse_babel_fixture(run)
+    assert result.status == "passed", result.model_dump_json()
+    assert result.passed == 2 and result.collected == result.skipped == 3
+    assert set(result.node_ids) == {
+        "babel/__init__.py::babel",
+        "tests/test_example.py::test_native_unit",
+        "tests/test_localedata.py::test_reserved_locale_names",
+    }
+    assert result.extra_skip_node_ids == BABEL_COLLECTION_SKIPS
+
+
+def _parse_babel_fixture(run: subprocess.CompletedProcess[bytes]) -> BaselineResult:
+    packed = next(
+        line.split(b"=", 1)[1]
+        for line in run.stdout.splitlines()
+        if line.startswith(b"REVERTBENCH_BASELINE_ZLIB=")
+    )
+    payload = json.loads(zlib.decompress(base64.b64decode(packed)))
+    payload["command"] = baseline_command(BABEL)
+    return parse_baseline_output(
+        b"REVERTBENCH_BASELINE=" + json.dumps(payload).encode(),
+        run.stderr,
+        run.returncode,
+        expected_profile=BABEL,
+    )
+
+
+@pytest.mark.parametrize(
+    "change", ("digest", "symlink", "collision", "extra_locale", "overlay_shape", "deps")
+)
+def test_babel_preflight_rejects_bad_data_before_importing_repo(
+    tmp_path: Path, change: str
+) -> None:
+    repo, overlay, digest = _babel_fixture(tmp_path)
+    (repo / "conftest.py").write_text("from pathlib import Path\nPath('imported').touch()\n")
+    data = overlay / "data/babel"
+    if change == "digest":
+        (data / "global.dat").write_bytes(b"wrong data")
+    elif change == "symlink":
+        (data / "global.dat").rename(overlay / "real.dat")
+        (data / "global.dat").symlink_to(overlay / "real.dat")
+    elif change == "collision":
+        (repo / "babel/global.dat").symlink_to(repo / "missing.dat")
+    elif change == "extra_locale":
+        (repo / "babel/locale-data/extra.dat").touch()
+    elif change == "overlay_shape":
+        (data / "locale-data/extraneous").touch()
+    else:
+        (overlay / "deps/freezegun-1.5.1.dist-info/METADATA").write_text(
+            "Name: freezegun\nVersion: 2.0\n"
+        )
+    run = _run_babel_fixture(tmp_path, repo, overlay, digest)
+    assert run.returncode == 4, (run.stdout, run.stderr)
+    assert not (repo / "imported").exists()
+    assert not (repo / "babel/locale-data/root.dat").exists()
+
+
+@pytest.mark.parametrize("collection", (True, False))
+def test_babel_rejects_unexpected_native_skip(tmp_path: Path, collection: bool) -> None:
+    repo, overlay, digest = _babel_fixture(tmp_path)
+    skip = (
+        "pytest.skip('unexpected suite skip', allow_module_level=True)"
+        if collection
+        else "def test_unexpected(): pytest.skip('pytz not available')"
+    )
+    (repo / "tests/test_unexpected.py").write_text(f"import pytest\n{skip}\n")
+    run = _run_babel_fixture(tmp_path, repo, overlay, digest)
+    result = _parse_babel_fixture(run)
+    assert result.status == "invalid_run"
+    assert any("unexpected Babel skip" in detail for detail in result.details)
+
+
 @pytest.mark.parametrize("profile", PROFILES)
 def test_new_pytest_profiles_preserve_large_node_vectors_and_reject_count_errors(
     profile: str,
@@ -126,7 +352,7 @@ def test_new_pytest_profiles_preserve_large_node_vectors_and_reject_count_errors
     )
 
 
-@pytest.mark.parametrize("profile", PROFILES)
+@pytest.mark.parametrize("profile", (*PROFILES, BABEL))
 def test_cli_selects_only_fixed_upstream_profile(
     profile: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

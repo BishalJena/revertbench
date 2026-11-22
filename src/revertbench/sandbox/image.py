@@ -18,10 +18,31 @@ import docker
 from revertbench.sandbox.worker import SandboxError
 
 _BASE_IMAGE = "python:3.12-slim-bookworm"
+_BABEL_DATA_REQUIREMENTS = (
+    b"Babel==2.16.0 --hash=sha256:"
+    b"368b5b98b37c06b7daf6696391c3240c938b37767d4584413e8438c5c435fa8b\n"
+)
+_BABEL_TEST_REQUIREMENTS = (
+    b"freezegun==1.5.1 --hash=sha256:"
+    b"bf111d7138a8abe55ab48a71755673dbaa4ab87f4cff5634a4442dfec34c15f1\n"
+    b"python-dateutil==2.9.0.post0 --hash=sha256:"
+    b"a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427\n"
+)
 _DOCKERFILE = """FROM {base}
 LABEL revertbench.worker.protocol="1"
 COPY requirements.txt /opt/revertbench/requirements.txt
 RUN python -m pip install --no-cache-dir --require-hashes -r /opt/revertbench/requirements.txt
+COPY babel-data-requirements.txt babel-test-requirements.txt /opt/revertbench/babel/
+RUN python -m pip download --no-cache-dir --no-deps --only-binary=:all: --require-hashes \\
+        --dest /tmp/babel-wheel -r /opt/revertbench/babel/babel-data-requirements.txt \\
+    && python -I -m zipfile -e /tmp/babel-wheel/babel-2.16.0-py3-none-any.whl /tmp/babel-release \\
+    && mkdir -p /opt/revertbench/babel/data/babel/locale-data \\
+    && cp /tmp/babel-release/babel/global.dat /opt/revertbench/babel/data/babel/ \\
+    && cp /tmp/babel-release/babel/locale-data/*.dat \\
+        /opt/revertbench/babel/data/babel/locale-data/ \\
+    && rm -rf /tmp/babel-wheel /tmp/babel-release \\
+    && python -m pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \\
+        --target /opt/revertbench/babel/deps -r /opt/revertbench/babel/babel-test-requirements.txt
 COPY src/revertbench /opt/revertbench/src/revertbench
 RUN printf '/opt/revertbench/src\\n' > /usr/local/lib/python3.12/site-packages/revertbench.pth
 COPY pyproject.toml uv.lock /opt/revertbench/
@@ -58,6 +79,8 @@ def worker_build_context(root: Path, base_image: str, requirements: bytes) -> by
     with tarfile.open(fileobj=output, mode="w") as archive:
         _tar_file(archive, "Dockerfile", _DOCKERFILE.format(base=base_image).encode())
         _tar_file(archive, "requirements.txt", requirements)
+        _tar_file(archive, "babel-data-requirements.txt", _BABEL_DATA_REQUIREMENTS)
+        _tar_file(archive, "babel-test-requirements.txt", _BABEL_TEST_REQUIREMENTS)
         for name in ("pyproject.toml", "uv.lock"):
             path = root / name
             if path.is_symlink():

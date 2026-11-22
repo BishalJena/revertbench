@@ -109,11 +109,26 @@ def test_image_context_cannot_include_project_secrets_or_private_notes(tmp_path:
         dockerfile_member = archive.extractfile("Dockerfile")
         assert dockerfile_member is not None
         dockerfile = dockerfile_member.read()
+        data_requirements = archive.extractfile("babel-data-requirements.txt")
+        suite_requirements = archive.extractfile("babel-test-requirements.txt")
+        assert data_requirements is not None and suite_requirements is not None
+        assert data_requirements.read() == (
+            b"Babel==2.16.0 --hash=sha256:"
+            b"368b5b98b37c06b7daf6696391c3240c938b37767d4584413e8438c5c435fa8b\n"
+        )
+        assert suite_requirements.read().splitlines() == [
+            b"freezegun==1.5.1 --hash=sha256:"
+            b"bf111d7138a8abe55ab48a71755673dbaa4ab87f4cff5634a4442dfec34c15f1",
+            b"python-dateutil==2.9.0.post0 --hash=sha256:"
+            b"a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+        ]
     assert b"COPY src/revertbench /opt/revertbench/src/revertbench" in dockerfile
     assert b"/usr/local/lib/python3.12/site-packages/revertbench.pth" in dockerfile
     assert names == {
         "Dockerfile",
         "requirements.txt",
+        "babel-data-requirements.txt",
+        "babel-test-requirements.txt",
         "pyproject.toml",
         "uv.lock",
         "src/revertbench/__init__.py",

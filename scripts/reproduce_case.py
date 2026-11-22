@@ -92,7 +92,13 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
 
 
 _ROLES = ("base", "bad", "repaired")
+_BABEL_PROFILE = "babel_upstream_default_behavior_v1"
+_BABEL_COLLECTION_SKIPS = (
+    "tests/interop/test_jinja2_interop.py",
+    "tests/messages/test_setuptools_frontend.py",
+)
 _UPSTREAM_PROFILES = {
+    _BABEL_PROFILE,
     "blinker_upstream_default_behavior_v1",
     "boltons_upstream_default_behavior_v1",
     "pydash_upstream_default_behavior_v1",
@@ -121,6 +127,17 @@ _SUITE_FIELDS = (
 def _upstream_scope(profile: str) -> dict[str, Any]:
     if profile not in _UPSTREAM_PROFILES:
         raise ReproductionError("unsupported upstream suite profile")
+    if profile == _BABEL_PROFILE:
+        return {
+            "behavior": "upstream_default_unit_and_package_doctests",
+            "excluded_checks": ["coverage_quality_gate", "documentation_build", "package_build"],
+            "collection_skips": list(_BABEL_COLLECTION_SKIPS),
+            "baseline_memory_bytes": 536_870_912,
+            "locale_data": {
+                "release": "Babel 2.16.0",
+                "sha256": "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e",
+            },
+        }
     if profile == "blinker_upstream_default_behavior_v1":
         return {
             "behavior": "upstream_default_pytest_tests",
@@ -173,6 +190,8 @@ def _matching_suite(
     identity: dict[str, Any],
 ) -> None:
     nodes = result.get("node_ids")
+    collection_skips = _BABEL_COLLECTION_SKIPS if profile == _BABEL_PROFILE else ()
+    actual_skips = result.get("extra_skip_node_ids", [])
     counts: list[Any] = [
         result.get(key) for key in ("passed", "failed", "errors", "skipped", "xfailed", "xpassed")
     ]
@@ -182,9 +201,10 @@ def _matching_suite(
         or result.get("failed") != 0
         or result.get("errors") != 0
         or result.get("collection_errors")
-        or result.get("extra_skip_node_ids")
+        or actual_skips != list(collection_skips)
         or any(type(count) is not int or count < 0 for count in counts)
-        or sum(counts) != result.get("collected")
+        or sum(counts) - len(collection_skips) != result.get("collected")
+        or counts[3] < len(collection_skips)
         or result.get("profile") != profile
         or result.get("command") != command
         or type(result.get("pids_limit")) is not int
@@ -195,6 +215,7 @@ def _matching_suite(
         or not nodes
         or any(not isinstance(node, str) or not node for node in nodes)
         or len(set(nodes)) != len(nodes)
+        or any(node in nodes for node in collection_skips)
         or result.get("collected") != len(nodes)
         or result.get("deselected") != 0
     ):
