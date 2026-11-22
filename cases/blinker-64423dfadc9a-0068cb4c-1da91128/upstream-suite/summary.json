@@ -1,0 +1,73 @@
+{
+  "version": "1",
+  "evidence_kind": "structured_baseline_repeat",
+  "independent_instrumentation": false,
+  "case_id": "blinker-64423dfadc9a-0068cb4c-1da91128",
+  "status": "passed",
+  "profile": "blinker_upstream_default_behavior_v1",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "pytest",
+    "-v",
+    "--tb=short",
+    "-c",
+    "/opt/revertbench/pytest.ini",
+    "--rootdir",
+    "/workspace/repo",
+    "--basetemp=/tmp/revertbench-baseline",
+    "-p",
+    "no:cacheprovider",
+    "-p",
+    "pytest_asyncio.plugin",
+    "-o",
+    "filterwarnings=error",
+    "-o",
+    "asyncio_mode=auto",
+    "-o",
+    "asyncio_default_fixture_loop_scope=function",
+    "tests"
+  ],
+  "pids_limit": 64,
+  "image": "sha256:60aaf59d8fb4c7b7562ac6e039008f2d9dbf86824cb225aa0445595a2e4f12ec",
+  "source_hashes": {
+    "base": "3d378050a30fe53416c7529bf89fc11b64436ef5bbc7ebcadd07e34f897d6752",
+    "bad": "f92d576cc4e15f01e44be9679da7f9418031a41cee957dc665f6ac614f1a46c0",
+    "historical_fix": "7ae677195d82e65b527102809a4a7d1ed94350bb9ca6ff931d45f80198c6283c",
+    "repaired": "bc7af3db735c06448e7ab5ac81393609e809137f5452c1769cc44055e77c3568"
+  },
+  "validation_report_sha256": "dcc82946e86453ee6873f25da543501eb938f9695d988f2363a42f5db099fb11",
+  "scope": {
+    "behavior": "upstream_default_pytest_tests",
+    "excluded_checks": [
+      "documentation_build",
+      "lint",
+      "package_build",
+      "type_checking"
+    ]
+  },
+  "roles": {
+    "base": {
+      "path": "upstream-suite/base.json",
+      "sha256": "90cb0f47011327aa5855781f744e5c64f583bd031fd6d149aa6a94f5727f71c8",
+      "bytes": 6784,
+      "source_sha256": "3d378050a30fe53416c7529bf89fc11b64436ef5bbc7ebcadd07e34f897d6752"
+    },
+    "bad": {
+      "path": "upstream-suite/bad.json",
+      "sha256": "b153ae3dc08ba939080500f6ca1c93f871fa3c5c897182f14e5dbe1b51524c5a",
+      "bytes": 6153,
+      "source_sha256": "f92d576cc4e15f01e44be9679da7f9418031a41cee957dc665f6ac614f1a46c0"
+    },
+    "repaired": {
+      "path": "upstream-suite/repaired.json",
+      "sha256": "b153ae3dc08ba939080500f6ca1c93f871fa3c5c897182f14e5dbe1b51524c5a",
+      "bytes": 6153,
+      "source_sha256": "bc7af3db735c06448e7ab5ac81393609e809137f5452c1769cc44055e77c3568"
+    }
+  },
+  "environment_python": "3.12.16",
+  "grader_sha256": "9d97f5c08e96044c35237288b7dab1002e2fa2de48fa7118b828bda3f2021b4a",
+  "policy_sha256": "4b34f7cc7b5f2a8c427ec2299eda1b716c711500993efeb52e5868c626f15219",
+  "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad"
+}
