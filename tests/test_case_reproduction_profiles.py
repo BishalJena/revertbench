@@ -25,12 +25,32 @@ def test_blinker_scope_identifies_the_native_pytest_suite(monkeypatch: pytest.Mo
     }
 
 
-def test_babel_scope_records_both_native_collection_skips(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("profile", "data_sha256", "collection_skips"),
+    [
+        (
+            "babel_upstream_default_behavior_v1",
+            "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e",
+            ["tests/interop/test_jinja2_interop.py", "tests/messages/test_setuptools_frontend.py"],
+        ),
+        (
+            "babel_cldr44_default_behavior_v1",
+            "1bcb4543e529f3ad7d26b1d5d6b596443b6c9429ce4488f5d22f0b0a8168a7d0",
+            ["tests/messages/test_setuptools_frontend.py"],
+        ),
+    ],
+)
+def test_babel_scope_records_native_collection_skips(
+    monkeypatch: pytest.MonkeyPatch,
+    profile: str,
+    data_sha256: str,
+    collection_skips: list[str],
+) -> None:
     helper = _helper(monkeypatch)
-    profile = "babel_upstream_default_behavior_v1"
-    assert helper._upstream_scope(profile)["locale_data"]["sha256"] == (
-        "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e"
-    )
+    scope = helper._upstream_scope(profile)
+    assert scope["locale_data"]["sha256"] == data_sha256
+    assert scope["collection_skips"] == collection_skips
+    assert scope["baseline_memory_bytes"] == 536_870_912
     command = ["/usr/local/bin/python", "-m", "pytest", "."]
     result = {
         "status": "passed",
@@ -42,22 +62,19 @@ def test_babel_scope_records_both_native_collection_skips(monkeypatch: pytest.Mo
         "passed": 1,
         "failed": 0,
         "errors": 0,
-        "skipped": 2,
+        "skipped": len(collection_skips),
         "xfailed": 0,
         "xpassed": 0,
         "deselected": 0,
         "node_ids": ["babel/numbers.py::babel.numbers.format_decimal"],
-        "extra_skip_node_ids": [
-            "tests/interop/test_jinja2_interop.py",
-            "tests/messages/test_setuptools_frontend.py",
-        ],
+        "extra_skip_node_ids": collection_skips,
     }
     options = dict(profile=profile, command=command, pids=64, identity={})
     helper._matching_suite(result, result, **options)
     unexpected = result | {"extra_skip_node_ids": ["tests/test_numbers.py", "tests/test_dates.py"]}
     with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
         helper._matching_suite(unexpected, unexpected, **options)
-    miscounted = result | {"skipped": 1}
+    miscounted = result | {"skipped": len(collection_skips) - 1}
     with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
         helper._matching_suite(miscounted, miscounted, **options)
 

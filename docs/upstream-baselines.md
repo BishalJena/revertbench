@@ -11,7 +11,8 @@ submission's grader, fixtures, policy, resource limits or hidden reference.
 | `boltons_upstream_default_behavior_v1` | pytest package doctests in `boltons` and unit tests in `tests`. |
 | `pydash_upstream_default_behavior_v1` | pytest package doctests in `src/pydash` and unit tests in `tests`, excluding only `tests/pytest_mypy_testing`. |
 | `blinker_upstream_default_behavior_v1` | All pytest tests in `tests`, including async tests, with warnings treated as errors. |
-| `babel_upstream_default_behavior_v1` | Babel's default Linux suite from the repository root, including package doctests and locale-parametrized tests. |
+| `babel_upstream_default_behavior_v1` | Babel's default Linux root suite for CLDR 45, including package doctests and locale-parametrized tests. |
+| `babel_cldr44_default_behavior_v1` | Babel's default Linux root suite for CLDR 44, including package doctests and locale-parametrized tests. |
 
 The Boltons and Pydash versioned profiles retain this fixed prefix:
 
@@ -67,14 +68,14 @@ includes source doctests and the native locale and timezone parametrization.
 The reporting command uses `-q --tb=short`, an isolated temporary directory,
 and disables pytest's persistent cache. [Historical Makefile and test command](https://github.com/python-babel/babel/blob/bef3a734fbdf1da4d1058d25a5eed785bec43a63/Makefile)
 
-The worker uses Babel 2.16.0's published locale data, which matches the native
-CLDR 45 importer output for all three source trees byte for byte. The pinned
-wheel supplies 1,045 data files. Historical Python code comes from each source
-tree. The profile checks the data digest before copying it into the baseline
-workspace and uses separately pinned Freezegun and python-dateutil wheels.
-The default profile records the optional Jinja and setuptools collection skips
-and the native runtime skips. Coverage thresholds, package builds and
-documentation builds are separate checks. [Pinned Babel release](https://pypi.org/project/Babel/2.16.0/)
+The CLDR 45 profile uses Babel 2.16.0's published locale data and records the
+optional Jinja and setuptools collection skips. The CLDR 44 profile uses Babel
+2.15.0's locale data and records the optional setuptools collection skip. Each
+wheel supplies 1,045 data files and matches its historical upstream importer
+byte for byte. Historical Python code comes from each source tree. Each profile
+checks its data digest before copying the files into the baseline workspace and
+uses separately pinned Freezegun and python-dateutil wheels. Coverage thresholds,
+package builds and documentation builds are separate checks. [Babel 2.16.0](https://pypi.org/project/Babel/2.16.0/) [Babel 2.15.0](https://pypi.org/project/Babel/2.15.0/)
 
 Original repository conftest support remains enabled for these trusted baselines.
 Ambient plugin discovery remains disabled. Babel's fixed command uses its native
