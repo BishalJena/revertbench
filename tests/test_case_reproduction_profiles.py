@@ -17,6 +17,14 @@ def _helper(monkeypatch: pytest.MonkeyPatch) -> Any:
     return reproduce_case
 
 
+def test_blinker_scope_identifies_the_native_pytest_suite(monkeypatch: pytest.MonkeyPatch) -> None:
+    helper = _helper(monkeypatch)
+    assert helper._upstream_scope("blinker_upstream_default_behavior_v1") == {
+        "behavior": "upstream_default_pytest_tests",
+        "excluded_checks": ["documentation_build", "lint", "package_build", "type_checking"],
+    }
+
+
 def _write(root: Path, name: str, value: Any) -> dict[str, Any]:
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)
