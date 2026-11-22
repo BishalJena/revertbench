@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 7
+# Behavioral-test submission policy, version 8
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,10 +6,24 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 7 intentionally supports a restricted Python test format. A rejected
+Version 8 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
+
+Version 8 supports the historical attrs field-transformer test shape. A test
+can define an identity generator with two parameters and a body of exactly
+`yield from` the second parameter. The source-resolved `attr.s` decorator can
+receive that callback with `auto_attribs=True` on one local class containing a
+single annotation-only builtin `int` field. The file must have the annotations
+future flag. The local class is opaque to the test. The supported observation
+is a simple list comprehension reading `field.name` from
+`attr.fields(LocalClass)`. The policy checks the public exports and a source
+declaration of the field name without exposing the private implementation
+module. It permits this test as a top-level function or as one undecorated
+method with unused `self` inside an inert pytest class. The class has no
+bases, fixture hooks or executable class-level statements. Previously
+approved cases retain the policy version pinned in their case bundles.
 
 Version 7 additionally permits `from io import BytesIO`, with an optional alias,
 as an exact in-memory byte-buffer constructor. Each call must have exactly one
@@ -64,13 +78,13 @@ Previously accepted cases continue to use their pinned policy and engine.
 ## Supported format
 
 A file contains module-level imports, literal constants, ordinary helper
-functions, and one or more functions named `test_...`. Module bindings must be
+functions, and one or more tests named `test_...`. Module bindings must be
 unique. Every literal-only module constant and parametrization argument is
 checked for call nodes before literal evaluation; even `set()` is excluded,
 because its name can be shadowed by a project function at collection time.
-Function defaults, annotations, variadic arguments, keyword-only
-arguments, nested definitions, classes, async functions and generators are not
-supported. Test functions take no parameters except those introduced by the
+Async functions, function defaults, variadic and keyword-only arguments are
+excluded. The versioned allowances cover the supported classes, annotations,
+callbacks and generators. Test functions take no parameters except those introduced by the
 literal parametrization described below. Helpers may have ordinary positional
 parameters. Their unknown parameter types do not become permission to access
 arbitrary attributes.

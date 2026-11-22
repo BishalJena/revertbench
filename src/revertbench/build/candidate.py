@@ -12,7 +12,12 @@ from revertbench.build.derivation import DerivedFunctionRepair, derive_function_
 from revertbench.build.patch import BuildError, parse_production_patch, production_path
 from revertbench.grade.coverage_check import normalize_changed_lines
 from revertbench.mine.models import MiningCandidate, exact_commit
-from revertbench.mine.reference import ReferenceError, changed_test_functions, extract_reference
+from revertbench.mine.reference import (
+    ReferenceError,
+    changed_test_functions,
+    extract_reference,
+    reference_derivation,
+)
 from revertbench.sandbox.archives import ArchiveError, archive_tree
 from revertbench.schema import RepairDerivation
 
@@ -181,13 +186,6 @@ def materialize_candidate(
         or not all(part.isidentifier() for part in node_parts[1:])
     ):
         raise BuildError("reference_node_mismatch")
-    expected_derivation = (
-        "standalone_function_dependency_closure"
-        if len(node_parts) == 2
-        else "unittest_method_dependency_closure"
-    )
-    if candidate.reference_derivation != expected_derivation:
-        raise BuildError("reference_derivation_mismatch")
     function = "::".join(node_parts[1:])
     try:
         previous = (
@@ -196,6 +194,8 @@ def materialize_candidate(
             else ""
         )
         current = repository.file_text(candidate.fix_commit, candidate.reference_path)
+        if candidate.reference_derivation != reference_derivation(current, function):
+            raise BuildError("reference_derivation_mismatch")
         if function not in changed_test_functions(previous, current):
             raise BuildError("reference_not_changed_in_historical_fix")
         if extract_reference(current, function) != candidate.reference_source:

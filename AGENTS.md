@@ -26,6 +26,7 @@
 
 - The main agent in the user's conversation is the orchestrator. Keep it available for conversation by delegating substantial implementation, testing and research to capable subagents. Handle user questions and steering promptly while delegated work continues.
 - Divide independent work within the current milestone and available agent slots. Give each subagent a concrete objective, owned files, interface expectations, dependencies and acceptance checks. Run dependent work in order; parallelism must not bypass milestone gates.
+- Give each worker the project purpose, the specific software behavior under study, the authorized actions and relevant design rules, and paths to the evidence it needs. Carry this context into follow-up assignments so workers can interpret the scope and apply the same acceptance checks.
 - Avoid overlapping writes. Agree on shared interfaces first, assign separate files or use isolated worktrees where needed, and never reset or overwrite another agent's or the user's changes in the shared checkout.
 - Subagents return their changes, checks, findings and remaining issues. The orchestrator reviews and integrates their work, resolves conflicts, runs the final required checks and owns milestone completion. Delegation does not transfer accountability.
 - Keep orchestration and waits responsive. Do not leave the main agent occupied with long implementation subtasks or blocking waits when it can coordinate workers and respond to the user.

@@ -115,6 +115,31 @@ def test_unittest_candidate_retains_original_node_and_explicit_derivation(tmp_pa
     assert selected.license_text == "Example upstream license\n"
 
 
+def test_plain_pytest_candidate_uses_source_selected_derivation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from revertbench.grade.policy import PolicyResult
+    from revertbench.mine import candidates as mining
+
+    repository, _ = _repository(tmp_path)
+    (repository.path / "pkg.py").write_text(
+        "def normalize(value):\n    return value.strip().lower()\n"
+    )
+    (repository.path / "tests/test_api.py").write_text(
+        "import pkg\nclass TestNormalize:\n"
+        "    def test_whitespace(self):\n        assert pkg.normalize(' X ') == 'x'\n"
+    )
+    fix = _commit(repository.path, "Fix whitespace regression")
+    # Isolate provenance from the independently owned policy capability.
+    monkeypatch.setattr(mining, "check_submission", lambda *args: PolicyResult(True, None))
+    selected = next(c for c in discover_candidates(repository, limit=5) if c.fix_commit == fix)
+
+    assert selected.reference_derivation == "plain_pytest_method_dependency_closure_v1"
+    assert selected.reference_node_id == "tests/test_api.py::TestNormalize::test_whitespace"
+    assert "class TestNormalize:" in selected.reference_source
+    assert "def test_whitespace(self):" in selected.reference_source
+
+
 @pytest.mark.parametrize("unittest_method", [False, True])
 def test_root_test_py_reference_is_discovered_without_entering_production_patch(
     tmp_path: Path, unittest_method: bool

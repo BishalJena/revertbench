@@ -14,6 +14,7 @@ from revertbench.mine.reference import (
     ReferenceError,
     changed_test_functions,
     extract_reference,
+    reference_derivation,
     reference_header,
 )
 
@@ -104,7 +105,7 @@ def _fix_candidates(repository: GitRepository, fix: str) -> tuple[list[MiningCan
         }
         else None
     )
-    references: list[tuple[str, str, str, str]] = []
+    references: list[tuple[str, str, str, str, str]] = []
     rejected: list[str] = []
     for path in test_paths:
         try:
@@ -118,6 +119,7 @@ def _fix_candidates(repository: GitRepository, fix: str) -> tuple[list[MiningCan
                             function,
                             extract_reference(after, function),
                             reference_header(after),
+                            reference_derivation(after, function),
                         )
                     )
                 except ReferenceError as error:
@@ -130,7 +132,7 @@ def _fix_candidates(repository: GitRepository, fix: str) -> tuple[list[MiningCan
     repository.work_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="policy-", dir=repository.work_root) as temporary:
         bad_tree = repository.export_tree(parent, Path(temporary) / "bad")
-        for path, function, source, header in references:
+        for path, function, source, header, derivation in references:
             try:
                 policy = check_submission(source, bad_tree)
                 if not policy.allowed:
@@ -151,11 +153,7 @@ def _fix_candidates(repository: GitRepository, fix: str) -> tuple[list[MiningCan
                         license_path=license_path,
                         license_text=license_text,
                         reference_header=header,
-                        reference_derivation=(
-                            "unittest_method_dependency_closure"
-                            if "::" in function
-                            else "standalone_function_dependency_closure"
-                        ),
+                        reference_derivation=derivation,
                     )
                 )
                 break  # Initial yield counts distinct fixes, not reference variants.

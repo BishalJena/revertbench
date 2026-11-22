@@ -13,6 +13,7 @@ submission's grader, fixtures, policy, resource limits or hidden reference.
 | `blinker_upstream_default_behavior_v1` | All pytest tests in `tests`, including async tests, with warnings treated as errors. |
 | `babel_upstream_default_behavior_v1` | Babel's default Linux root suite for CLDR 45, including package doctests and locale-parametrized tests. |
 | `babel_cldr44_default_behavior_v1` | Babel's default Linux root suite for CLDR 44, including package doctests and locale-parametrized tests. |
+| `attrs_field_transformer_default_behavior_v1` | The native attrs pytest suite for the field-transformer case, including the YAML mypy integration tests. |
 
 The Boltons and Pydash versioned profiles retain this fixed prefix:
 
@@ -77,9 +78,20 @@ checks its data digest before copying the files into the baseline workspace and
 uses separately pinned Freezegun and python-dateutil wheels. Coverage thresholds,
 package builds and documentation builds are separate checks. [Babel 2.16.0](https://pypi.org/project/Babel/2.16.0/) [Babel 2.15.0](https://pypi.org/project/Babel/2.15.0/)
 
+The attrs profile follows the [historical tox test environment](https://github.com/python-attrs/attrs/blob/e048efcb395443608d184a149c0adbca166cb833/tox.ini).
+It rebuilds each pure-Python role wheel offline with the pinned build dependencies
+and checks the wheel digest before installation into scratch. The expected versions
+come from the historical release tag distance. The fixed pytest command retains the
+original project configuration and uses one xdist worker. Test dependencies with
+native extensions live in an immutable image environment. The report binds the
+installed wheel, the complete native collection and all 85 YAML mypy checks. It
+records seven native skips and one expected failure on each role. Lint, the separate
+Pyright task, the coverage reporting task and the full Python-version matrix are
+outside the profile.
+
 Original repository conftest support remains enabled for these trusted baselines.
-Ambient plugin discovery remains disabled. Babel's fixed command uses its native
-configuration. The other profiles use the controlled pytest configuration.
+Ambient plugin discovery remains disabled. Babel and attrs use their native
+configuration. The other pytest profiles use the controlled configuration.
 There is no arbitrary command, target, ignore-path or shell override. Check the
 historical repository's layout and test-selection contract before using a profile
 for a case; a recent upstream configuration is not evidence for every old commit.
@@ -95,7 +107,9 @@ pending infrastructure.
 `--baseline-pids-limit` defaults to 64 and accepts 8 through 256 for the trusted
 existing suite. Babel uses a fixed 512 MiB baseline memory cap. The original
 256 MiB cap hit memory pressure and the highest measured peak was 348 MiB.
-Other profiles use the default baseline memory cap. CPU, wall time and output
+Attrs uses a fixed 896 MiB baseline memory cap for the installed-wheel build,
+the xdist test worker, and its mypy subprocess. Other profiles use the default
+baseline memory cap. CPU, wall time and output
 bounds remain unchanged. Scored submissions retain their original limits. The legacy profiles,
 commands and published case bytes remain unchanged. New-profile publication also
 requires its versioned reproducibility evidence and review; a successful baseline

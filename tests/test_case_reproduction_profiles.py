@@ -512,3 +512,50 @@ def test_babel_reproduction_allows_only_native_glob_row_order(
                 fresh_run=True,
                 **(options | {"profile": other_profile}),
             )
+
+
+def test_attrs_scope_replays_wheel_and_yaml_typing_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    helper = _helper(monkeypatch)
+    profile = "attrs_field_transformer_default_behavior_v1"
+    scope = helper._upstream_scope(profile)
+    assert scope["baseline_memory_bytes"] == 939_524_096
+    assert scope["typing_yaml_passed"] == 85
+    assert scope["historical_wheels"]["base"]["version"] == "25.1.1.dev4"
+    assert scope["historical_wheels"]["bad"]["version"] == "25.1.1.dev5"
+    assert scope["historical_wheels"]["repaired"]["version"] == "25.1.1.dev5"
+    assert (
+        scope["historical_wheels"]["bad"]["sha256"]
+        != scope["historical_wheels"]["repaired"]["sha256"]
+    )
+    assert all(len(value) == 64 for value in scope["requirements_sha256"].values())
+
+    command = ["/opt/revertbench/attrs/runtime/bin/python", "-m", "pytest"]
+    options = dict(profile=profile, command=command, pids=64, identity={}, role="base")
+    suite = dict(
+        status="passed",
+        exit_code=0,
+        profile=profile,
+        command=command,
+        pids_limit=64,
+        collected=1430,
+        passed=1422,
+        failed=0,
+        errors=0,
+        skipped=7,
+        xfailed=1,
+        xpassed=0,
+        deselected=0,
+        node_ids=[f"tests/test_attrs.py::test_case_{index}" for index in range(1430)],
+        native_attrs_yaml_passed=85,
+        native_attrs_wheel_sha256=scope["historical_wheels"]["base"]["sha256"],
+    )
+    helper._matching_suite(suite, suite, **options)
+    for changed in (
+        {"native_attrs_yaml_passed": 84},
+        {"native_attrs_wheel_sha256": scope["historical_wheels"]["bad"]["sha256"]},
+    ):
+        invalid = suite | changed
+        with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
+            helper._matching_suite(invalid, invalid, **options)
