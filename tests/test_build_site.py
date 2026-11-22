@@ -1,8 +1,10 @@
+import ast
 import hashlib
 import json
 from pathlib import Path
 from shutil import copytree
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -27,6 +29,30 @@ def refresh_manifest(case_dir: Path, *names: str) -> None:
         raw = (case_dir / name).read_bytes()
         manifest["files"][name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
     manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def write_report(case_dir: Path, report: dict[str, Any]) -> None:
+    report_file = case_dir / "validation.json"
+    case_file = case_dir / "case.json"
+    report_file.write_text(json.dumps(report), encoding="utf-8")
+    case = json.loads(case_file.read_bytes())
+    digest = hashlib.sha256(report_file.read_bytes()).hexdigest()
+    case["validation"]["report_sha256"] = digest
+    case["human_review"]["validation_report_sha256"] = digest
+    case_file.write_text(json.dumps(case), encoding="utf-8")
+    refresh_manifest(case_dir, report_file.name, case_file.name)
+
+
+def recorded_control_source() -> str:
+    """Read the probe's source literal without loading validator dependencies."""
+    path = ROOT / "src/revertbench/validate/controller.py"
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    for dictionary in (node for node in ast.walk(module) if isinstance(node, ast.Dict)):
+        for key, value in zip(dictionary.keys, dictionary.values, strict=True):
+            if isinstance(key, ast.Constant) and key.value == "assert_true":
+                assert isinstance(value, ast.Constant) and isinstance(value.value, str)
+                return value.value
+    raise AssertionError("assert_true probe source not found")
 
 
 def test_build_emits_only_public_assets_and_recorded_case_evidence(
@@ -67,6 +93,7 @@ def test_build_emits_only_public_assets_and_recorded_case_evidence(
     assert case["id"] == PRODUCT
     for field, filename in (
         ("reference", "reference.py"),
+        ("change", "bad.diff"),
         ("repair", "repair.patch"),
         ("license", "upstream-license.txt"),
         ("notice", "upstream-reference-header.txt"),
@@ -77,6 +104,16 @@ def test_build_emits_only_public_assets_and_recorded_case_evidence(
         {"role": "bad", "seeds": [11, 23, 37], "result": "fail", "exception": "TypeError"},
         {"role": "repaired", "seeds": [11, 23, 37], "result": "pass", "exception": None},
     ]
+    assert case["control"] == {
+        "source": recorded_control_source(),
+        "score": 0,
+        "reason": "bad_did_not_fail",
+        "runs": [
+            {"role": "base", "seeds": [], "result": "not_run", "exception": None},
+            {"role": "bad", "seeds": [11, 23, 37], "result": "pass", "exception": None},
+            {"role": "repaired", "seeds": [11, 23, 37], "result": "pass", "exception": None},
+        ],
+    }
     builder.build_site(source, output)
     assert (output / "data.json").read_bytes() == raw
 
@@ -90,12 +127,15 @@ def test_unexpected_output_file_aborts_the_build(builder: ModuleType, tmp_path: 
     assert list(tmp_path.iterdir()) == [tmp_path / "stale.txt"]
 
 
-def test_export_rejects_a_changed_reference_artifact(builder: ModuleType, tmp_path: Path) -> None:
+@pytest.mark.parametrize("filename", ["reference.py", "bad.diff"])
+def test_export_rejects_a_changed_artifact(
+    builder: ModuleType, tmp_path: Path, filename: str
+) -> None:
     case_dir = tmp_path / PRODUCT
     copytree(PRODUCT_SOURCE, case_dir)
-    (case_dir / "reference.py").write_text("# changed\n", encoding="utf-8")
+    (case_dir / filename).write_text("# changed\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"reference\.py.*manifest"):
+    with pytest.raises(ValueError, match="manifest"):
         builder.read_case(case_dir, COPY)
 
 
@@ -128,14 +168,29 @@ def test_export_rejects_an_invalid_execution_even_with_matching_digests(
         run["tests"] = []
     else:
         run["exit_code"] = 1
-    report_file.write_text(json.dumps(report), encoding="utf-8")
-    case_file = case_dir / "case.json"
-    case = json.loads(case_file.read_bytes())
-    digest = hashlib.sha256(report_file.read_bytes()).hexdigest()
-    case["validation"]["report_sha256"] = digest
-    case["human_review"]["validation_report_sha256"] = digest
-    case_file.write_text(json.dumps(case), encoding="utf-8")
-    refresh_manifest(case_dir, report_file.name, case_file.name)
+    write_report(case_dir, report)
 
     with pytest.raises(ValueError, match=r"base.*execution"):
+        builder.read_case(case_dir, COPY)
+
+
+@pytest.mark.parametrize("alteration", ["score", "reason", "incomplete", "failed"])
+def test_export_rejects_unexpected_control_evidence(
+    builder: ModuleType, tmp_path: Path, alteration: str
+) -> None:
+    case_dir = tmp_path / PRODUCT
+    copytree(PRODUCT_SOURCE, case_dir)
+    report = json.loads((case_dir / "validation.json").read_bytes())
+    grade = report["probes"]["assert_true"]["grade"]
+    if alteration == "score":
+        grade["score"] = 1
+    elif alteration == "reason":
+        grade["reason"] = "repair_did_not_pass"
+    elif alteration == "incomplete":
+        grade["executions"].pop()
+    else:
+        grade["executions"][0]["exit_code"] = 1
+    write_report(case_dir, report)
+
+    with pytest.raises(ValueError, match="control"):
         builder.read_case(case_dir, COPY)
