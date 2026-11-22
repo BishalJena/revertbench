@@ -3,153 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore real Python regressions and see how RevertBench checks whether a test catches them.">
-  <meta name="theme-color" content="#f5f4ef">
-  <title>RevertBench — Did the test catch it?</title>
+  <meta name="description" content="See how RevertBench checks whether AI-written tests catch real software bugs.">
+  <meta name="theme-color" content="#fbfcff">
+  <title>RevertBench | Can AI write a test that catches a real bug?</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
   <script defer src="./app.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
-  <header class="masthead">
-    <div class="wrap masthead-inner">
+  <header class="page-header">
+    <div class="wrap header-inner">
       <a class="wordmark" href="./">
         <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
         RevertBench
       </a>
-      <nav aria-label="Main navigation">
-        <a href="#demo">Cases</a>
-        <a href="#method">Method</a>
-        <a class="github-link" href="https://github.com/BishalJena/revertbench">GitHub <span aria-hidden="true">↗</span></a>
-      </nav>
+      <a class="repo-link" href="https://github.com/BishalJena/revertbench">GitHub <span aria-hidden="true">↗</span></a>
     </div>
   </header>
 
   <main class="wrap" id="content">
-    <section class="intro" aria-labelledby="intro-title">
-      <div>
-        <h1 id="intro-title">Did the test catch it?</h1>
-        <p>RevertBench measures whether an AI-written test catches a real software bug. Pick a case to compare a working test with one that passes while the bug is still there.</p>
-      </div>
-      <dl class="stats" id="stats" hidden>
-        <div><dt>Verified cases</dt><dd data-stat="case_count"></dd></div>
-        <div><dt>Python projects</dt><dd data-stat="repository_count"></dd></div>
-        <div><dt>Reference runs</dt><dd data-stat="execution_count"></dd></div>
-      </dl>
-    </section>
+    <div class="intro">
+      <h1>Can AI write a test that catches a real bug?</h1>
+      <p>RevertBench measures this using real software bugs and their fixes.</p>
+    </div>
 
-    <section class="workspace" id="demo" aria-label="Case explorer">
-      <div class="loading" id="demo-loading">
-        <p id="load-message" role="status" hidden>Loading recorded results…</p>
-        <a href="https://github.com/BishalJena/revertbench/blob/main/cases/README.md">Open the public case index</a>
-      </div>
-      <div class="explorer" id="demo-body" hidden>
-        <aside class="cases">
-          <h2>Case library</h2>
-          <nav class="case-nav" aria-label="Case library">
-            <ul id="case-list"></ul>
-          </nav>
-          <label class="case-picker" for="case-select">
-            <span>Case library</span>
-            <select id="case-select"></select>
-          </label>
-        </aside>
+    <section class="story" id="demo" aria-labelledby="story-heading">
+      <div class="story-start">
+        <div class="story-copy">
+          <h2 id="story-heading">A translator’s note went missing.</h2>
+          <p>Babel prepares text for translation. An update kept the text but dropped its note.</p>
+        </div>
+        <div class="story-action">
+          <button type="button" id="show-results" aria-expanded="false" aria-controls="example-results" disabled>See the test results</button>
+        </div>
 
-        <article class="case-content" aria-labelledby="case-title">
-          <div class="case-heading">
-            <p id="case-repository" class="repo"></p>
-            <h2 id="case-title"></h2>
-            <p id="case-summary"></p>
-          </div>
-          <div class="evidence-grid">
-            <div class="evidence-tabs" role="group" aria-label="Select evidence">
-              <button type="button" data-view="change" aria-pressed="true">Change</button>
-              <button type="button" data-view="reference" aria-pressed="false">Reference test</button>
-              <button type="button" data-view="control" aria-pressed="false">Control test</button>
-              <button type="button" data-view="repair" aria-pressed="false">Repair</button>
-            </div>
-
-            <section class="results" aria-labelledby="verdict-title" id="results">
-              <div class="verdict">
-                <p class="result-kicker" id="test-kind"></p>
-                <h3 id="verdict-title"></h3>
-                <p id="verdict-detail"></p>
-              </div>
-              <div class="stages" role="group" aria-label="Select a version">
-                <button class="stage" type="button" data-role="base" aria-pressed="false">
-                  <span class="stage-mark" aria-hidden="true"></span>
-                  <span class="stage-name">Before the change</span>
-                  <span class="stage-outcome"></span>
-                </button>
-                <button class="stage" type="button" data-role="bad" aria-pressed="true">
-                  <span class="stage-mark" aria-hidden="true"></span>
-                  <span class="stage-name">Bug introduced</span>
-                  <span class="stage-outcome"></span>
-                </button>
-                <button class="stage" type="button" data-role="repaired" aria-pressed="false">
-                  <span class="stage-mark" aria-hidden="true"></span>
-                  <span class="stage-name">With the repair</span>
-                  <span class="stage-outcome"></span>
-                </button>
-              </div>
-              <div class="stage-result" id="stage-result" role="status" aria-atomic="true">
-                <strong id="result-label"></strong>
-                <p id="result-detail"></p>
-              </div>
-              <div class="replay-controls">
-                <button id="replay" type="button"><span aria-hidden="true">▶</span> Replay results</button>
-                <span id="replay-status" role="status"></span>
-              </div>
-            </section>
-
-            <figure class="code-panel">
-              <figcaption id="code-caption"></figcaption>
-              <pre tabindex="0" aria-labelledby="code-caption"><code id="evidence-code"></code></pre>
-            </figure>
+        <div class="story-panel">
+          <div class="translation-output" id="translation-output">
+            <div class="output-heading">What Babel returned</div>
+            <dl>
+              <div><dt>Text to translate</dt><dd class="kept">Kept</dd></div>
+              <div><dt>Note for the translator</dt><dd class="missing">Missing</dd></div>
+            </dl>
           </div>
 
-          <div class="sources">
-            <h3>Source evidence</h3>
-            <ul>
-              <li><a id="introducing-pr">Original PR <span aria-hidden="true">↗</span></a></li>
-              <li><a id="fixing-pr">Fix PR <span aria-hidden="true">↗</span></a></li>
-              <li><a id="validation-report">Validation report <span aria-hidden="true">↗</span></a></li>
-              <li><a id="case-bundle">Case files <span aria-hidden="true">↗</span></a></li>
-            </ul>
-            <details id="notices">
-              <summary>Upstream license and notices</summary>
-              <pre tabindex="0" id="upstream-notices"></pre>
-            </details>
+          <div class="example-results" id="example-results" hidden>
+            <table>
+              <caption>Two tests on the same bug</caption>
+              <thead>
+                <tr><th scope="col">What it checks</th><th scope="col">With the bug</th><th scope="col">With the fix</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Nothing</th>
+                  <td id="control-buggy"></td>
+                  <td id="control-fixed"></td>
+                </tr>
+                <tr>
+                  <th scope="row">Translator’s note</th>
+                  <td id="reference-buggy"></td>
+                  <td id="reference-fixed"></td>
+                </tr>
+              </tbody>
+            </table>
+            <p>Babel’s own test caught the missing note. The other test passed both times.</p>
+            <a class="text-link" id="example-case-link" href="#cases">Explore the Babel case</a>
           </div>
-        </article>
+        </div>
       </div>
     </section>
 
-    <section class="method" id="method" aria-labelledby="method-title">
-      <div class="method-intro">
-        <h2 id="method-title">How the benchmark works</h2>
-        <p>These replays show recorded checks against real bugs. Comparative AI model results are pending.</p>
+    <section class="method reading" id="method" aria-labelledby="method-heading">
+      <h2 id="method-heading">How RevertBench scores a test</h2>
+      <p>An AI model gets the original code change and writes a test. RevertBench runs that test several times with and without the fix. To earn credit, the test has to run the changed code, fail with the bug, and pass with the fix.</p>
+      <a class="text-link" href="https://github.com/BishalJena/revertbench/blob/main/docs/cases.md">Read the validation method</a>
+    </section>
+
+    <section class="library reading" id="cases" aria-labelledby="cases-heading">
+      <h2 id="cases-heading">Nine real bugs</h2>
+      <p>Across four Python projects, each bug was caught by a reference test and confirmed in repeated runs. Comparative AI model results are pending.</p>
+      <div id="case-list"></div>
+      <div class="case-fallback" id="case-fallback">
+        <p id="case-load-status" role="status">Detailed results are available in the public case files.</p>
+        <a href="https://github.com/BishalJena/revertbench/blob/main/cases/README.md">Open the cases on GitHub</a>
       </div>
-      <ol class="method-steps">
-        <li>
-          <h3>Recover a real regression</h3>
-          <p>Keep the code before a change, the buggy version, and the buggy version with its repair applied. Check that a historical reference test passes, fails, then passes.</p>
-        </li>
-        <li>
-          <h3>Give the model the change</h3>
-          <p>Ask the model to write a test as if it were reviewing the original pull request. Keep the repair and the reference test hidden.</p>
-        </li>
-        <li>
-          <h3>Score the test on both versions</h3>
-          <p>Run it against the bug and the repair in isolated Docker containers. A valid test fails for the expected reason on the bug and passes with the repair across repeats.</p>
-        </li>
-      </ol>
-      <a class="method-link" href="https://github.com/BishalJena/revertbench/blob/main/docs/cases.md">Read the validation method <span aria-hidden="true">↗</span></a>
     </section>
   </main>
 
-  <footer class="wrap footer">
+  <footer class="wrap page-footer">
     <span>RevertBench</span>
     <a href="https://github.com/BishalJena/revertbench">Source code on GitHub <span aria-hidden="true">↗</span></a>
   </footer>
