@@ -11,86 +11,42 @@ Reviews record either an actual human attestation or an agent's own decision und
 explicit delegated authorization. Agent review is stored separately and never
 presented as human approval. Both require the same machine, provenance and CI evidence.
 
-The first case is
-[more-itertools product-index iterator regression](more-itertools-71b76842d32c-5a1d64d1-be44ad73/case.json):
-merged PR1079 broke iterator inputs; PR1082 restored them. The unchanged original
-test passes on the introducing commit's parent, fails on the bad tree with
-`TypeError`, and passes after the historical production repair. Each condition
-was repeated three times. The configured pytest subset passed 690 tests per tree;
-the official unittest supplement, including doctests, passed 850 per tree. Bishal
-Jena explicitly reviewed and approved this first case; its original human review
-and published evidence remain unchanged.
+## At a glance
 
-The second case is
-[more-itertools partition None-predicate regression](more-itertools-111d6deb8080-bf3b6673-5b49ad9c/case.json):
-merged PR310 stopped treating `None` as a truth-value predicate; PR368 restored
-the `bool` fallback. Both assertions in the original test remain unchanged:
-`partition(None, range(3))` produces `[0]` and `[1, 2]`. The reference passes on
-base, raises `TypeError` on bad, and passes on the controlled repair across three
-repeats. All 445 upstream unittest tests pass on each tree. This case records
-an authorized agent review, with no human attestation, and pins its own grader
-and environment independently of the first case.
+| # | Project | What broke | On the buggy code | Introduced → fixed | Review |
+| --- | --- | --- | --- | --- | --- |
+| 1 | more-itertools | `product_index()` called `len()` on iterator inputs | `TypeError` | [#1079 → #1082](more-itertools-71b76842d32c-5a1d64d1-be44ad73) | human |
+| 2 | more-itertools | `partition(None, items)` called `None` instead of splitting by truthiness | `TypeError` | [#310 → #368](more-itertools-111d6deb8080-bf3b6673-5b49ad9c) | delegated agent |
+| 3 | more-itertools | `ichunked(items, 0)` raised for nonempty input instead of yielding no chunks | `ValueError` | [#1124 → #1305](more-itertools-6a6d1364d8dc-1ea82a71-6988667e) | delegated agent |
+| 4 | more-itertools | `distinct_permutations()` failed on values that cannot be sorted together | `TypeError` | [#423 → #834](more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf) | delegated agent |
+| 5 | more-itertools | Comparing very large `numeric_range` objects overflowed | `OverflowError` | [#1216 → #1345](more-itertools-f9cdcb990dbb-f42daddf-9f00df42) | delegated agent |
+| 6 | Blinker | A signal missed a receiver when the sender was an equal but distinct integer | `AssertionError` | [#144 → #148](blinker-64423dfadc9a-0068cb4c-1da91128) | delegated agent |
+| 7 | Babel | Extraction dropped a translator comment before a multiline call | `AssertionError` | [#1126 → #1196](babel-bef3a734fbdf-de44e185-e4a8ca4b) | delegated agent |
+| 8 | Babel | Extraction tried to process byte strings | `TypeError` | [#1083 → #1259](babel-8babd2413b6b-7b00bf9e-365e1118) | delegated agent |
+| 9 | attrs | Field-order checks consumed a transformer's generator, so the class lost its field | `AssertionError` | [#1401 → #1417](attrs-e048efcb3954-3b0378dd-1156ca14) | delegated agent |
 
-The third case is
-[more-itertools zero-size ichunked regression](more-itertools-6a6d1364d8dc-1ea82a71-6988667e/case.json):
-merged PR1124 broke zero-sized chunks for nonempty input; PR1305 restored the
-input guards. The original three assertions check an empty result for list and
-iterator inputs, including an unconsumed iterator. Base passes, bad raises
-`ValueError` on introduced lines, and repair passes across three repeats.
-The full upstream suites pass 857/863/863 tests respectively. The report records
-a 256-PID upstream-suite budget; scored references retain their existing limits.
-This case has an authorized agent review and its own pinned policy3 environment.
+For every case, the original test passes on the parent, fails on the buggy
+revision and passes after the controlled repair, three times per tree.
 
-The fourth case is
-[more-itertools distinct-permutations regression](more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf/case.json).
-PR423 made mixed, unsortable inputs raise `TypeError`; the later PR834 integration
-restored them. All 13 original input sequences remain unchanged. Reference runs
-pass on base, fail on bad and pass on repair three times; all 494 upstream tests
-pass on each tree. Its explicit function-body repair derivation records complete
-before/after AST identities and the original historical production diff.
+## Inside a bundle
 
-The fifth case is
-[more-itertools large numeric-range equality regression](more-itertools-f9cdcb990dbb-f42daddf-9f00df42/case.json).
-PR1216 made equality overflow for ranges larger than the platform size limit;
-PR1345 restores comparison using the cached length. The original six comparison
-rows remain unchanged. Reference runs pass/fail/pass three times and upstream
-suites pass 897/896/896 tests. The canonical related hashing repair is retained
-and is not claimed as directly covered by the equality reference.
+| File | Contents |
+| --- | --- |
+| `case.json` | Provenance, environment, validation summary and review records |
+| `reference.py` | The original regression test, extracted without rewriting its assertions |
+| `repair.patch` | The production-only repair applied to the buggy tree |
+| `bad.diff` | The introducing change |
+| `historical_fix.diff` | The full historical fix, kept as provenance |
+| `validation.json` | Machine evidence: suite results, reference runs and cheat probes |
+| `publication-manifest.json` | Digest of every published file and the pinned Python base |
+| `candidate.json` | The mined candidate, with upstream notices |
+| `upstream-license.txt`, `upstream-reference-header.txt` | Upstream notices for the reference test |
+| `official-unittest/`, `upstream-suite/` | Separate runs of the project's own suite |
+| `historical-production.diff` | Only for derived repairs: the original historical production diff |
 
-Both cases record authorized agent reviews and pin their policy4 environment.
-Lifted `subTest` contexts retain one pytest node and propagate the first failing
-input; individual input rows are not reported as independently failing nodes.
+See [Mining and reviewing cases](../docs/cases.md) for how each file is produced.
 
-The sixth case is the [Blinker integer-sender regression](blinker-64423dfadc9a-0068cb4c-1da91128/case.json).
-PR 144 stopped matching distinct integer sender objects with equal values.
-PR 148 restored that behavior. The complete original test registers a callback,
-checks delivery for the original integer, then checks delivery for an equal
-integer constructed at runtime. The test passes on the parent, fails its second
-assertion on the introducing merge, and passes after the production-only repair
-over three repeats per snapshot. The complete upstream pytest suites pass 30, 26, and 26
-tests respectively. The version 2 publication includes structured suite repeat
-evidence, a pinned policy 6 worker, and a delegated case review.
-
-The seventh case is the [Babel translator-comment regression](babel-bef3a734fbdf-de44e185-e4a8ca4b/case.json).
-PR 1126 caused Babel to drop a translator comment before a multiline translation
-call. PR 1196 restored it. The complete original reference checks the line number,
-message and comment. It passes on the parent, fails the comment assertion on the
-introducing merge, and passes after the exact production repair across three
-repeats per revision. Each original upstream suite passed 6,042 tests, with 1,075
-runtime skips and two optional collection skips. The bundle pins a policy 7 worker,
-the verified CLDR 45 data, a structured suite repeat and a delegated case review.
-Fresh reproductions also preserve the native collection order. The comparison
-permits filesystem-dependent ordering within the upstream test function that
-parametrizes its rows from an unsorted glob, while requiring the same rows.
-
-The eighth case is the [Babel byte-string extraction regression](babel-8babd2413b6b-7b00bf9e-365e1118/case.json).
-PR 1083 made extraction try to include byte strings in the translation messages,
-and PR 1259 restored the behavior of ignoring them. The complete original test
-asserts that both text messages are retained. It passes on the parent, raises
-`TypeError` on the introducing revision, and passes after the exact production
-repair across three repeats per revision. Each original upstream suite passed
-5,983 tests, with 1,074 runtime skips and one optional collection skip. The bundle
-pins a policy 7 worker and the verified CLDR 44 data for this separate regression.
+## Inspect or reproduce a case
 
 Inspect the packet without executing its historical code on the host:
 
@@ -119,6 +75,107 @@ uploads the reproduction results.
 
 The historical Python reference is intentionally excluded from automated
 formatting: changing its spelling would change the approved source digest.
+
+## Case notes
+
+### 1. more-itertools: product-index iterator regression
+
+The first case is
+[more-itertools product-index iterator regression](more-itertools-71b76842d32c-5a1d64d1-be44ad73/case.json):
+merged PR1079 broke iterator inputs; PR1082 restored them. The unchanged original
+test passes on the introducing commit's parent, fails on the bad tree with
+`TypeError`, and passes after the historical production repair. Each condition
+was repeated three times. The configured pytest subset passed 690 tests per tree;
+the official unittest supplement, including doctests, passed 850 per tree. Bishal
+Jena explicitly reviewed and approved this first case; its original human review
+and published evidence remain unchanged.
+
+### 2. more-itertools: partition None-predicate regression
+
+The second case is
+[more-itertools partition None-predicate regression](more-itertools-111d6deb8080-bf3b6673-5b49ad9c/case.json):
+merged PR310 stopped treating `None` as a truth-value predicate; PR368 restored
+the `bool` fallback. Both assertions in the original test remain unchanged:
+`partition(None, range(3))` produces `[0]` and `[1, 2]`. The reference passes on
+base, raises `TypeError` on bad, and passes on the controlled repair across three
+repeats. All 445 upstream unittest tests pass on each tree. This case records
+an authorized agent review, with no human attestation, and pins its own grader
+and environment independently of the first case.
+
+### 3. more-itertools: zero-size ichunked regression
+
+The third case is
+[more-itertools zero-size ichunked regression](more-itertools-6a6d1364d8dc-1ea82a71-6988667e/case.json):
+merged PR1124 broke zero-sized chunks for nonempty input; PR1305 restored the
+input guards. The original three assertions check an empty result for list and
+iterator inputs, including an unconsumed iterator. Base passes, bad raises
+`ValueError` on introduced lines, and repair passes across three repeats.
+The full upstream suites pass 857/863/863 tests respectively. The report records
+a 256-PID upstream-suite budget; scored references retain their existing limits.
+This case has an authorized agent review and its own pinned policy3 environment.
+
+### 4. more-itertools: distinct-permutations regression
+
+The fourth case is
+[more-itertools distinct-permutations regression](more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf/case.json).
+PR423 made mixed, unsortable inputs raise `TypeError`; the later PR834 integration
+restored them. All 13 original input sequences remain unchanged. Reference runs
+pass on base, fail on bad and pass on repair three times; all 494 upstream tests
+pass on each tree. Its explicit function-body repair derivation records complete
+before/after AST identities and the original historical production diff.
+
+### 5. more-itertools: large numeric-range equality regression
+
+The fifth case is
+[more-itertools large numeric-range equality regression](more-itertools-f9cdcb990dbb-f42daddf-9f00df42/case.json).
+PR1216 made equality overflow for ranges larger than the platform size limit;
+PR1345 restores comparison using the cached length. The original six comparison
+rows remain unchanged. Reference runs pass/fail/pass three times and upstream
+suites pass 897/896/896 tests. The canonical related hashing repair is retained
+and is not claimed as directly covered by the equality reference.
+
+Both cases record authorized agent reviews and pin their policy4 environment.
+Lifted `subTest` contexts retain one pytest node and propagate the first failing
+input; individual input rows are not reported as independently failing nodes.
+
+### 6. Blinker: integer-sender regression
+
+The sixth case is the [Blinker integer-sender regression](blinker-64423dfadc9a-0068cb4c-1da91128/case.json).
+PR 144 stopped matching distinct integer sender objects with equal values.
+PR 148 restored that behavior. The complete original test registers a callback,
+checks delivery for the original integer, then checks delivery for an equal
+integer constructed at runtime. The test passes on the parent, fails its second
+assertion on the introducing merge, and passes after the production-only repair
+over three repeats per snapshot. The complete upstream pytest suites pass 30, 26, and 26
+tests respectively. The version 2 publication includes structured suite repeat
+evidence, a pinned policy 6 worker, and a delegated case review.
+
+### 7. Babel: translator-comment regression
+
+The seventh case is the [Babel translator-comment regression](babel-bef3a734fbdf-de44e185-e4a8ca4b/case.json).
+PR 1126 caused Babel to drop a translator comment before a multiline translation
+call. PR 1196 restored it. The complete original reference checks the line number,
+message and comment. It passes on the parent, fails the comment assertion on the
+introducing merge, and passes after the exact production repair across three
+repeats per revision. Each original upstream suite passed 6,042 tests, with 1,075
+runtime skips and two optional collection skips. The bundle pins a policy 7 worker,
+the verified CLDR 45 data, a structured suite repeat and a delegated case review.
+Fresh reproductions also preserve the native collection order. The comparison
+permits filesystem-dependent ordering within the upstream test function that
+parametrizes its rows from an unsorted glob, while requiring the same rows.
+
+### 8. Babel: byte-string extraction regression
+
+The eighth case is the [Babel byte-string extraction regression](babel-8babd2413b6b-7b00bf9e-365e1118/case.json).
+PR 1083 made extraction try to include byte strings in the translation messages,
+and PR 1259 restored the behavior of ignoring them. The complete original test
+asserts that both text messages are retained. It passes on the parent, raises
+`TypeError` on the introducing revision, and passes after the exact production
+repair across three repeats per revision. Each original upstream suite passed
+5,983 tests, with 1,074 runtime skips and one optional collection skip. The bundle
+pins a policy 7 worker and the verified CLDR 44 data for this separate regression.
+
+### 9. attrs: generator field-transformer regression
 
 The ninth case covers the
 [attrs generator field-transformer regression](attrs-e048efcb3954-3b0378dd-1156ca14/case.json).

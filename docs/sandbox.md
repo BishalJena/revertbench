@@ -1,5 +1,25 @@
 # Docker execution boundary
 
+**In short**
+
+- Generated tests run only inside Docker containers. There is no automatic
+  fallback to local execution.
+- Only the bytes of the saved test file cross from the agent's workspace into
+  grading. Edits to source, `conftest.py` or configuration stay behind.
+- Every grading run gets a fresh read-only copy of the source, no network, a
+  non-root user with all Linux capabilities dropped, and fixed CPU, memory,
+  process, time and output limits.
+- Infrastructure failures have no score. Timeouts and output overruns caused by
+  the submission score 0.
+- Containers share the host kernel. The boundary narrows exposure; it does not
+  remove kernel or daemon risk.
+
+**On this page:** [One contract, two backends](#one-grading-contract-two-execution-backends) ·
+[Data crossing the boundary](#data-crossing-the-boundary) ·
+[Restrictions and lifecycle](#runtime-restrictions-and-lifecycle) ·
+[Verification](#verification) · [Remaining limits](#remaining-limits) ·
+[Source and transport details](#source-and-transport-details)
+
 The policy and grading rules answer whether a submission earns credit. Docker
 provides the separate boundary needed to execute generated Python. Admission by
 the static policy does not make a test safe to run on the host.

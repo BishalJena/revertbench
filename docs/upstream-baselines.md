@@ -1,8 +1,23 @@
-# Fixed upstream runtime-suite profiles
+# Upstream suite profiles
+
+Before a case is accepted, each project's own existing test suite must pass on
+all three trees: parent, buggy and repaired. A profile fixes the trusted command
+used for that suite.
+
+**In short**
+
+- Profiles only select how the existing suite runs. They never change how
+  submitted tests are graded.
+- Each profile is versioned and follows the project's own historical test
+  configuration. There is no arbitrary command, target or ignore-path override.
+- Reports record the exact profile, command, limits and every collected test and
+  outcome for each tree.
 
 `revertbench validate --baseline-profile PROFILE` selects a fixed command for the
 trusted existing suite on all three source trees. It does not change the scored
 submission's grader, fixtures, policy, resource limits or hidden reference.
+
+## Profiles
 
 | Profile | Runtime selection |
 | --- | --- |
@@ -14,6 +29,8 @@ submission's grader, fixtures, policy, resource limits or hidden reference.
 | `babel_upstream_default_behavior_v1` | Babel's default Linux root suite for CLDR 45, including package doctests and locale-parametrized tests. |
 | `babel_cldr44_default_behavior_v1` | Babel's default Linux root suite for CLDR 44, including package doctests and locale-parametrized tests. |
 | `attrs_field_transformer_default_behavior_v1` | The native attrs pytest suite for the field-transformer case, including the YAML mypy integration tests. |
+
+## Boltons and Pydash
 
 The Boltons and Pydash versioned profiles retain this fixed prefix:
 
@@ -39,6 +56,8 @@ covers runtime unit and doctest behavior. Coverage percentage gates and reports,
 opt-in typing tests, documentation, lint and package builds are not part of this
 runtime result; it is not a claim that full upstream CI passed.
 
+## Blinker
+
 Blinker's [pinned tox command](https://github.com/pallets-eco/blinker/blob/64423dfadc9a35000b5399ca3d94a480ec7efe99/tox.ini)
 runs pytest with `-v --tb=short` and a controlled temporary directory. Its
 [pinned configuration](https://github.com/pallets-eco/blinker/blob/64423dfadc9a35000b5399ca3d94a480ec7efe99/pyproject.toml)
@@ -63,6 +82,8 @@ build scripts. This is a compatible locked runtime, rather than a recreation of
 the historical pytest 8.1.2 / pytest-asyncio 0.23.6 dependency set. Lint, typing,
 documentation, package builds and the upstream Python matrix are separate checks.
 
+## Babel
+
 Babel's default `make test` runs `python -m pytest` at the repository root.
 The profile uses the historical `setup.cfg` and root `conftest.py` so collection
 includes source doctests and the native locale and timezone parametrization.
@@ -78,6 +99,8 @@ checks its data digest before copying the files into the baseline workspace and
 uses separately pinned Freezegun and python-dateutil wheels. Coverage thresholds,
 package builds and documentation builds are separate checks. [Babel 2.16.0](https://pypi.org/project/Babel/2.16.0/) [Babel 2.15.0](https://pypi.org/project/Babel/2.15.0/)
 
+## attrs
+
 The attrs profile follows the [historical tox test environment](https://github.com/python-attrs/attrs/blob/e048efcb395443608d184a149c0adbca166cb833/tox.ini).
 It rebuilds each pure-Python role wheel offline with the pinned build dependencies
 and checks the wheel digest before installation into scratch. The expected versions
@@ -89,6 +112,8 @@ records seven native skips and one expected failure on each role. Lint, the sepa
 Pyright task, the coverage reporting task and the full Python-version matrix are
 outside the profile.
 
+## Rules shared by every profile
+
 Original repository conftest support remains enabled for these trusted baselines.
 Ambient plugin discovery remains disabled. Babel and attrs use their native
 configuration. The other pytest profiles use the controlled configuration.
@@ -97,12 +122,16 @@ historical repository's layout and test-selection contract before using a profil
 for a case; a recent upstream configuration is not evidence for every old commit.
 An unsupported layout or import error cannot fall back to a smaller passing suite.
 
+## What reports record
+
 Reports retain the exact profile, command and PID limit for each role, along with
 all collected node IDs and outcomes. Versioned pytest profiles use bounded
 compressed report transport; doctest examples and unittest subtests do not inflate
 collected node counts. A machine-validated versioned profile requires matching
 fixed commands and all three role reports. Injected backend mismatches remain
 pending infrastructure.
+
+## Resource limits
 
 `--baseline-pids-limit` defaults to 64 and accepts 8 through 256 for the trusted
 existing suite. Babel uses a fixed 512 MiB baseline memory cap. The original
