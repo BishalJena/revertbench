@@ -24,12 +24,12 @@
     "repaired": "fb57875fc382ec621241ad5bfebe21d9eef035607938610788cfc738c49429a8"
   },
   "global_suite_evidence": {
-    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44985236669",
-    "implementation_commit": "e72a9836b9834a05dca4c03d77da9adb70c696de",
-    "applies_to_image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
-    "grader_sha256": "ed4a3ca5f2f5035ad31cdc269c431f43fcc7992bb5e7f5a10f461a451578d0aa",
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44990165409",
+    "implementation_commit": "cccf4c0d15d8a3849a6fb4a4796bdf1c121032df",
+    "applies_to_image": "sha256:f0bc7ec6f62cbacb9e7e31c85ac65420db160de0554ccaa0179e08e64a61390e",
+    "grader_sha256": "f1b7200c576dc673044aeb080df951c62520871ae31c87af122ada993f5bb568",
     "policy_sha256": "d88a7edf790274f126b3fa32590673d0f1cf9aafab40440be0d74d763b905059",
-    "observed_at": "2026-11-22T04:39:52.627740Z",
+    "observed_at": "2026-11-22T06:15:39.030209Z",
     "checks_status": "passed",
     "sandbox_status": "passed"
   },
@@ -99,7 +99,7 @@
     }
   ],
   "env": {
-    "image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
+    "image": "sha256:f0bc7ec6f62cbacb9e7e31c85ac65420db160de0554ccaa0179e08e64a61390e",
     "python": "3.12.16",
     "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
     "install": [],
@@ -131,12 +131,12 @@
   "validation": {
     "status": "accepted",
     "report": "validation.json",
-    "report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
+    "report_sha256": "7f4f7ac2a258cc7489727a883fe4180ab32fd78d2caa3144d6b162c52315a7c2",
     "machine_passed": true,
     "reason": "all_machine_checks_passed",
     "grader_version": "0.0.1",
     "policy_version": "8",
-    "grader_sha256": "ed4a3ca5f2f5035ad31cdc269c431f43fcc7992bb5e7f5a10f461a451578d0aa",
+    "grader_sha256": "f1b7200c576dc673044aeb080df951c62520871ae31c87af122ada993f5bb568",
     "policy_sha256": "d88a7edf790274f126b3fa32590673d0f1cf9aafab40440be0d74d763b905059",
     "validator_version": "1"
   },
@@ -148,10 +148,10 @@
     "decision": "accept",
     "reviewer": "agent:regression-orchestrator",
     "authorization_note": "The repository owner delegated routine case review and resulting actions to the orchestrator on 2026-11-21.",
-    "notes": "Reviewed the full-mirror patch with the exact historical source and unchanged hunk, the complete original reference, the fresh nine-run pass/fail/pass result, the three native suite roles and the separate verifier repeat over the same source and wheel identities. The exact implementation passed the global CI and sandbox gates.",
-    "reviewed_at": "2026-11-22T04:43:54.979625Z",
-    "validation_report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
-    "case_inputs_sha256": "958df91aa4bc1ef39322d31dd2359fedc77165067a1db13ce39543e24e70c826"
+    "notes": "Reviewed the complete historical method, exact Git provenance and single-hunk repair. Fresh Linux machine validation matched all nine reference executions, all three complete native suites, wheel identities and 85 YAML tests per source role. Separate native repeats matched. Exact implementation CI and sandbox checks passed. The longer fixed native budget preserves all historical tests.",
+    "reviewed_at": "2026-11-22T06:15:39.190848Z",
+    "validation_report_sha256": "7f4f7ac2a258cc7489727a883fe4180ab32fd78d2caa3144d6b162c52315a7c2",
+    "case_inputs_sha256": "8832aa986e71acc54a2aa6f95dcc5d7bc1100f3a8228f485328c58ba6c212924"
   },
   "agent_review_history": [
     {
@@ -160,10 +160,10 @@
       "decision": "accept",
       "reviewer": "agent:regression-orchestrator",
       "authorization_note": "The repository owner delegated routine case review and resulting actions to the orchestrator on 2026-11-21.",
-      "notes": "Reviewed the full-mirror patch with the exact historical source and unchanged hunk, the complete original reference, the fresh nine-run pass/fail/pass result, the three native suite roles and the separate verifier repeat over the same source and wheel identities. The exact implementation passed the global CI and sandbox gates.",
-      "reviewed_at": "2026-11-22T04:43:54.979625Z",
-      "validation_report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
-      "case_inputs_sha256": "958df91aa4bc1ef39322d31dd2359fedc77165067a1db13ce39543e24e70c826"
+      "notes": "Reviewed the complete historical method, exact Git provenance and single-hunk repair. Fresh Linux machine validation matched all nine reference executions, all three complete native suites, wheel identities and 85 YAML tests per source role. Separate native repeats matched. Exact implementation CI and sandbox checks passed. The longer fixed native budget preserves all historical tests.",
+      "reviewed_at": "2026-11-22T06:15:39.190848Z",
+      "validation_report_sha256": "7f4f7ac2a258cc7489727a883fe4180ab32fd78d2caa3144d6b162c52315a7c2",
+      "case_inputs_sha256": "8832aa986e71acc54a2aa6f95dcc5d7bc1100f3a8228f485328c58ba6c212924"
     }
   ],
   "bad_diff": {
@@ -178,5 +178,5 @@
     "path": "candidate.json",
     "sha256": "a7542d80b56ae51d34f13cff069aa56b73f6749c6a360b70ac4a39a5bce6317a"
   },
-  "notes": "The complete upstream method checks that a generator field transformer retains the annotated field. PR 1401 reused the generator after consumption. The exact production repair materializes the generator once before reuse. The reference passes on the parent, fails with AssertionError on introduced code, and passes on the repair, across three seeds. The native suites pass 1,422 / 1,425 / 1,425 tests, with seven skips and one expected failure per role. All 85 historical YAML typing tests pass per role, and the separate repeat verifies the role wheel bytes and collected node order. Suite repeat summary SHA-256 7b5b3714d84dab748c23ac211f8bb206c511545d800c13a650988f4028b97e3f. The earlier public issue is recorded alongside exact PR associations and timestamps."
+  "notes": "The complete upstream method checks that a generator field transformer retains the annotated field. PR 1401 reused the generator after consumption. The exact production repair materializes the generator once before reuse. The reference passes on the parent, fails with AssertionError on introduced code, and passes on the repair, across three seeds. The native suites pass 1,422 / 1,425 / 1,425 tests, with seven skips and one expected failure per role. All 85 historical YAML typing tests pass per role, and the separate repeat verifies the role wheel bytes and collected node order. Suite repeat summary SHA-256 eb670945e5bccf2d5a91bd769bcbf58cc7c88e79bf940b09eb6ac34c7b78ec43. The earlier public issue is recorded alongside exact PR associations and timestamps."
 }

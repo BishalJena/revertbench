@@ -3,8 +3,8 @@
   "case_id": "attrs-e048efcb3954-3b0378dd-1156ca14",
   "build": {
     "base_image": "python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df",
-    "original_worker_image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
-    "validated_architecture": "arm64",
+    "original_worker_image": "sha256:f0bc7ec6f62cbacb9e7e31c85ac65420db160de0554ccaa0179e08e64a61390e",
+    "validated_architecture": "amd64",
     "verification": "Compared the approved worker layer prefix to the pinned official Python base.",
     "reproduction": "Build the pinned grader and dependency lock. Record the reproduced image and architecture."
   },
@@ -18,8 +18,8 @@
       "bytes": 3215
     },
     "case.json": {
-      "sha256": "97e0985979bd12237ff0f8e82bb0de3c0c775c603571d567bd3626795deba80a",
-      "bytes": 8129
+      "sha256": "8ade7acb2d01c72ba44cbc8c873f53fa8d7ab5145026f0ece151dd19b2007168",
+      "bytes": 8249
     },
     "historical_fix.diff": {
       "sha256": "1f9395870e0c2731893119f0ed5dd222a4e564285df3b4df16ff5d50e2515ca3",
@@ -42,24 +42,24 @@
       "bytes": 30
     },
     "upstream-suite/bad.json": {
-      "sha256": "73859151e8bde81627964bdd4d6302936b3708c12a168de138bfdaad31a44402",
-      "bytes": 132859
+      "sha256": "d108db1141caa8cff5bc18381e232a1eb911081ecb6ede38bbc7d0c8f2874ede",
+      "bytes": 132855
     },
     "upstream-suite/base.json": {
-      "sha256": "50c1c1f690276fdb33d09178b1fc38011b9f80f60d4287fd1c1aa199aabfcc90",
-      "bytes": 132568
+      "sha256": "b51a71837f9c98c33df4662367d48fa8f0ff7b6cba88bd8e4d53b4c7f8df2a53",
+      "bytes": 132570
     },
     "upstream-suite/repaired.json": {
-      "sha256": "7e0fab9e7732162954a493c0064335e6f5f0474f41aece01e4989220fef64993",
-      "bytes": 132859
+      "sha256": "3285d0d8137996a4b7361bc3ede4be82e65e187382da7ea52cee6dac5deec2d3",
+      "bytes": 132861
     },
     "upstream-suite/summary.json": {
-      "sha256": "7b5b3714d84dab748c23ac211f8bb206c511545d800c13a650988f4028b97e3f",
-      "bytes": 3349
+      "sha256": "eb670945e5bccf2d5a91bd769bcbf58cc7c88e79bf940b09eb6ac34c7b78ec43",
+      "bytes": 3388
     },
     "validation.json": {
-      "sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
-      "bytes": 829027
+      "sha256": "7f4f7ac2a258cc7489727a883fe4180ab32fd78d2caa3144d6b162c52315a7c2",
+      "bytes": 829017
     }
   }
 }
