@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 PROFILE: Final = "attrs_field_transformer_default_behavior_v1"
 MEMORY_BYTES: Final = 896 * 1024**2
+TIMEOUT_SECONDS: Final = 150
 _ROOT = Path("/workspace/repo")
 _OVERLAY = Path("/opt/revertbench/attrs")
 _RUNTIME = _OVERLAY / "runtime"

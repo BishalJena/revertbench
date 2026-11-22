@@ -94,6 +94,7 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
 
 _ROLES = ("base", "bad", "repaired")
 _ATTRS_PROFILE = "attrs_field_transformer_default_behavior_v1"
+_ATTRS_BASELINE_WALL_TIME_SECONDS = 150
 _ATTRS_WHEELS = {
     "base": {
         "version": "25.1.1.dev4",
@@ -167,6 +168,7 @@ def _upstream_scope(profile: str) -> dict[str, Any]:
             "xdist_workers": 1,
             "typing_yaml_passed": _ATTRS_TYPING_YAML_PASSED,
             "baseline_memory_bytes": 939_524_096,
+            "baseline_wall_time_seconds": _ATTRS_BASELINE_WALL_TIME_SECONDS,
             "historical_wheels": {role: wheel.copy() for role, wheel in _ATTRS_WHEELS.items()},
             "requirements_sha256": _ATTRS_REQUIREMENTS_SHA256.copy(),
             "excluded_checks": [
@@ -602,13 +604,19 @@ def _has_explicit_acceptance(case: Any) -> bool:
 def reproduce(case_dir: Path, *, output: Path, cache: Path) -> dict[str, Any]:
     """Launch an isolated host interpreter from this case's trusted grader commit."""
     case_dir, output, cache = case_dir.resolve(), output.resolve(), cache.resolve()
-    read_publication(case_dir)
+    publication = read_publication(case_dir)
     case = json.loads((case_dir / "case.json").read_bytes())
     if not _has_explicit_acceptance(case):
         raise ReproductionError("only explicitly accepted cases can enter dataset reproduction")
     uv = shutil.which("uv")
     if uv is None:
         raise ReproductionError("uv is required for the pinned locked grader environment")
+    wall_time = 550
+    if publication["manifest_version"] == "2":
+        report = json.loads((case_dir / "validation.json").read_bytes())
+        if report.get("baseline_profile") == _ATTRS_PROFILE:
+            # Validation and the separate repeat each run the native suite on all three roles.
+            wall_time = 1080
     output.mkdir(parents=True, exist_ok=False)
     cache.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix="grader-", dir=cache) as temporary:
@@ -636,7 +644,7 @@ def reproduce(case_dir: Path, *, output: Path, cache: Path) -> dict[str, Any]:
                 str(snapshot),
             ],
             cwd=snapshot,
-            timeout=550,
+            timeout=wall_time,
         )
         (output / "driver.log").write_text(result.stdout + result.stderr)
         if result.returncode:
@@ -737,9 +745,18 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
             case_dir, raw_case, original_report, getattr(baseline_module, "baseline_command", None)
         )
     image_module._BASE_IMAGE = publication["build"]["base_image"]
-    # Quiet official suites can emit nothing until completion. The transport
-    # timeout must exceed their independent 60-second command wall budget.
-    client = docker.from_env(timeout=70)
+    profile = original_report.get("baseline_profile", "pytest")
+    transport_timeout = 70
+    if profile == _ATTRS_PROFILE:
+        native_timeout = getattr(baseline_module, "baseline_timeout_seconds", None)
+        if (
+            not callable(native_timeout)
+            or native_timeout(profile) != _ATTRS_BASELINE_WALL_TIME_SECONDS
+        ):
+            raise ReproductionError("pinned grader does not support the recorded attrs wall budget")
+        transport_timeout = _ATTRS_BASELINE_WALL_TIME_SECONDS + 10
+    # Quiet official suites can emit nothing until their command wall budget expires.
+    client = docker.from_env(timeout=transport_timeout)
     try:
         client.ping()
         image = image_module.build_worker_image(client)
@@ -760,7 +777,6 @@ def _inside_pinned_grader(case_dir: Path, output: Path, cache: Path, pinned_root
             ):
                 raise ReproductionError("reconstructed immutable case inputs differ")
             kwargs: dict[str, Any] = {"image": image, "client": client}
-            profile = original_report.get("baseline_profile", "pytest")
             kwargs.update(_baseline_options(validate_built_candidate, original_report))
             baseline_pids = original_report.get("baseline_pids_limit", 64)
             fresh = validate_built_candidate(built, **kwargs)
