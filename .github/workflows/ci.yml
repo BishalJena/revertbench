@@ -20,7 +20,19 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
-  sandbox:
+  reproduction-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.shards.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: shards
+        run: |
+          matrix=$(python3 tests/case_reproduction_shards.py)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  sandbox-boundaries:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -30,12 +42,52 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen
       - run: docker info
-      - run: uv run pytest --run-docker -m docker
+      - run: uv run pytest --run-docker -m docker -k 'not test_accepted_case_reproduces_with_its_pinned_grader'
+
+  case-reproductions:
+    needs: reproduction-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.reproduction-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: docker info
+      - run: uv run pytest --run-docker -m docker -k test_accepted_case_reproduces_with_its_pinned_grader --case-reproduction-shard="$CASE_REPRODUCTION_SHARD"
         env:
+          CASE_REPRODUCTION_SHARD: ${{ matrix.index }}/${{ matrix.total }}
           REVERTBENCH_REPRO_OUTPUT: artifacts/case-reproductions
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: accepted-case-reproductions
+          name: accepted-case-reproductions-shard-${{ matrix.index }}
           path: artifacts/case-reproductions
           if-no-files-found: error
+
+  sandbox:
+    if: ${{ always() }}
+    needs: [reproduction-plan, sandbox-boundaries, case-reproductions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Docker job to succeed
+        env:
+          PLAN_RESULT: ${{ needs.reproduction-plan.result }}
+          BOUNDARY_RESULT: ${{ needs.sandbox-boundaries.result }}
+          REPRODUCTION_RESULT: ${{ needs.case-reproductions.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          test "$BOUNDARY_RESULT" = success
+          test "$REPRODUCTION_RESULT" = success
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: accepted-case-reproductions
+          pattern: accepted-case-reproductions-shard-*
+          separate-directories: false
+          delete-merged: false
