@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "5"
+POLICY_VERSION = "6"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -61,6 +61,7 @@ class _Symbol:
     proof_size: int = 1
     proof_exhausted: bool = False
     touches_pack: bool = False
+    counter_local: str | None = None
 
 
 _UNKNOWN = _Symbol("value")
@@ -688,6 +689,8 @@ class _Submission:
         self.observed = False
         self.proof_epoch = 0
         self.star_calls = 0
+        self.future_annotations = False
+        self.callbacks = 0
 
     def check(self, tree: ast.Module) -> None:
         functions: list[ast.FunctionDef] = []
@@ -717,6 +720,11 @@ class _Submission:
         self.globals[name] = symbol
 
     def _module(self, name: str) -> _Symbol:
+        if name.split(".")[0] == "typing":
+            self.index.reject_stdlib_shadow("typing")
+            if name != "typing":
+                _reject("unsupported_import", "Only the annotation-only typing module is supported")
+            return _Symbol("typing_annotations")
         if name.split(".")[0] == "itertools":
             self.index.reject_stdlib_shadow("itertools")
             if name != "itertools":
@@ -734,6 +742,22 @@ class _Submission:
         return self.index.module(name)
 
     def _import(self, node: ast.Import | ast.ImportFrom) -> None:
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            if (
+                self.globals
+                or self.future_annotations
+                or node.level
+                or len(node.names) != 1
+                or node.names[0].name != "annotations"
+                or node.names[0].asname
+            ):
+                _reject(
+                    "unsupported_import", "Only an initial annotations future flag is supported"
+                )
+            self.future_annotations = True
+            return
+        if isinstance(node, ast.ImportFrom) and node.module == "typing":
+            _reject("unsupported_import", "typing is supported only as an annotation module import")
         if isinstance(node, ast.Import):
             for alias in node.names:
                 module = self._module(alias.name)
@@ -761,7 +785,7 @@ class _Submission:
             self._declare(target.id, _value_symbol(node.value))
 
     def _function(self, node: ast.FunctionDef) -> None:
-        parameters = self._parameters(node)
+        parameters = self._parameters(node, self.globals)
         parametrized = self._decorators(node)
         if node.name.startswith("test_") and set(parameters) != parametrized:
             _reject(
@@ -769,23 +793,41 @@ class _Submission:
             )
         env = {**self.globals, **dict.fromkeys(parameters, _UNKNOWN)}
         self.observed = False
-        self._statements(node.body, env)
+        self.callbacks = 0
+        self._statements(node.body, env, allow_callback=node.name.startswith("test_"))
         if node.name.startswith("test_") and not self.observed:
             _reject("empty_test", "A test must assert, expect an exception or call a project API")
 
     @staticmethod
-    def _parameters(node: ast.FunctionDef) -> list[str]:
+    def _parameters(
+        node: ast.FunctionDef, env: dict[str, _Symbol], *, callback: bool = False
+    ) -> list[str]:
         args = node.args
-        if args.vararg or args.kwarg or args.kwonlyargs or node.returns:
+        if args.vararg or args.kwarg or args.kwonlyargs or node.type_params:
             _reject(
                 "unsupported_syntax",
-                "Variadic/keyword-only parameters and annotations are unsupported",
+                "Variadic/keyword-only and generic parameters are unsupported",
             )
         parameters = [*args.posonlyargs, *args.args]
-        if any(arg.annotation for arg in parameters) or args.defaults:
+        if args.defaults or (
+            node.returns is not None
+            and not (isinstance(node.returns, ast.Constant) and node.returns.value is None)
+        ):
             _reject(
-                "unsupported_syntax", "Function annotations and default arguments are unsupported"
+                "unsupported_syntax", "Only None return annotations and no defaults are supported"
             )
+        for argument in parameters:
+            annotation = argument.annotation
+            if annotation is not None and not (
+                callback
+                and isinstance(annotation, ast.Attribute)
+                and annotation.attr == "Any"
+                and isinstance(annotation.value, ast.Name)
+                and env.get(annotation.value.id, _UNKNOWN).kind == "typing_annotations"
+            ):
+                _reject(
+                    "unsupported_syntax", "Only exact callback typing.Any annotations are supported"
+                )
         names = [arg.arg for arg in parameters]
         for name in names:
             _check_name(name)
@@ -827,7 +869,9 @@ class _Submission:
             names.update(incoming)
         return names
 
-    def _statements(self, nodes: list[ast.stmt], env: dict[str, _Symbol]) -> None:
+    def _statements(
+        self, nodes: list[ast.stmt], env: dict[str, _Symbol], *, allow_callback: bool = False
+    ) -> None:
         for node in nodes:
             if isinstance(node, ast.Assert):
                 self._expression(node.test, env)
@@ -838,8 +882,17 @@ class _Submission:
                 self._expression(node.value, env)
             elif isinstance(node, ast.Assign):
                 symbol = self._expression(node.value, env)
+                if (
+                    len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and isinstance(node.value, ast.Constant)
+                    and type(node.value.value) is int
+                ):
+                    symbol = replace(symbol, counter_local=node.targets[0].id)
                 for target in node.targets:
                     self._bind(target, symbol, env)
+            elif isinstance(node, ast.FunctionDef) and allow_callback:
+                self._callback(node, env)
             elif isinstance(node, ast.AugAssign):
                 self._expression(node.target, env)
                 self._expression(node.value, env)
@@ -857,6 +910,40 @@ class _Submission:
                 self._with(node, env)
             elif not isinstance(node, (ast.Pass, ast.Break, ast.Continue)):
                 _reject("unsupported_syntax", f"Unsupported statement: {type(node).__name__}")
+
+    def _callback(self, node: ast.FunctionDef, env: dict[str, _Symbol]) -> None:
+        """Admit only a local integer observation, not a general closure body."""
+        parameters = self._parameters(node, env, callback=True)
+        _check_name(node.name)
+        if (
+            self.callbacks
+            or node.name in env
+            or node.name.startswith("test_")
+            or node.args.posonlyargs
+            or len(parameters) != 1
+            or node.decorator_list
+            or len(node.body) != 2
+            or not isinstance(node.body[0], ast.Nonlocal)
+            or len(node.body[0].names) != 1
+            or not isinstance(node.body[1], ast.AugAssign)
+        ):
+            _reject("unsupported_syntax", "Only one direct local counter callback is supported")
+        counter = node.body[0].names[0]
+        increment = node.body[1]
+        _check_name(counter)
+        if (
+            counter in parameters
+            or env.get(counter, _UNKNOWN).counter_local != counter
+            or not isinstance(increment.target, ast.Name)
+            or increment.target.id != counter
+            or not isinstance(increment.op, ast.Add)
+            or not isinstance(increment.value, ast.Constant)
+            or type(increment.value.value) is not int
+            or increment.value.value != 1
+        ):
+            _reject("unsupported_syntax", "Callback body must increment one local literal integer")
+        self.callbacks += 1
+        env[node.name] = _Symbol("callback")
 
     def _branches(
         self, left: list[ast.stmt], right: list[ast.stmt], env: dict[str, _Symbol]
@@ -890,6 +977,8 @@ class _Submission:
     def _bind(node: ast.expr, symbol: _Symbol, env: dict[str, _Symbol]) -> None:
         if isinstance(node, ast.Name):
             _check_name(node.id)
+            if symbol.counter_local != node.id:
+                symbol = replace(symbol, counter_local=None)
             env[node.id] = symbol
         elif isinstance(node, (ast.Tuple, ast.List)):
             aligned = symbol.packs is not None and all(
@@ -956,6 +1045,8 @@ class _Submission:
             _check_name(node.id)
             if node.id in env:
                 symbol = env[node.id]
+                if symbol.kind == "typing_annotations":
+                    _reject("unsupported_syntax", "typing imports are annotation-only bindings")
                 if symbol.kind == "helper" or symbol.touches_pack:
                     self._forget_packs(env)
                 return symbol

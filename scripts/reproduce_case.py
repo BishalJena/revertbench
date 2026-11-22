@@ -93,6 +93,7 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
 
 _ROLES = ("base", "bad", "repaired")
 _UPSTREAM_PROFILES = {
+    "blinker_upstream_default_behavior_v1",
     "boltons_upstream_default_behavior_v1",
     "pydash_upstream_default_behavior_v1",
 }
@@ -120,6 +121,11 @@ _SUITE_FIELDS = (
 def _upstream_scope(profile: str) -> dict[str, Any]:
     if profile not in _UPSTREAM_PROFILES:
         raise ReproductionError("unsupported upstream suite profile")
+    if profile == "blinker_upstream_default_behavior_v1":
+        return {
+            "behavior": "upstream_default_pytest_tests",
+            "excluded_checks": ["documentation_build", "lint", "package_build", "type_checking"],
+        }
     excluded = ["coverage_quality_gate", "documentation_build", "lint", "package_build"]
     if profile == "pydash_upstream_default_behavior_v1":
         excluded.insert(0, "opt_in_typing_tests")

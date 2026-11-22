@@ -10,8 +10,9 @@ submission's grader, fixtures, policy, resource limits or hidden reference.
 | `unittest` | `python -m unittest -q`, including upstream `load_tests` hooks and doctests they add. |
 | `boltons_upstream_default_behavior_v1` | pytest package doctests in `boltons` and unit tests in `tests`. |
 | `pydash_upstream_default_behavior_v1` | pytest package doctests in `src/pydash` and unit tests in `tests`, excluding only `tests/pytest_mypy_testing`. |
+| `blinker_upstream_default_behavior_v1` | All pytest tests in `tests`, including async tests, with warnings treated as errors. |
 
-The two versioned profiles use this fixed prefix:
+The Boltons and Pydash versioned profiles retain this fixed prefix:
 
 ```text
 /usr/local/bin/python -m pytest -q --disable-warnings
@@ -34,6 +35,30 @@ selects these targets and excludes the opt-in typing suite by default. This prof
 covers runtime unit and doctest behavior. Coverage percentage gates and reports,
 opt-in typing tests, documentation, lint and package builds are not part of this
 runtime result; it is not a claim that full upstream CI passed.
+
+Blinker's [pinned tox command](https://github.com/pallets-eco/blinker/blob/64423dfadc9a35000b5399ca3d94a480ec7efe99/tox.ini)
+runs pytest with `-v --tb=short` and a controlled temporary directory. Its
+[pinned configuration](https://github.com/pallets-eco/blinker/blob/64423dfadc9a35000b5399ca3d94a480ec7efe99/pyproject.toml)
+selects `tests`, treats warnings as errors, and uses asyncio auto mode. The fixed
+profile reproduces those runtime settings with trusted arguments:
+
+```text
+/usr/local/bin/python -m pytest -v --tb=short
+-c /opt/revertbench/pytest.ini --rootdir /workspace/repo
+--basetemp=/tmp/revertbench-baseline -p no:cacheprovider
+-p pytest_asyncio.plugin -o filterwarnings=error -o asyncio_mode=auto
+-o asyncio_default_fixture_loop_scope=function tests
+```
+
+The worker pins `pytest-asyncio==1.5.0` alongside the existing locked pytest. It
+loads that plugin explicitly while ambient plugin discovery stays disabled.
+Function-scoped fixture loops make the newer plugin's default explicit; the
+original suite has no async fixtures or event-loop overrides. The profile checks
+the installed plugin version, its source origin and effective settings before
+running tests. It does not suppress warnings, skip async tests or execute repository
+build scripts. This is a compatible locked runtime, rather than a recreation of
+the historical pytest 8.1.2 / pytest-asyncio 0.23.6 dependency set. Lint, typing,
+documentation, package builds and the upstream Python matrix are separate checks.
 
 Original repository conftest support remains enabled for these trusted baselines.
 Ambient plugin discovery and repository command-line configuration remain disabled.

@@ -163,6 +163,36 @@ def test_materialization_keeps_original_bad_and_records_minimal_repair(tmp_path:
     assert not (built.bad_tree / "tests/test_revertbench_submission.py").exists()
 
 
+@pytest.mark.parametrize("changed_count", [649, 701])
+def test_materialization_bounds_introducing_refactors_separately_from_repairs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed_count: int
+) -> None:
+    from revertbench.build import materialize_candidate
+
+    repository = _Repository()
+
+    def diff(before: str, after: str, paths: tuple[str, ...] = ()) -> str:
+        if (before, after) != ("1" * 40, "2" * 40):
+            return PATCH
+        assert paths == ("toy.py",)
+        header = PATCH.split("@@", maxsplit=1)[0]
+        return (
+            f"{header}@@ -1,{changed_count} +1,2 @@\n"
+            " def normalize(value):\n"
+            + "-    pass\n" * (changed_count - 2)
+            + "-    return value\n+    return value.strip()\n"
+        )
+
+    monkeypatch.setattr(repository, "diff", diff)
+    if changed_count > 700:
+        with pytest.raises(BuildError, match="unsupported_patch_size"):
+            materialize_candidate(repository, _candidate(), tmp_path / "build")
+    else:
+        built = materialize_candidate(repository, _candidate(), tmp_path / "build")
+        assert built.production_patch == PATCH
+        assert built.changed_lines == {"toy.py": (2,)}
+
+
 def test_materialization_rejects_link_before_copying_outside_source(tmp_path: Path) -> None:
     from revertbench.build import materialize_candidate
 

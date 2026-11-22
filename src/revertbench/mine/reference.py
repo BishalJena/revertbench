@@ -474,7 +474,7 @@ def _parameters(function: ast.FunctionDef, *, test: bool) -> None:
 
 
 def _loads(function: ast.FunctionDef) -> set[str]:
-    """Collect outer dependencies without leaking a comprehension's local target."""
+    """Collect module dependencies with separate function/comprehension scopes."""
     local = {argument.arg for argument in (*function.args.posonlyargs, *function.args.args)}
 
     class Bindings(ast.NodeVisitor):
@@ -486,6 +486,13 @@ def _loads(function: ast.FunctionDef) -> set[str]:
             # Its target belongs to Python's implicit comprehension scope.
             pass
 
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            if node is function:
+                self.generic_visit(node)
+            else:
+                # The definition binds its name here; its parameters/body do not.
+                local.add(node.name)
+
     Bindings().visit(function)
     loaded: set[str] = set()
 
@@ -496,6 +503,28 @@ def _loads(function: ast.FunctionDef) -> set[str]:
         def visit_Name(self, node: ast.Name) -> None:
             if isinstance(node.ctx, ast.Load) and node.id not in self.bound:
                 loaded.add(node.id)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            if node is function:
+                self.generic_visit(node)
+                return
+            # Annotations/defaults/decorators are evaluated in the defining scope.
+            for expression in [
+                *node.decorator_list,
+                *node.args.defaults,
+                *(value for value in node.args.kw_defaults if value is not None),
+                *(
+                    arg.annotation
+                    for arg in (*node.args.posonlyargs, *node.args.args)
+                    if arg.annotation
+                ),
+            ]:
+                self.visit(expression)
+            if node.returns:
+                self.visit(node.returns)
+            # Resolve this body's free names using its own parameter/local scope,
+            # then discharge enclosing bindings (including the nonlocal counter).
+            loaded.update(_loads(node) - self.bound)
 
         def visit_ListComp(self, node: ast.ListComp) -> None:
             if (
@@ -577,6 +606,16 @@ def _extract_standalone_reference(
             _literal(dependency.value)
         elif isinstance(dependency, ast.ClassDef):
             raise ReferenceError("unsupported_reference_class_dependency")
+    if any(
+        (isinstance(child, ast.arg) and child.annotation is not None)
+        or (isinstance(child, ast.FunctionDef) and child.returns is not None)
+        for dependency in selected.values()
+        for child in ast.walk(dependency)
+    ):
+        for node in tree.body:
+            if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+                selected[node.lineno] = node
+                used_names.update(alias.asname or alias.name for alias in node.names)
     segments: list[str] = []
     for _, node in sorted(selected.items()):
         if isinstance(node, (ast.Import, ast.ImportFrom)):

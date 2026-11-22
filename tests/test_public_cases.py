@@ -19,7 +19,12 @@ def test_public_dataset_contains_an_accepted_case() -> None:
 
 
 @pytest.mark.parametrize("case_path", _CASE_PATHS, ids=lambda path: path.parent.name)
-def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path: Path) -> None:
+def test_public_case_preserves_review_and_all_artifact_bindings(
+    case_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.syspath_prepend(str(_CASES_ROOT.parent))
+    from scripts.reproduce_case import read_publication
+
     case = load_case(case_path)
     assert case.validation.status == "accepted"
     assert (case.human_review is None) != (case.agent_review is None)
@@ -32,9 +37,9 @@ def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path:
     assert review.case_inputs_sha256 == case.review_input_digest()
     build_review_packet(case_path)
     _machine_passed(case, case_path.parent)
-    manifest = json.loads((case_path.parent / "publication-manifest.json").read_text())
-    assert manifest["manifest_version"] == "1"
+    manifest = read_publication(case_path.parent)
     assert manifest["case_id"] == case.id
+    suite = "official-unittest" if manifest["manifest_version"] == "1" else "upstream-suite"
     expected = {
         "case.json",
         "candidate.json",
@@ -45,10 +50,7 @@ def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path:
         "validation.json",
         "upstream-license.txt",
         "upstream-reference-header.txt",
-        "official-unittest/base.json",
-        "official-unittest/bad.json",
-        "official-unittest/repaired.json",
-        "official-unittest/summary.json",
+        *(f"{suite}/{role}.json" for role in ("base", "bad", "repaired", "summary")),
     }
     if case.repair_derivation is not None:
         assert case.repair_derivation.historical_diff.path == "historical-production.diff"
@@ -67,7 +69,7 @@ def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path:
         assert hashlib.sha256(raw).hexdigest() == identity["sha256"]
         assert len(raw) == identity["bytes"]
         assert b"/Users/" not in raw and b"/data/revertbench" not in raw
-    summary_raw = read_artifact(case_path.parent, "official-unittest/summary.json", "report")
+    summary_raw = read_artifact(case_path.parent, f"{suite}/summary.json", "report")
     summary = json.loads(summary_raw)
     assert summary["status"] == "passed"
     assert summary["validation_report_sha256"] == case.validation.report_sha256
@@ -75,7 +77,8 @@ def test_public_case_preserves_human_review_and_all_artifact_bindings(case_path:
     assert tuple(summary["command"]) == case.env.test_cmd
     for role in ("base", "bad", "repaired"):
         assert summary["roles"][role]["source_sha256"] == case.source_hashes[role]
-        assert summary["roles"][role]["status"] == "passed"
+        if manifest["manifest_version"] == "1":
+            assert summary["roles"][role]["status"] == "passed"
     assert hashlib.sha256(summary_raw).hexdigest() in case.notes
 
 

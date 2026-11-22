@@ -28,6 +28,7 @@ BaselineProfile = Literal[
     "unittest",
     "boltons_upstream_default_behavior_v1",
     "pydash_upstream_default_behavior_v1",
+    "blinker_upstream_default_behavior_v1",
 ]
 _PREFIX = b"REVERTBENCH_BASELINE="
 _ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
@@ -60,6 +61,26 @@ _PYTEST_PROFILE_ARGS: dict[str, tuple[str, ...]] = {
         "--doctest-modules",
         "--ignore=tests/pytest_mypy_testing",
         "src/pydash",
+        "tests",
+    ),
+    "blinker_upstream_default_behavior_v1": (
+        "-v",
+        "--tb=short",
+        "-c",
+        "/opt/revertbench/pytest.ini",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "pytest_asyncio.plugin",
+        "-o",
+        "filterwarnings=error",
+        "-o",
+        "asyncio_mode=auto",
+        "-o",
+        "asyncio_default_fixture_loop_scope=function",
         "tests",
     ),
 }
@@ -112,6 +133,18 @@ class Evidence:
         self.deselected = 0
     def pytest_collection_finish(self, session):
         self.nodes = [item.nodeid for item in session.items]
+        if __FIXED_PROFILE__ == 'blinker_upstream_default_behavior_v1':
+            from importlib import metadata
+            config = session.config
+            allowed = config.pluginmanager.getplugin('pytest_asyncio.plugin')
+            origin = Path(getattr(allowed, '__file__', '')).resolve()
+            if (metadata.version('pytest-asyncio') != '1.5.0'
+                    or not origin.is_relative_to(Path('/usr/local/lib/python3.12/site-packages'))
+                    or config.getini('filterwarnings') != ['error']
+                    or config.getini('asyncio_mode') != 'auto'
+                    or config.getini('asyncio_default_fixture_loop_scope') != 'function'):
+                self.errors.append('baseline async plugin or settings mismatch')
+                pytest.exit('baseline trusted async runtime mismatch', returncode=4)
     def pytest_deselected(self, items):
         self.deselected += len(items)
     def pytest_collectreport(self, report):
