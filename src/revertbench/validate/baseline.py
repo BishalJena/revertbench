@@ -15,6 +15,7 @@ import docker
 import requests
 from pydantic import Field, ValidationError
 
+from revertbench import _attrs_baseline
 from revertbench.grade.backend import ExecutionBackend
 from revertbench.grade.policy import check_submission
 from revertbench.grade.rules import _eligible_failure, report_problem
@@ -32,6 +33,7 @@ BaselineProfile = Literal[
     "blinker_upstream_default_behavior_v1",
     "babel_upstream_default_behavior_v1",
     "babel_cldr44_default_behavior_v1",
+    "attrs_field_transformer_default_behavior_v1",
 ]
 _BABEL_PROFILE: Final = "babel_upstream_default_behavior_v1"
 _BABEL_CLDR44_PROFILE: Final = "babel_cldr44_default_behavior_v1"
@@ -129,6 +131,8 @@ def baseline_command(profile: BaselineProfile) -> tuple[str, ...]:
     """Return the fixed effective test command; a trusted reporting shim runs it."""
     if not isinstance(profile, str):
         raise ValueError("unknown fixed baseline profile")
+    if profile == _attrs_baseline.PROFILE:
+        return _attrs_baseline.COMMAND
     if profile in _PYTEST_PROFILE_ARGS:
         return ("/usr/local/bin/python", "-m", "pytest", *_PYTEST_PROFILE_ARGS[profile])
     if profile == "unittest":
@@ -342,6 +346,15 @@ def _pytest_script(profile: BaselineProfile) -> str:
     command = baseline_command(profile)
     if profile == "unittest":
         raise ValueError("unittest is not a pytest profile")
+    if profile == _attrs_baseline.PROFILE:
+        return (
+            _ENVIRONMENT_SCRIPT
+            + """
+from revertbench._attrs_baseline import run_native_attrs
+sys.exit(run_native_attrs(dict(environment_python=python_version,
+    dependency_lock_sha256=lock_digest, grader_sha256=grader_digest, policy_sha256=policy_digest)))
+"""
+        )
     report = (
         "print('\\nREVERTBENCH_BASELINE=' + json.dumps(payload, separators=(',', ':')), flush=True)"
     )
@@ -436,6 +449,8 @@ class BaselineResult(EvidenceModel):
     pids_limit: BaselinePidsLimit = 64
     collection_errors: tuple[str, ...] = ()
     extra_skip_node_ids: tuple[str, ...] = ()
+    native_attrs_wheel_sha256: ContentDigest | None = None
+    native_attrs_yaml_passed: _COUNT | None = None
     environment_python: str | None = None
     dependency_lock_sha256: ContentDigest | None = None
     grader_sha256: ContentDigest | None = None
@@ -539,6 +554,23 @@ def parse_baseline_output(
         inconsistent |= counted != result.collected or bool(result.extra_skip_node_ids)
     elif not (result.failed or result.errors or result.xpassed):
         inconsistent |= counted - len(result.extra_skip_node_ids) != result.collected
+    if result.profile == _attrs_baseline.PROFILE and exit_code == 0:
+        inconsistent |= (
+            result.native_attrs_wheel_sha256 is None
+            or not _attrs_baseline.known_selection(
+                result.node_ids,
+                result.native_attrs_wheel_sha256,
+                skipped=result.skipped,
+                xfailed=result.xfailed,
+            )
+            or result.native_attrs_yaml_passed != _attrs_baseline.YAML_PASSED
+            or result.xpassed != 0
+        )
+    elif result.profile != _attrs_baseline.PROFILE:
+        inconsistent |= (
+            result.native_attrs_wheel_sha256 is not None
+            or result.native_attrs_yaml_passed is not None
+        )
     if inconsistent:
         return result.model_copy(update={"reason": "baseline_report_inconsistent"})
     if result.profile == "unittest" and (result.failed or result.errors or result.xpassed):
@@ -572,6 +604,8 @@ class DockerBaselineRunner:
         if profile in _BABEL_DATA:
             # The native all-locale suite and generated data exceed the default memory cap.
             self.limits = replace(self.limits, memory_bytes=_BABEL_BASELINE_MEMORY_BYTES)
+        elif profile == _attrs_baseline.PROFILE:
+            self.limits = replace(self.limits, memory_bytes=_attrs_baseline.MEMORY_BYTES)
 
     def __call__(self, tree: Path) -> BaselineResult:
         try:

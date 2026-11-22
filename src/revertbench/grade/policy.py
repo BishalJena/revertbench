@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "7"
+POLICY_VERSION = "8"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -425,10 +425,11 @@ class _SourceIndex:
         self._load(name)
         return _Symbol("module", module=name)
 
-    def _path(self, name: str) -> tuple[Path, bool]:
+    def _path(self, name: str, *, attrs_export: bool = False) -> tuple[Path, bool]:
         parts = name.split(".")
         for part in parts:
-            _check_member(part)
+            if not (attrs_export and name == "attr._make" and part == "_make"):
+                _check_member(part)
             if part in {"tests", "conftest"} or part.startswith("test_"):
                 _reject("unsupported_import", "Test support modules are not approved project APIs")
         bases: tuple[Path, ...]
@@ -460,12 +461,14 @@ class _SourceIndex:
                     continue
         _reject("unresolved_symbol", f"No in-tree Python source for module: {name}")
 
-    def _load(self, name: str) -> _Module:
+    def _load(self, name: str, *, attrs_export: bool = False) -> _Module:
+        if name == "attr._make" and not attrs_export:
+            _check_member("_make")
         if name in self.modules:
             return self.modules[name]
         if len(self.modules) >= _MAX_MODULES:
             _reject("unresolved_symbol", "Source resolution exceeded its module budget")
-        path, is_package = self._path(name)
+        path, is_package = self._path(name, attrs_export=attrs_export)
         try:
             with path.open("rb") as stream:
                 data = stream.read(_MAX_MODULE_BYTES + 1)
@@ -590,6 +593,10 @@ class _SourceIndex:
         exported = self._star_symbol(module, name, info)
         if exported is not None:
             return exported
+        if module == "attr" and name in {"s", "fields"}:
+            attrs_symbol = self._attrs_export(info, name)
+            if attrs_symbol is not None:
+                return attrs_symbol
         node = info.definitions.get(name)
         if isinstance(node, ast.FunctionDef):
             return _Symbol("function", module=module, node=node)
@@ -607,6 +614,48 @@ class _SourceIndex:
         if info.package:
             return self.module(f"{module}.{name}")
         _reject("unresolved_symbol", f"Name is not defined on the bad tree: {module}.{name}")
+
+    def _attrs_export(self, public: _Module, name: str) -> _Symbol | None:
+        """Verify the supported public binding using its private source definition."""
+        local = public.definitions.get(name)
+        binding = name
+        if name == "s" and isinstance(local, ast.Name) and local.id == "attrs":
+            binding = local.id
+            if binding in public.definitions:
+                return None
+        elif local is not None:
+            return None
+        exported = "attrs" if name == "s" else "fields"
+        if public.imports.get(binding) != ("attr._make", exported):
+            return None
+        implementation = self._load("attr._make", attrs_export=True)
+        if not isinstance(implementation.definitions.get(exported), ast.FunctionDef):
+            _reject("unresolved_symbol", f"Missing attrs implementation for {name}")
+        if exported == "attrs":
+            return _Symbol("attrs_decorator", module="attr")
+
+        # Attrs augments the source class with equality and hashing after its declaration.
+        attributes = [
+            node
+            for node in implementation.tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "Attribute"
+        ]
+        if len(attributes) == 1:
+            attribute = attributes[0]
+            for node in attribute.body:
+                if (
+                    isinstance(node, ast.Assign)
+                    and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and node.targets[0].id == "__slots__"
+                    and isinstance(node.value, ast.Tuple)
+                    and any(
+                        isinstance(item, ast.Constant) and item.value == "name"
+                        for item in node.value.elts
+                    )
+                ):
+                    return _Symbol("attrs_fields", module="attr")
+        _reject("unresolved_symbol", "Missing attrs field name on the bad tree")
 
     def member(self, symbol: _Symbol, name: str) -> _Symbol:
         _check_member(name)
@@ -691,27 +740,55 @@ class _Submission:
         self.star_calls = 0
         self.future_annotations = False
         self.callbacks = 0
+        self.attrs_class_declared = False
+        self.attrs_fields_observed = False
 
     def check(self, tree: ast.Module) -> None:
-        functions: list[ast.FunctionDef] = []
+        functions: list[tuple[ast.FunctionDef, bool]] = []
         for node in tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 self._import(node)
             elif isinstance(node, ast.FunctionDef):
                 _check_name(node.name)
                 self._declare(node.name, _Symbol("helper", node=node))
-                functions.append(node)
+                functions.append((node, False))
+            elif isinstance(node, ast.ClassDef):
+                functions.append((self._pytest_method(node), True))
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
                 self._constant(node)
             elif not self._docstring(node):
                 _reject(
                     "top_level_effect", "Module scope permits only imports, constants and functions"
                 )
-        tests = [node for node in functions if node.name.startswith("test_")]
+        tests = [node for node, _ in functions if node.name.startswith("test_")]
         if not tests:
             _reject("empty_submission", "Submission must define at least one test function")
-        for node in functions:
-            self._function(node)
+        for node, method in functions:
+            self._function(node, method=method)
+
+    def _pytest_method(self, node: ast.ClassDef) -> ast.FunctionDef:
+        members = node.body[1:] if node.body and self._docstring(node.body[0]) else node.body
+        if (
+            not node.name.startswith("Test")
+            or node.bases
+            or node.keywords
+            or node.decorator_list
+            or node.type_params
+            or len(members) != 1
+            or not isinstance(members[0], ast.FunctionDef)
+        ):
+            _reject("unsupported_syntax", "Only an inert pytest class with one method is supported")
+        method = members[0]
+        if (
+            not method.name.startswith("test_")
+            or method.decorator_list
+            or method.args.posonlyargs
+            or self._parameters(method, self.globals) != ["self"]
+            or any(isinstance(child, ast.Name) and child.id == "self" for child in ast.walk(method))
+        ):
+            _reject("unsupported_fixture", "A pytest method requires unused self and no fixtures")
+        self._declare(node.name, _Symbol("pytest_class"))
+        return method
 
     def _declare(self, name: str, symbol: _Symbol) -> None:
         _check_name(name)
@@ -793,8 +870,8 @@ class _Submission:
                 _reject("unsupported_syntax", "Module constants require simple name targets")
             self._declare(target.id, _value_symbol(node.value))
 
-    def _function(self, node: ast.FunctionDef) -> None:
-        parameters = self._parameters(node, self.globals)
+    def _function(self, node: ast.FunctionDef, *, method: bool = False) -> None:
+        parameters = [] if method else self._parameters(node, self.globals)
         parametrized = self._decorators(node)
         if node.name.startswith("test_") and set(parameters) != parametrized:
             _reject(
@@ -803,7 +880,11 @@ class _Submission:
         env = {**self.globals, **dict.fromkeys(parameters, _UNKNOWN)}
         self.observed = False
         self.callbacks = 0
+        self.attrs_class_declared = False
+        self.attrs_fields_observed = False
         self._statements(node.body, env, allow_callback=node.name.startswith("test_"))
+        if method and not self.attrs_fields_observed:
+            _reject("unsupported_syntax", "This pytest class requires an attrs field-name test")
         if node.name.startswith("test_") and not self.observed:
             _reject("empty_test", "A test must assert, expect an exception or call a project API")
 
@@ -902,6 +983,8 @@ class _Submission:
                     self._bind(target, symbol, env)
             elif isinstance(node, ast.FunctionDef) and allow_callback:
                 self._callback(node, env)
+            elif isinstance(node, ast.ClassDef) and allow_callback:
+                self._attrs_class(node, env)
             elif isinstance(node, ast.AugAssign):
                 self._expression(node.target, env)
                 self._expression(node.value, env)
@@ -929,8 +1012,24 @@ class _Submission:
             or node.name in env
             or node.name.startswith("test_")
             or node.args.posonlyargs
-            or len(parameters) != 1
             or node.decorator_list
+        ):
+            _reject("unsupported_syntax", "Only one direct local callback is supported")
+        if (
+            len(parameters) == 2
+            and all(arg.annotation is None for arg in node.args.args)
+            and node.returns is None
+            and len(node.body) == 1
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.YieldFrom)
+            and isinstance(node.body[0].value.value, ast.Name)
+            and node.body[0].value.value.id == parameters[1]
+        ):
+            self.callbacks += 1
+            env[node.name] = _Symbol("attrs_transformer")
+            return
+        if (
+            len(parameters) != 1
             or len(node.body) != 2
             or not isinstance(node.body[0], ast.Nonlocal)
             or len(node.body[0].names) != 1
@@ -953,6 +1052,70 @@ class _Submission:
             _reject("unsupported_syntax", "Callback body must increment one local literal integer")
         self.callbacks += 1
         env[node.name] = _Symbol("callback")
+
+    def _attrs_class(self, node: ast.ClassDef, env: dict[str, _Symbol]) -> None:
+        _check_name(node.name)
+        if (
+            self.attrs_class_declared
+            or not self.future_annotations
+            or node.name in env
+            or node.bases
+            or node.keywords
+            or node.type_params
+            or len(node.decorator_list) != 1
+            or not isinstance(node.decorator_list[0], ast.Call)
+            or len(node.body) != 1
+            or not isinstance(node.body[0], ast.AnnAssign)
+        ):
+            _reject("unsupported_syntax", "Expected one local attrs class with one annotated field")
+        field, decorate = node.body[0], node.decorator_list[0]
+        if (
+            not field.simple
+            or not isinstance(field.target, ast.Name)
+            or field.value is not None
+            or not isinstance(field.annotation, ast.Name)
+            or field.annotation.id != "int"
+            or "int" in env
+        ):
+            _reject("unsupported_syntax", "An attrs field requires an annotation-only builtin int")
+        _check_member(field.target.id)
+        if decorate.args or len(decorate.keywords) != 2:
+            _reject("unsupported_decorator", "Expected two named attrs decorator arguments")
+        options = {keyword.arg: keyword.value for keyword in decorate.keywords}
+        automatic, transformer = options.get("auto_attribs"), options.get("field_transformer")
+        if (
+            not isinstance(automatic, ast.Constant)
+            or automatic.value is not True
+            or not isinstance(transformer, ast.Name)
+            or env.get(transformer.id, _UNKNOWN).kind != "attrs_transformer"
+            or self._expression(decorate.func, env).kind != "attrs_decorator"
+        ):
+            _reject("unsupported_decorator", "Expected attrs with the local identity transformer")
+        self.attrs_class_declared = True
+        env[node.name] = _Symbol("attrs_local_class")
+
+    def _attrs_field_names(
+        self, element: ast.expr, source: ast.expr, target: ast.Name, env: dict[str, _Symbol]
+    ) -> bool:
+        if (
+            not isinstance(source, ast.Call)
+            or source.keywords
+            or len(source.args) != 1
+            or not isinstance(source.args[0], ast.Name)
+            or env.get(source.args[0].id, _UNKNOWN).kind != "attrs_local_class"
+        ):
+            return False
+        if (
+            self._expression(source.func, env).kind != "attrs_fields"
+            or not isinstance(element, ast.Attribute)
+            or element.attr != "name"
+            or not isinstance(element.value, ast.Name)
+            or element.value.id != target.id
+        ):
+            _reject("unsupported_syntax", "Only attrs field names are available in this list")
+        _check_name(target.id)
+        self.observed = self.attrs_fields_observed = True
+        return True
 
     def _branches(
         self, left: list[ast.stmt], right: list[ast.stmt], env: dict[str, _Symbol]
@@ -1056,6 +1219,8 @@ class _Submission:
                 symbol = env[node.id]
                 if symbol.kind == "typing_annotations":
                     _reject("unsupported_syntax", "typing imports are annotation-only bindings")
+                if symbol.kind in {"attrs_transformer", "attrs_local_class", "pytest_class"}:
+                    _reject("unsupported_syntax", "This local class or callback is opaque")
                 if symbol.kind == "helper" or symbol.touches_pack:
                     self._forget_packs(env)
                 return symbol
@@ -1134,6 +1299,9 @@ class _Submission:
                 "and no filters or nesting",
             )
         generator = node.generators[0]
+        assert isinstance(generator.target, ast.Name)
+        if self._attrs_field_names(node.elt, generator.iter, generator.target, env):
+            return _Symbol("value", module="attr", type_name="list")
         iterable = self._expression(generator.iter, env)
         inner = env.copy()
         self._bind(generator.target, _with_origin(_UNKNOWN, iterable.module), inner)

@@ -94,7 +94,7 @@ def _reference_nodes(tree: ast.Module) -> dict[str, ast.FunctionDef]:
 
 
 def changed_test_functions(before: str, after: str) -> tuple[str, ...]:
-    """Return changed top-level functions and qualified unittest-method candidates.
+    """Return changed top-level functions and qualified class-method candidates.
 
     A qualified candidate is not admitted until extract_reference verifies its
     complete class/base context. The original qualified identity is retained.
@@ -439,6 +439,61 @@ def _lift_unittest_method(source: str, qualified: str) -> tuple[str, str]:
     return source + "\n\n" + wrapper, method.name
 
 
+def _plain_pytest_method(tree: ast.Module, qualified: str) -> tuple[ast.ClassDef, ast.FunctionDef]:
+    parts = qualified.split("::")
+    if len(parts) != 2 or not parts[0].startswith("Test") or not parts[1].startswith("test_"):
+        raise ReferenceError("unsupported_pytest_reference_identity")
+    classes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == parts[0]]
+    if len(classes) != 1 or len(_binding_nodes(tree, parts[0])) != 1:
+        raise ReferenceError("unsupported_pytest_class_binding")
+    cls = classes[0]
+    if cls.bases or cls.decorator_list or cls.keywords or cls.type_params:
+        raise ReferenceError("unsupported_pytest_class_context")
+    methods: dict[str, ast.FunctionDef] = {}
+    for position, member in enumerate(cls.body):
+        if (
+            position == 0
+            and isinstance(member, ast.Expr)
+            and isinstance(member.value, ast.Constant)
+            and isinstance(member.value.value, str)
+        ):
+            continue
+        if not isinstance(member, ast.FunctionDef) or not member.name.startswith("test_"):
+            raise ReferenceError("unsupported_pytest_class_context")
+        if member.name in methods:
+            raise ReferenceError("unsupported_pytest_method_context")
+        _inert_class_method(member)
+        methods[member.name] = member
+    method = methods.get(parts[1])
+    if method is None:
+        raise ReferenceError("missing_pytest_method")
+    if any(isinstance(n, ast.Name) and n.id == "self" for n in ast.walk(method)):
+        raise ReferenceError("unsupported_pytest_self_access")
+    if any(_binding_nodes(tree, name) for name in ("setUpModule", "tearDownModule", "load_tests")):
+        raise ReferenceError("unsupported_pytest_module_context")
+    helpers = {n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    if _loads(method).intersection(helpers):
+        raise ReferenceError("unsupported_pytest_helper_dependency")
+    return cls, method
+
+
+def reference_derivation(source: str, function_name: str) -> str:
+    """Classify a reference from its original source, never a caller-supplied tag."""
+    tree = _parse(source)
+    _implicit_context(tree)
+    if "::" not in function_name:
+        if not function_name.startswith("test_") or function_name not in _functions(tree):
+            raise ReferenceError("missing_top_level_test")
+        return "standalone_function_dependency_closure"
+    class_name = function_name.split("::")[0]
+    classes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == class_name]
+    if len(classes) == 1 and not classes[0].bases:
+        _plain_pytest_method(tree, function_name)
+        return "plain_pytest_method_dependency_closure_v1"
+    _unittest_method(tree, function_name)
+    return "unittest_method_dependency_closure"
+
+
 def _literal(node: ast.AST) -> object:
     if any(isinstance(child, ast.Call) for child in ast.walk(node)):
         raise ReferenceError("nonliteral_module_dependency")
@@ -492,6 +547,16 @@ def _loads(function: ast.FunctionDef) -> set[str]:
             else:
                 # The definition binds its name here; its parameters/body do not.
                 local.add(node.name)
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            # A local class binds its name, not its field stores, in this function.
+            local.add(node.name)
+            for expression in [
+                *node.decorator_list,
+                *node.bases,
+                *(k.value for k in node.keywords),
+            ]:
+                self.visit(expression)
 
     Bindings().visit(function)
     loaded: set[str] = set()
@@ -563,16 +628,24 @@ def _extract_standalone_reference(
     *,
     max_lines: int = 80,
     bad_tree: Path | None = None,
+    class_name: str | None = None,
 ) -> str:
-    """Preserve one top-level test and its source-visible imports/literals/helpers.
+    """Preserve a test closure, optionally inside its validated plain pytest wrapper.
 
-    Unsupported fixtures, classes, global initialization and unresolved module
+    Unsupported fixtures, unrelated classes, initialization and unresolved module
     dependencies are rejected instead of being rewritten into a different test.
     """
     tree = _parse(source)
     _implicit_context(tree)
     functions = _functions(tree)
-    if function_name not in functions or not function_name.startswith("test_"):
+    selected_class: ast.ClassDef | None = None
+    if class_name is not None:
+        selected_class, target_function = _plain_pytest_method(
+            tree, f"{class_name}::{function_name}"
+        )
+    elif function_name in functions and function_name.startswith("test_"):
+        target_function = functions[function_name]
+    else:
         raise ReferenceError("missing_top_level_test")
     bindings: dict[str, ast.stmt] = {}
     for node in tree.body:
@@ -588,7 +661,7 @@ def _extract_standalone_reference(
                 if isinstance(target, ast.Name):
                     bindings[target.id] = node
     selected: dict[int, ast.stmt] = {}
-    needed = {function_name}
+    needed = {class_name or function_name}
     used_names: set[str] = set()
     while needed:
         name = needed.pop()
@@ -600,15 +673,18 @@ def _extract_standalone_reference(
             raise ReferenceError(f"unresolved_module_dependency:{name}")
         selected[dependency.lineno] = dependency
         if isinstance(dependency, ast.FunctionDef):
-            _parameters(dependency, test=dependency is functions[function_name])
+            _parameters(dependency, test=dependency is target_function)
             needed.update(_loads(dependency) - used_names)
         elif isinstance(dependency, ast.Assign):
             _literal(dependency.value)
         elif isinstance(dependency, ast.ClassDef):
-            raise ReferenceError("unsupported_reference_class_dependency")
+            if dependency is not selected_class:
+                raise ReferenceError("unsupported_reference_class_dependency")
+            needed.update(_loads(target_function) - used_names)
     if any(
         (isinstance(child, ast.arg) and child.annotation is not None)
         or (isinstance(child, ast.FunctionDef) and child.returns is not None)
+        or (selected_class is not None and isinstance(child, ast.AnnAssign))
         for dependency in selected.values()
         for child in ast.walk(dependency)
     ):
@@ -630,6 +706,16 @@ def _extract_standalone_reference(
                 else ast.ImportFrom(module=node.module, names=aliases, level=node.level)
             )
             segments.append(ast.unparse(clone) + "\n")
+        elif node is selected_class:
+            docstring = selected_class.body[0]
+            header = f"class {selected_class.name}:\n"
+            if (
+                isinstance(docstring, ast.Expr)
+                and isinstance(docstring.value, ast.Constant)
+                and isinstance(docstring.value.value, str)
+            ):
+                header += _segment(source, docstring)
+            segments.append(header + _segment(source, target_function))
         else:
             segments.append(_segment(source, node))
     extracted = "\n".join(segments)
@@ -649,12 +735,21 @@ def extract_reference(
     max_lines: int = 80,
     bad_tree: Path | None = None,
 ) -> str:
-    """Extract an unchanged function closure or a strictly self-contained unittest method.
+    """Extract a function closure or a verified unittest/plain-pytest method.
 
-    Qualified ``Class::method`` provenance is preserved by the caller. The lifted
-    ordinary test adds only a fresh exact TestCase instance; the original method
-    body remains AST-identical, with no assertion or parameter-case rewriting.
+    Qualified ``Class::method`` provenance is preserved by the caller. Unittest
+    methods retain the existing TestCase lift; inert plain pytest methods retain
+    their class and full method. Neither path rewrites assertions or input cases.
     """
+    if (
+        "::" in function_name
+        and reference_derivation(source, function_name)
+        == "plain_pytest_method_dependency_closure_v1"
+    ):
+        class_name, method_name = function_name.split("::")
+        return _extract_standalone_reference(
+            source, method_name, max_lines=max_lines, bad_tree=bad_tree, class_name=class_name
+        )
     if "::" in function_name:
         source, function_name = _lift_unittest_method(source, function_name)
     return _extract_standalone_reference(

@@ -137,6 +137,8 @@ def test_image_context_cannot_include_project_secrets_or_private_notes(tmp_path:
         "babel-data-requirements.txt",
         "babel-cldr44-data-requirements.txt",
         "babel-test-requirements.txt",
+        "attrs-build.txt",
+        "attrs-runtime.txt",
         "pyproject.toml",
         "uv.lock",
         "src/revertbench/__init__.py",

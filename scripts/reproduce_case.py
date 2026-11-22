@@ -93,6 +93,26 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
 
 
 _ROLES = ("base", "bad", "repaired")
+_ATTRS_PROFILE = "attrs_field_transformer_default_behavior_v1"
+_ATTRS_WHEELS = {
+    "base": {
+        "version": "25.1.1.dev4",
+        "sha256": "c78ec64ca32c04d72e49bc627a98156c909cc5dcb7ebb366ba069259c2b9c375",
+    },
+    "bad": {
+        "version": "25.1.1.dev5",
+        "sha256": "024d5006d63dcc412f622d281d558512e7189c85e2e241dce40d57d045adbe7f",
+    },
+    "repaired": {
+        "version": "25.1.1.dev5",
+        "sha256": "d66f4f8da86013cbe8a536fd07102a4e02ee60266b6957f424c6febc90fcff99",
+    },
+}
+_ATTRS_REQUIREMENTS_SHA256 = {
+    "build": "ebe7970ca36ebfcefd408f0d276a8b83d06bf6aae19f46d5fb1213ed011fbcdf",
+    "runtime": "7ce0524c54260655734a4168f02cae5c54da1efc9d3e5660c3807ccc60b7830e",
+}
+_ATTRS_TYPING_YAML_PASSED = 85
 _BABEL_CLDR45_PROFILE = "babel_upstream_default_behavior_v1"
 _BABEL_CLDR44_PROFILE = "babel_cldr44_default_behavior_v1"
 _BABEL_SETUPTOOLS_SKIP = "tests/messages/test_setuptools_frontend.py"
@@ -112,6 +132,7 @@ _BABEL_LOCALE_DATA = {
     },
 }
 _UPSTREAM_PROFILES = {
+    _ATTRS_PROFILE,
     *_BABEL_LOCALE_DATA,
     "blinker_upstream_default_behavior_v1",
     "boltons_upstream_default_behavior_v1",
@@ -140,6 +161,21 @@ _SUITE_FIELDS = (
 def _upstream_scope(profile: str) -> dict[str, Any]:
     if profile not in _UPSTREAM_PROFILES:
         raise ReproductionError("unsupported upstream suite profile")
+    if profile == _ATTRS_PROFILE:
+        return {
+            "behavior": "upstream_default_py312_tests",
+            "xdist_workers": 1,
+            "typing_yaml_passed": _ATTRS_TYPING_YAML_PASSED,
+            "baseline_memory_bytes": 939_524_096,
+            "historical_wheels": {role: wheel.copy() for role, wheel in _ATTRS_WHEELS.items()},
+            "requirements_sha256": _ATTRS_REQUIREMENTS_SHA256.copy(),
+            "excluded_checks": [
+                "coverage_quality_gate",
+                "documentation_build",
+                "lint",
+                "standalone_type_checking",
+            ],
+        }
     if profile in _BABEL_LOCALE_DATA:
         return {
             "behavior": "upstream_default_unit_and_package_doctests",
@@ -210,6 +246,7 @@ def _matching_suite(
     pids: int,
     identity: dict[str, Any],
     fresh_run: bool = False,
+    role: str | None = None,
 ) -> None:
     nodes = result.get("node_ids")
     approved_nodes = approved.get("node_ids")
@@ -218,6 +255,22 @@ def _matching_suite(
     counts: list[Any] = [
         result.get(key) for key in ("passed", "failed", "errors", "skipped", "xfailed", "xpassed")
     ]
+    if profile == _ATTRS_PROFILE:
+        wheel = _ATTRS_WHEELS.get(role or "")
+        if (
+            wheel is None
+            or result.get("native_attrs_wheel_sha256") != wheel["sha256"]
+            or approved.get("native_attrs_wheel_sha256") != wheel["sha256"]
+            or result.get("native_attrs_yaml_passed") != _ATTRS_TYPING_YAML_PASSED
+            or approved.get("native_attrs_yaml_passed") != _ATTRS_TYPING_YAML_PASSED
+            or result.get("collected") != (1430 if role == "base" else 1433)
+            or result.get("skipped") != 7
+            or result.get("xfailed") != 1
+            or result.get("xpassed") != 0
+        ):
+            raise ReproductionError(
+                "upstream suite result differs from approved scope or identities"
+            )
     if (
         result.get("status") != "passed"
         or result.get("exit_code") != 0
@@ -327,7 +380,13 @@ def _upstream_evidence(
         approved = report["baseline_reports"][role]
         for result in (approved, json.loads(raw)):
             _matching_suite(
-                result, approved, profile=profile, command=command, pids=pids, identity=report
+                result,
+                approved,
+                profile=profile,
+                command=command,
+                pids=pids,
+                identity=report,
+                role=role,
             )
     return summary
 
@@ -359,6 +418,7 @@ def _upstream_repeat(
             pids=pids,
             identity=report,
             fresh_run=True,
+            role=role,
         )
         results[role] = result
         (output / f"upstream-suite/{role}.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -379,6 +439,7 @@ def _check_fresh_upstream(fresh: dict[str, Any], approved: dict[str, Any]) -> No
             pids=pids,
             identity=approved,
             fresh_run=True,
+            role=role,
         )
 
 

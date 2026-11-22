@@ -163,6 +163,47 @@ def test_materialization_keeps_original_bad_and_records_minimal_repair(tmp_path:
     assert not (built.bad_tree / "tests/test_revertbench_submission.py").exists()
 
 
+@pytest.mark.parametrize("alteration", [None, "tag", "body"])
+def test_plain_pytest_provenance_is_verified_from_historical_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, alteration: str | None
+) -> None:
+    from dataclasses import replace
+
+    from revertbench.build import materialize_candidate
+    from revertbench.mine.reference import extract_reference
+
+    repository = _Repository()
+    source = (
+        "from toy import normalize\nclass TestNormalize:\n"
+        "    def test_regression(self):\n        assert normalize(' X ') == 'x'\n"
+    )
+
+    def file_text(commit: str, path: str) -> str:
+        return source.replace("'x'", "'X'") if commit == "3" * 40 else source
+
+    monkeypatch.setattr(repository, "file_text", file_text)
+    candidate = replace(
+        _candidate(),
+        reference_node_id="tests/test_toy.py::TestNormalize::test_regression",
+        reference_source=extract_reference(source, "TestNormalize::test_regression"),
+        reference_derivation="plain_pytest_method_dependency_closure_v1",
+    )
+    if alteration == "tag":
+        candidate = replace(candidate, reference_derivation="unittest_method_dependency_closure")
+    elif alteration == "body":
+        candidate = replace(
+            candidate, reference_source=candidate.reference_source.replace("'x'", "'z'")
+        )
+    if alteration is not None:
+        with pytest.raises(BuildError):
+            materialize_candidate(repository, candidate, tmp_path / "build")
+        assert not (tmp_path / "build").exists()
+    else:
+        built = materialize_candidate(repository, candidate, tmp_path / "build")
+        assert built.reference_source == candidate.reference_source
+        assert built.reference_node_id == candidate.reference_node_id
+
+
 @pytest.mark.parametrize("changed_count", [649, 701])
 def test_materialization_bounds_introducing_refactors_separately_from_repairs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed_count: int
@@ -354,7 +395,15 @@ def test_builder_passes_qualified_unittest_reference_to_deterministic_extractor(
         return candidate.reference_source
 
     monkeypatch.setattr(module, "extract_reference", extract)
-    built = materialize_candidate(_Repository(), candidate, tmp_path / "build")
+
+    class ClassRepository(_Repository):
+        def file_text(self, commit: str, path: str) -> str:
+            return (
+                "from unittest import TestCase\nclass NormalizeTests(TestCase):\n"
+                "    def test_regression(self):\n        self.assertEqual(1, 1)\n"
+            )
+
+    built = materialize_candidate(ClassRepository(), candidate, tmp_path / "build")
     assert built.reference_node_id == candidate.reference_node_id
     assert seen == ["NormalizeTests::test_regression"]
 
