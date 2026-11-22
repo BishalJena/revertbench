@@ -10,6 +10,7 @@ dependencies = [
     "docker>=7.1.0",
     "pydantic>=2.14.3",
     "pytest>=9.2.0",
+    "pytest-asyncio==1.5.0",
     "six==1.17.0",
     "typer>=0.29.1",
 ]
@@ -44,6 +45,7 @@ files = ["src", "tests"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+asyncio_default_fixture_loop_scope = "function"
 markers = ["docker: requires --run-docker and an operational Docker daemon"]
 
 [dependency-groups]

@@ -19,7 +19,8 @@ from revertbench.validate.baseline import (
 
 BOLTONS = "boltons_upstream_default_behavior_v1"
 PYDASH = "pydash_upstream_default_behavior_v1"
-PROFILES = (BOLTONS, PYDASH)
+BLINKER = "blinker_upstream_default_behavior_v1"
+PROFILES = (BOLTONS, PYDASH, BLINKER)
 PREFIX = (
     "/usr/local/bin/python",
     "-m",
@@ -63,6 +64,32 @@ def test_fixed_upstream_commands_and_legacy_defaults() -> None:
 def test_unknown_profiles_cannot_supply_arguments(value: object) -> None:
     with pytest.raises(ValueError):
         baseline_command(cast(BaselineProfile, value))
+
+
+def test_blinker_command_preserves_native_async_and_warning_contract() -> None:
+    assert baseline_command(cast(BaselineProfile, BLINKER)) == (
+        "/usr/local/bin/python",
+        "-m",
+        "pytest",
+        "-v",
+        "--tb=short",
+        "-c",
+        "/opt/revertbench/pytest.ini",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "pytest_asyncio.plugin",
+        "-o",
+        "filterwarnings=error",
+        "-o",
+        "asyncio_mode=auto",
+        "-o",
+        "asyncio_default_fixture_loop_scope=function",
+        "tests",
+    )
 
 
 @pytest.mark.parametrize("profile", PROFILES)
@@ -142,6 +169,80 @@ def _toy(tree: Path, package: str) -> Path:
         "def test_unit(original_fixture): assert original_fixture == 7\n"
     )
     return source
+
+
+def _async_toy(tree: Path) -> None:
+    (tree / "tests").mkdir()
+    # Fixed profiles must not inherit an unrelated repository's extra selection.
+    (tree / "pyproject.toml").write_text(
+        '[tool.pytest.ini_options]\naddopts="--ignore=tests/test_unit.py"\n'
+    )
+    (tree / "tests/test_unit.py").write_text(
+        "import asyncio\n"
+        "def test_sync(): assert 2 + 3 == 5\n"
+        "async def test_async():\n"
+        "    await asyncio.sleep(0)\n"
+        "    assert 2 + 3 == 5\n"
+    )
+
+
+@pytest.mark.docker
+def test_blinker_profile_executes_native_sync_and_async_with_explicit_plugin(
+    tmp_path: Path, docker_client: docker.DockerClient, worker_image: str
+) -> None:
+    _async_toy(tmp_path)
+    result = DockerBaselineRunner(
+        worker_image, client=docker_client, profile=cast(BaselineProfile, BLINKER)
+    )(tmp_path)
+    assert result.status == "passed", result.model_dump_json()
+    assert result.collected == result.passed == 2
+    assert result.skipped == result.xfailed == result.xpassed == result.deselected == 0
+    assert set(result.node_ids) == {
+        "tests/test_unit.py::test_sync",
+        "tests/test_unit.py::test_async",
+    }
+    assert result.command == baseline_command(cast(BaselineProfile, BLINKER))
+
+
+@pytest.mark.docker
+def test_blinker_profile_preserves_warning_errors_instead_of_filtering_them(
+    tmp_path: Path, docker_client: docker.DockerClient, worker_image: str
+) -> None:
+    _async_toy(tmp_path)
+    (tmp_path / "tests/test_warning.py").write_text(
+        "import warnings\n"
+        "def test_original_warning():\n"
+        "    warnings.warn('native warning', DeprecationWarning)\n"
+    )
+    result = DockerBaselineRunner(
+        worker_image, client=docker_client, profile=cast(BaselineProfile, BLINKER)
+    )(tmp_path)
+    assert result.status == "failed" and result.reason == "existing_suite_failed"
+    assert result.collected == 3 and result.passed == 2 and result.failed == 1
+    assert result.skipped == result.deselected == 0
+
+
+@pytest.mark.docker
+def test_blinker_profile_rejects_repository_shadowing_of_allowed_async_plugin(
+    tmp_path: Path, docker_client: docker.DockerClient, worker_image: str
+) -> None:
+    _async_toy(tmp_path)
+    (tmp_path / "tests/test_unit.py").write_text("def test_sync(): assert 2 + 3 == 5\n")
+    package = tmp_path / "pytest_asyncio"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    # A harmless local package must not replace the trusted installed plugin.
+    (package / "plugin.py").write_text(
+        "LOCAL_MARKER = True\n"
+        "def pytest_addoption(parser):\n"
+        "    parser.addini('asyncio_mode', 'mode', default='auto')\n"
+        "    parser.addini('asyncio_default_fixture_loop_scope', 'scope', default='function')\n"
+    )
+    result = DockerBaselineRunner(
+        worker_image, client=docker_client, profile=cast(BaselineProfile, BLINKER)
+    )(tmp_path)
+    assert result.status == "invalid_run", result.model_dump_json()
+    assert result.reason == "baseline_collection_or_worker_error"
 
 
 @pytest.mark.docker
