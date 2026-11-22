@@ -4,6 +4,23 @@ RevertBench mines historical Python regression tests, reconstructs a controlled
 bad/repaired pair, and records machine evidence before explicit review. A discovered
 fix is a candidate, not an accepted benchmark example.
 
+**In short**
+
+| Step | Command | What it does |
+| --- | --- | --- |
+| Mine | `revertbench mine` | Scans Git history for fixes that add a regression test. Never runs repository code. |
+| Build | `revertbench build` | Materializes the parent, buggy and repaired trees and a review packet. Optional history probes run in Docker. |
+| Validate | `revertbench validate` | In Docker, runs the existing suites on all three trees, the reference test three times per tree, and the cheat probes. |
+| Review | `revertbench review` | Shows the evidence read-only, or records an explicit human or delegated-agent decision. |
+
+Successful validation never accepts a case by itself. Acceptance also needs
+verified provenance, global CI evidence and an explicit review.
+
+**On this page:** [Run the pipeline](#run-the-pipeline) ·
+[What the packet contains](#what-the-packet-contains) ·
+[Review and decisions](#review-and-decisions) ·
+[Supported subset and limits](#supported-subset-and-limits)
+
 ## Run the pipeline
 
 Install the locked development environment with `uv sync`. Build an immutable
@@ -26,6 +43,8 @@ parent. History probes run in Docker and require a monotonic pass-to-fail sequen
 through the bounded first-parent interval. A pre-bisected candidate that contains
 both verified `base_commit` and `bad_commit` needs no `--good-commit`.
 
+### Choosing a baseline profile
+
 Choose the baseline profile that matches the upstream test command. The default
 `--baseline-profile pytest` runs the existing `tests` directory with fixed pytest
 configuration. For repositories that use unittest discovery, including historical
@@ -35,6 +54,8 @@ nested-package layouts, select it explicitly:
 uv run revertbench validate artifacts/candidates/CANDIDATE.json \
   --image sha256:IMAGE_ID --baseline-profile unittest
 ```
+
+### Resource limits for existing suites
 
 Trusted existing suites default to a PID limit of 64. If a supported upstream
 suite requires more simultaneous threads, select the existing bounded capacity
@@ -54,6 +75,8 @@ recorded baseline limit for both validation and its official-suite supplement;
 legacy reports default to 64, and an older pinned engine cannot silently ignore
 a nondefault recorded limit.
 
+### The unittest profile
+
 The unittest profile uses the equivalent of `python -m unittest -q` from the
 repository root, honors `load_tests`, and includes doctests added by that hook.
 The report records `baseline_profile`, `baseline_command`, complete executed
@@ -68,11 +91,15 @@ validate a case. `Case.env.test_cmd` records the effective controlled command;
 a trusted reporting shim supplies the result hooks. Submitted regression tests
 continue to use the same grader regardless of baseline profile.
 
+### Pinned dependencies
+
 The supported worker also pins Six 1.17.0 for older upstream snapshots that declare
 Six as a runtime dependency. Its version belongs to the shared locked image used
 for all three trees; no repository setup script or runtime package install runs.
 New profile images have their own image/lock fingerprints, while previously
 published case environments retain their recorded identities.
+
+### Storage and outputs
 
 Use `--local-repo PATH` to inspect an existing checkout instead of cloning a public
 GitHub repository. `--cache-dir`, `--work-dir` and `--output-dir` choose storage;
@@ -88,6 +115,8 @@ PR/publication metadata, split labels and historical review notes, replaces mach
 evidence, and clears both current human and agent decisions so the new proof needs
 review. Separate histories of both reviewer kinds are retained.
 
+### What each command checks
+
 `mine` scans bounded commit history for supported fix/test changes (at most 10,000
 commits per invocation). It retains `discovery.json` alongside candidates with
 examined/matched/yield counts and bounded per-commit rejection reasons; truncation
@@ -99,15 +128,21 @@ in this pipeline.
 
 ## What the packet contains
 
-`case.json` uses schema version 2. `candidate.json` retains the mined historical
-provenance, including upstream reference notices and license text when found.
-`bad.diff` shows the introducing change; `historical_fix.diff` shows the full later
-fix; `repair.patch` contains only the production change applied to the bad tree.
-`reference.py` is the extracted test dependency closure used for proof.
-`validation.json` records versioned machine evidence and content identities.
+| File | Contents |
+| --- | --- |
+| `case.json` | The case record, schema version 2 |
+| `candidate.json` | Mined historical provenance, including upstream reference notices and license text when found |
+| `bad.diff` | The introducing change |
+| `historical_fix.diff` | The full later fix |
+| `repair.patch` | Only the production change, applied to the bad tree |
+| `reference.py` | The extracted test dependency closure used for proof |
+| `validation.json` | Versioned machine evidence and content identities |
+
 Upstream license and reference-header text are retained as separate text artifacts
 when present; extraction does not silently prepend executable encoding headers or
 change the test bytes after validation.
+
+### How the reference test is extracted
 
 The reference is a standalone function with its supported imports, literals and
 helper dependencies. The version 2 admission profile also supports a narrowly
@@ -138,6 +173,8 @@ that arbitrary upstream fixtures or collection context were preserved. Reviewers
 must inspect that derivation. The historical fix can contain unrelated changes;
 only the extracted production repair enters the scored repaired tree.
 
+### Environment and provenance
+
 The environment identifies immutable worker image content, Python patch version
 and dependency-lock digest when observed inside that image. Missing observations
 remain unknown and prevent acceptance. Publication timestamps can be null. An
@@ -146,6 +183,8 @@ editable PR text do not prove when a particular issue/PR body became public.
 PR metadata distinguishes `observed_at`, `updated_at`, `merged_at`, and whether a
 body is currently observed or independently verified historical content.
 
+### Splits and eligibility
+
 Regression groups and `dataset_split` (`unassigned`, `train`, `validation`, `test`)
 are dataset organization fields. They do not assert a universal model training
 cutoff. Candidates default to `eligibility: pending_metadata`; acceptance requires
@@ -153,6 +192,8 @@ a verified association between the introducing commit and an actual merged bad P
 A later fix commit may have no known fix-side PR.
 
 ## Review and decisions
+
+### Repair derivation
 
 Native candidates default to `repair_derivation: historical_diff`: their production
 patch must remain the exact historical diff. Explicit
@@ -183,17 +224,23 @@ assertion, dependency installation or arbitrary repair override is introduced.
 Native cases omit the proof from their review input digest, preserving existing
 accepted payloads and their pinned environments.
 
+### Reading a review packet
+
 Review is read-only by default; `--json` returns a versioned review packet. The
 renderer verifies recorded artifact hashes, bounds reads/previews, rejects links,
 private or escaping paths, and escapes terminal control characters. A truncated
 preview is labeled. Review packets contain source code: inspect them in a viewer,
 not by executing the reference on the host.
 
+### Machine states
+
 Machine states are `candidate`, `pending_infrastructure`, `rejected`, or
 `pending_review` after successful machine validation. Legacy `pending_human_review`
 and `machine_validated` are also understood as stored machine states. Successful validation never marks
 a case `accepted`. Infrastructure uncertainty remains distinct from a negative
 benchmark result.
+
+### Recording a decision
 
 The default reviewer kind is `human`. An actual human reviewer records a decision explicitly:
 
@@ -220,6 +267,8 @@ uv run revertbench review PATH/case.json --accept --reviewer-kind agent \
   --notes 'Inspected the complete original test, minimal repair and bound evidence'
 ```
 
+### Agent review
+
 Agent review requires a nonblank authorization note and cannot use
 `--attest-human-review`. It is stored in `agent_review` and `agent_review_history`,
 separately from `human_review` and `review_history`; an agent never claims the
@@ -233,6 +282,9 @@ histories; notes append to the corresponding history without replacing an active
 decision. Both kinds of acceptance use the same machine and provenance gates.
 Review records bind report bytes and immutable case inputs. Previously published
 cases retain their original pinned engine, review records and evidence bytes.
+
+### Global suite evidence
+
 The case-specific machine report does not prove that every global adversarial
 grader/sandbox regression test passed. Acceptance additionally requires separately
 verified `global_suite_evidence`: the CI run URL and implementation commit, observed
@@ -258,6 +310,8 @@ Projects needing additional dependencies require a separately prepared, pinned
 supported image. Existing suites may exercise trusted repository `conftest.py`
 inside the container; submitted tests use the stricter grader policy and controlled
 collection configuration.
+
+### Required checks
 
 Run the required checks with:
 

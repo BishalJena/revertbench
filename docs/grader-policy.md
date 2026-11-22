@@ -1,4 +1,38 @@
-# Behavioral-test submission policy, version 8
+# Submission policy (version 8)
+
+The policy decides which Python a submitted test may use. It is checked
+statically, before anything runs. A test that breaks the policy is rejected with
+a reason and never executes. That is reported separately from a test that runs
+and fails to expose the regression.
+
+**In short**
+
+- A submission is one Python test file with module-level imports, literal
+  constants, plain helper functions and `test_` functions.
+- Tests call existing public project APIs and assert on results or on supported
+  exceptions. Every name and call must resolve statically against the buggy
+  source tree.
+- Reflection, dynamic imports, `eval`/`exec`, file, process and network access,
+  source or version inspection, pytest hooks, skips and arbitrary fixtures are
+  rejected.
+- Names that exist only in the fix are rejected, even after a legitimate call to
+  changed code.
+- The checker never imports the submission or the project. It is a conservative
+  filter, not a proof that arbitrary Python is safe; see
+  [Bounded soundness argument](#bounded-soundness-argument).
+- Each accepted case pins the policy version it was validated with. Later
+  versions only add narrowly checked capabilities; see
+  [What each version added](#what-each-version-added).
+
+**On this page:** [What the checker returns](#what-the-checker-returns) ·
+[Supported format](#supported-format) · [Imports and calls](#imports-and-calls) ·
+[Rejected capabilities](#rejected-inspection-and-execution-capabilities) ·
+[Input bounds](#input-and-resolution-bounds) ·
+[Soundness argument](#bounded-soundness-argument) ·
+[Unittest extraction](#qualified-unittest-extraction) ·
+[Version history](#what-each-version-added)
+
+## What the checker returns
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -10,70 +44,6 @@ Version 8 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
-
-Version 8 supports the historical attrs field-transformer test shape. A test
-can define an identity generator with two parameters and a body of exactly
-`yield from` the second parameter. The source-resolved `attr.s` decorator can
-receive that callback with `auto_attribs=True` on one local class containing a
-single annotation-only builtin `int` field. The file must have the annotations
-future flag. The local class is opaque to the test. The supported observation
-is a simple list comprehension reading `field.name` from
-`attr.fields(LocalClass)`. The policy checks the public exports and a source
-declaration of the field name without exposing the private implementation
-module. It permits this test as a top-level function or as one undecorated
-method with unused `self` inside an inert pytest class. The class has no
-bases, fixture hooks or executable class-level statements. Previously
-approved cases retain the policy version pinned in their case bundles.
-
-Version 7 additionally permits `from io import BytesIO`, with an optional alias,
-as an exact in-memory byte-buffer constructor. Each call must have exactly one
-positional bytes literal and no keywords or argument expansion. A local alias
-retains this capability only while it resolves to that same constructor. Named
-byte values, computed inputs, text strings and empty argument lists are excluded.
-The result is opaque to the submission: it can be passed to a public project API,
-but exposes no attributes or methods. Importing the `io` module, importing other
-`io` names, and constructing buffers at module level remain excluded. Root and
-`src` modules or packages named `io` are rejected. The ordinary submission size
-bound also limits literal buffer input. This capability supports tests that pass
-fixed in-memory source text to a parser; it grants no file access and does not
-prove what the project API does with the buffer. Existing accepted cases retain
-their pinned policy and implementation.
-
-Version 6 additionally permits one direct local counter callback in an ordinary
-test function. It has one positional parameter and a body consisting of exactly
-`nonlocal counter` followed by `counter += 1`. The counter must already be a local
-integer literal binding, rather than a module value, parameter, call result or
-alias of another name. This certificate is checked at the callback declaration;
-it is not a proof that later rebinding or dynamic project behavior preserves the
-counter's integer type. Boolean literals do not qualify. The callback cannot have
-decorators, defaults, variadic/keyword-only parameters, other statements or
-deeper definitions, and cannot itself be called as a submission helper. It can
-be passed to a statically resolved project API. This supports a callback counting
-observed deliveries without admitting a general closure or `nonlocal` grammar.
-
-Function return annotations may be absent or the literal `None`. The callback's
-parameter may also have an exact `alias.Any` annotation, where `alias` is an
-unrebound `import typing` module binding. This import is annotation-only: it
-grants no runtime expression, attribute, constructor or cast access. Source-tree
-`typing` shadows, other typing import forms and arbitrary annotation expressions
-are excluded. An optional initial `from __future__ import annotations` is the
-only admitted future feature. Extraction retains this original flag when needed
-by the selected annotated dependency closure, and preserves the entire original
-function, including nested scope, annotations, comments and assertions. Existing
-unannotated reference output is unchanged. Annotations grant no parameter types
-or runtime permissions; the callback argument is not available for other
-operations in the restricted counter-only body. The checker does not execute the
-callback or infer how often a dynamic project API will invoke it. Existing cases
-retain their original pinned policy and implementation.
-
-Version 5 additionally excludes the repository-root `test.py` suite from project
-API resolution. Direct imports, aliases and statically resolved transitive or
-wildcard reexports of that exact source file are rejected, including after a
-legitimate project call. The guard checks the selected resolved source path:
-`src/test.py` still takes precedence and nested production modules such as
-`pkg/test.py` retain their previous behavior. This matches the miner's explicit
-root-suite classification without changing the accepted expression grammar.
-Previously accepted cases continue to use their pinned policy and engine.
 
 ## Supported format
 
@@ -95,6 +65,8 @@ arithmetic/comparison/boolean expressions, indexing/slicing, returns, `if`, `for
 local names or unpack names; it cannot overwrite attributes or indexed objects.
 Lambdas, dictionary/keyword unpacking, `try`, `raise`, custom context managers and imports inside functions are excluded.
 
+### List comprehensions (added in version 3)
+
 Version 3 introduced list comprehensions inside functions of the form
 `[element for name in iterable]`. It requires exactly one synchronous generator,
 a simple name target, no filters and no nested comprehension. The iterable is
@@ -110,6 +82,8 @@ parametrization and project export lists remain call-free literals. Extraction
 preserves the complete original comprehension AST and its true outer dependencies;
 it never rewrites the test to fit this profile. Previously accepted cases retain
 their pinned policy version and engine.
+
+### What counts as a test
 
 A test must contain an assertion, an approved exception context or a known
 project API call; a bare `pass` is not a submission.
@@ -127,6 +101,8 @@ from target_package import normalize
 def test_normalizes_whitespace():
     assert normalize(" A ") == "a"
 ```
+
+### Project classes
 
 The target may instead be a statically known class constructed inside the test.
 Public methods, class fields and simple `self.field` assignments in its
@@ -146,11 +122,15 @@ are followed, with cycles and unresolved names rejected. Symlinks may not resolv
 outside the bad tree. Test support modules named `tests`, `conftest` or `test_...`
 and the exact root `test.py` source file are not an alternate API surface.
 
+### Wildcard reexports
+
 Project wildcard reexports can be resolved when every provider has a bounded,
 direct, call-free literal list or tuple of public names in `__all__`. Visible
 mutation, rebinding, ambiguous providers and collisions with explicit bindings
 are rejected. This supports public package APIs without admitting wildcard
 imports in the submission itself.
+
+### Approved external modules
 
 The external modules admitted by this version are `pytest`, `math`, and
 restricted parts of `unittest`, `itertools` and the import-only `io.BytesIO`
@@ -177,6 +157,8 @@ constructor described above:
   `itertools` APIs and source-tree shadows are rejected. Its output retains known
   project origin for direct metadata checks.
 
+### `subTest` contexts (added in version 4)
+
 Version 4 additionally permits a direct, uncaptured
 `with case.subTest(label=value):` on an exact stdlib `TestCase` binding. It takes
 one or two distinct named labels, with their values checked as ordinary expressions.
@@ -187,6 +169,8 @@ exceptions propagate and stop the ordinary test at the first failure; successful
 iterations continue. It does not produce separate subtest node IDs. Thus all
 original input cases and assertions remain in the source, but a bad-tree failure
 can prevent later cases from running. Base and repaired passes require all cases.
+
+### Positional expansion
 
 A positional expansion is admitted only as `target(*name)`, with no other
 positional or keyword arguments. The target must already resolve to a project
@@ -206,6 +190,8 @@ proof across iterations. The proof budget is four levels,
 Arbitrary runtime iterable expansion, expression operands, multiple stars and
 starred calls to observation helpers, `iter`, `permutations`, mapping lookups or
 submission helpers remain excluded. Existing origin and fix-only checks apply.
+
+### Builtins and value methods
 
 `iter(value)` is allowed with exactly one positional argument and no keywords;
 the callable/sentinel form is excluded. Aliases retain these restrictions and
@@ -249,6 +235,8 @@ otherwise legitimate call that executes changed production code:
 - Top-level execution, conditional test collection, custom test classes,
   pytest/configuration manipulation, skip/xfail marks and arbitrary fixtures.
 
+### Adversarial coverage
+
 The adversarial tests include direct and aliased repair-only checks, metadata or
 source inspection after a legitimate API call, reflection through aliases,
 plugin/hook injection, test-support imports, stale branch type resolution,
@@ -273,6 +261,8 @@ Malformed Python, invalid Unicode and excess complexity are rejected without
 execution. Source lookup is limited to 64 modules of at most 1 MiB each. Exceeding
 these bounds is unsupported, rather than a reason to import a module to discover
 its runtime shape.
+
+### Infrastructure failures
 
 `project_unavailable` indicates missing or inaccessible grading infrastructure;
 it must not be scored as a model failure. Other policy reasons describe the
@@ -302,6 +292,8 @@ objects or import state; source-visible export checks and module-shadowing guard
 do not prove arbitrary import semantics. The tests exercise
 known counterexamples; they are not a completeness proof for this language.
 
+### Caught and uncaught exceptions
+
 The policy's approved exception names apply to caught exceptions in
 `pytest.raises`. They do not make every such exception eligible as an uncaught
 bad-tree failure: execution grading separately checks the failure type, phase
@@ -316,6 +308,8 @@ controlled repair construction establish case relevance; grading generated
 tests remains evidence under the stated limitations rather than a semantic
 proof.
 
+### Execution is a separate boundary
+
 The initial local subprocess backend is for trusted toy fixtures only. Static
 admission is not an isolation boundary. Generated submissions need an isolated
 worker with controlled files, configuration, resource limits and networking.
@@ -323,6 +317,7 @@ Reports produced in the pytest interpreter are also not universally authentic
 against arbitrary in-process manipulation. The orchestrator must validate
 execution evidence and report these residual limitations explicitly.
 
+## Qualified unittest extraction
 
 Qualified unittest extraction permits unrelated inert helper definitions only
 with ordinary positional parameters and call-free literal defaults. They cannot
@@ -332,3 +327,82 @@ reserved against overrides; class state, decorators, annotations, inherited or
 rebound bases, fixture hooks and selected-method helper/property/state access
 remain excluded. The selected body may directly use only `assertEqual` and the
 supported `subTest` context, and is preserved without assertion/input rewriting.
+
+## What each version added
+
+Previously accepted cases keep the policy version and engine pinned in their
+bundles. Versions 3 and 4 are described in place above:
+[list comprehensions](#list-comprehensions-added-in-version-3) and
+[`subTest` contexts](#subtest-contexts-added-in-version-4).
+
+### Version 8: attrs field-transformer tests
+
+Version 8 supports the historical attrs field-transformer test shape. A test
+can define an identity generator with two parameters and a body of exactly
+`yield from` the second parameter. The source-resolved `attr.s` decorator can
+receive that callback with `auto_attribs=True` on one local class containing a
+single annotation-only builtin `int` field. The file must have the annotations
+future flag. The local class is opaque to the test. The supported observation
+is a simple list comprehension reading `field.name` from
+`attr.fields(LocalClass)`. The policy checks the public exports and a source
+declaration of the field name without exposing the private implementation
+module. It permits this test as a top-level function or as one undecorated
+method with unused `self` inside an inert pytest class. The class has no
+bases, fixture hooks or executable class-level statements. Previously
+approved cases retain the policy version pinned in their case bundles.
+
+### Version 7: in-memory byte buffers
+
+Version 7 additionally permits `from io import BytesIO`, with an optional alias,
+as an exact in-memory byte-buffer constructor. Each call must have exactly one
+positional bytes literal and no keywords or argument expansion. A local alias
+retains this capability only while it resolves to that same constructor. Named
+byte values, computed inputs, text strings and empty argument lists are excluded.
+The result is opaque to the submission: it can be passed to a public project API,
+but exposes no attributes or methods. Importing the `io` module, importing other
+`io` names, and constructing buffers at module level remain excluded. Root and
+`src` modules or packages named `io` are rejected. The ordinary submission size
+bound also limits literal buffer input. This capability supports tests that pass
+fixed in-memory source text to a parser; it grants no file access and does not
+prove what the project API does with the buffer. Existing accepted cases retain
+their pinned policy and implementation.
+
+### Version 6: counter callbacks and annotations
+
+Version 6 additionally permits one direct local counter callback in an ordinary
+test function. It has one positional parameter and a body consisting of exactly
+`nonlocal counter` followed by `counter += 1`. The counter must already be a local
+integer literal binding, rather than a module value, parameter, call result or
+alias of another name. This certificate is checked at the callback declaration;
+it is not a proof that later rebinding or dynamic project behavior preserves the
+counter's integer type. Boolean literals do not qualify. The callback cannot have
+decorators, defaults, variadic/keyword-only parameters, other statements or
+deeper definitions, and cannot itself be called as a submission helper. It can
+be passed to a statically resolved project API. This supports a callback counting
+observed deliveries without admitting a general closure or `nonlocal` grammar.
+
+Function return annotations may be absent or the literal `None`. The callback's
+parameter may also have an exact `alias.Any` annotation, where `alias` is an
+unrebound `import typing` module binding. This import is annotation-only: it
+grants no runtime expression, attribute, constructor or cast access. Source-tree
+`typing` shadows, other typing import forms and arbitrary annotation expressions
+are excluded. An optional initial `from __future__ import annotations` is the
+only admitted future feature. Extraction retains this original flag when needed
+by the selected annotated dependency closure, and preserves the entire original
+function, including nested scope, annotations, comments and assertions. Existing
+unannotated reference output is unchanged. Annotations grant no parameter types
+or runtime permissions; the callback argument is not available for other
+operations in the restricted counter-only body. The checker does not execute the
+callback or infer how often a dynamic project API will invoke it. Existing cases
+retain their original pinned policy and implementation.
+
+### Version 5: root `test.py` exclusion
+
+Version 5 additionally excludes the repository-root `test.py` suite from project
+API resolution. Direct imports, aliases and statically resolved transitive or
+wildcard reexports of that exact source file are rejected, including after a
+legitimate project call. The guard checks the selected resolved source path:
+`src/test.py` still takes precedence and nested production modules such as
+`pkg/test.py` retain their previous behavior. This matches the miner's explicit
+root-suite classification without changing the accepted expression grammar.
+Previously accepted cases continue to use their pinned policy and engine.

@@ -1,4 +1,20 @@
-# Track A harness
+# Model harness
+
+**In short**
+
+- `revertbench run` gives one hosted model a buggy repository plus the
+  introducing pull request's title and full diff. Pull request bodies are omitted.
+- The model has six bounded tools and no shell. It can read and search the buggy
+  tree, save one test, preview it on buggy code only and submit. Each episode
+  allows at most 15 model requests.
+- Only the saved test is graded, by the case's own pinned grader, in fresh
+  containers.
+- Runs have a USD budget, are journaled call by call and can be resumed. A
+  manifest binds the code, configuration, prompt, tools and case identities.
+- Reports count planned, valid, invalid and incomplete samples separately.
+
+**On this page:** [Run and inspect](#run-and-inspect) · [Model tools](#model-tools) ·
+[Reproducibility and costs](#reproducibility-and-costs)
 
 The harness gives a hosted model a buggy repository and the introducing PR diff.
 The model can inspect files, save one test, preview it on buggy code and submit it.
@@ -27,6 +43,8 @@ when changing this setting or the client profile. Verify each model's actual
 tool continuation, usage and quota evidence before scheduling a cohort; a compatible
 API handshake is not a benchmark result.
 
+### Completion policies
+
 The default `--completion-policy explicit_submit` requires the model to call
 `submit()`. A prospective `--completion-policy saved_test_on_stop_v1` variant
 requires a model configuration with `tool_choice = "auto"`; the harness rejects
@@ -38,6 +56,8 @@ a final answer or interpret prose as a submission. Errors, truncated responses
 and budget exhaustion do not trigger this completion path. A run with no saved
 test still fails to submit. Declare the variant before collecting a cohort, use
 a new experiment identity, and report it separately from explicit-submit runs.
+
+### Running and resuming
 
 Select a directory of accepted cases with one case per regression group. The run
 uses every case in that directory.
@@ -59,6 +79,8 @@ A resumed completed response is not another attempt. When running across
 multiple checkouts, pass the same absolute `--cache` path so all experiments share
 the project budget ledger. Unresolved provider or tool
 calls remain explicit; a lost response cannot be assumed free or safely repeated.
+
+### Reading the results
 
 The initial run uses one sample per case. Report planned samples, valid completions,
 passes, valid failures, invalid and incomplete samples together. Three grading
@@ -89,6 +111,8 @@ final answer is not a saved submission. Under the saved-test-on-stop variant, on
 a clean stop with previously saved bytes can initiate verification and grading;
 the final answer itself supplies no test bytes.
 
+### Policy feedback
+
 For `write_test`, `ok=true` means the bytes were saved. The separate `policy.allowed`,
 `reason` and bounded `details` describe admission under the case's pinned checker,
 using only the saved test and pristine buggy source. An ineligible preview returns
@@ -112,6 +136,8 @@ and grades with the original policy and evaluator. Fresh platform-specific image
 IDs are recorded separately from historical approved IDs. The current harness
 never substitutes its latest grader for an older case.
 
+### Credentials and isolation
+
 API credentials stay in the provider process. The pinned host controller receives
 no model credentials, and containers receive only the appropriate source tree and
 fixed runtime support. Generated Python executes only in containers. Only the
@@ -127,6 +153,8 @@ match; unresolved effects are not silently rerun. Older manifests without a
 completion-policy field belong to `explicit_submit` and cannot be adopted by the
 saved-test-on-stop variant. Both variants retain the same valid, invalid and
 incomplete result denominators and the same pinned grading rules.
+
+### Costs and quotas
 
 Cost accounting reserves a conservative request ceiling before each attempt.
 Missing usage or uncertain delivery retains that reservation. Published prices
