@@ -16,6 +16,8 @@ from revertbench.mine.reference import ReferenceError, changed_test_functions, e
 from revertbench.sandbox.archives import ArchiveError, archive_tree
 from revertbench.schema import RepairDerivation
 
+_MAX_INTRODUCING_CHANGED_LINES = 700
+
 
 class RepositorySnapshotter(Protocol):
     def resolve_commit(self, commit: str) -> str: ...
@@ -108,7 +110,10 @@ def _introduced_lines(
             continue
     if not paths:
         raise BuildError("no_changed_production_lines")
-    introduced = parse_production_patch(repository.diff(base, bad, paths=tuple(paths)))
+    introduced = parse_production_patch(
+        repository.diff(base, bad, paths=tuple(paths)),
+        max_changed_lines=_MAX_INTRODUCING_CHANGED_LINES,
+    )
     try:
         normalized = normalize_changed_lines(tree, introduced.added_lines)
     except (OSError, UnicodeError, SyntaxError, ValueError) as error:
