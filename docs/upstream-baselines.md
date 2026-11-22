@@ -108,9 +108,10 @@ pending infrastructure.
 existing suite. Babel uses a fixed 512 MiB baseline memory cap. The original
 256 MiB cap hit memory pressure and the highest measured peak was 348 MiB.
 Attrs uses a fixed 896 MiB baseline memory cap for the installed-wheel build,
-the xdist test worker, and its mypy subprocess. Other profiles use the default
-baseline memory cap. CPU, wall time and output
-bounds remain unchanged. Scored submissions retain their original limits. The legacy profiles,
-commands and published case bytes remain unchanged. New-profile publication also
-requires its versioned reproducibility evidence and review; a successful baseline
-alone is not case acceptance.
+the xdist test worker, and its mypy subprocess. The fixed attrs native command
+has a 150-second wall budget per source tree to allow its full typing suite on
+Linux CI. Reproduction runs validation and the separate suite repeat, so the
+attrs reproduction process has an 18-minute budget. Other native profiles use
+their documented memory limits and 60-second command budget. Scored submissions
+retain their original limits. New-profile publication requires versioned
+reproducibility evidence and review.

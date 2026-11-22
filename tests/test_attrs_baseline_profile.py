@@ -4,7 +4,12 @@ import io
 import json
 import tarfile
 from pathlib import Path
+from unittest.mock import Mock
 
+import docker
+import pytest
+
+from revertbench.sandbox.agent import AgentExecResult, AgentSandbox
 from revertbench.sandbox.image import worker_build_context
 from revertbench.sandbox.worker import SandboxLimits, hardened_container_options
 from revertbench.validate.baseline import (
@@ -39,6 +44,52 @@ def test_attrs_baseline_has_fixed_memory_and_standard_noexec_tmpfs() -> None:
     assert (
         hardened_container_options(attrs)["tmpfs"] == hardened_container_options(default)["tmpfs"]
     )
+
+
+@pytest.mark.parametrize(
+    ("profile", "command_timeout"), [(PROFILE, 150), ("pytest", 60), ("unittest", 60)]
+)
+def test_baseline_timeout_is_scoped_to_attrs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: BaselineProfile, command_timeout: int
+) -> None:
+    executions: list[tuple[list[str], float, int]] = []
+    transport_timeouts: list[int] = []
+    client = Mock()
+
+    def connect(*, timeout: int) -> Mock:
+        transport_timeouts.append(timeout)
+        return client
+
+    def execute(
+        box: AgentSandbox, command: list[str], timeout: float, limit: int
+    ) -> AgentExecResult:
+        executions.append((command, timeout, limit))
+        return AgentExecResult("timeout", None)
+
+    monkeypatch.setattr(docker, "from_env", connect)
+    monkeypatch.setattr(AgentSandbox, "start", lambda box: box)
+    monkeypatch.setattr(AgentSandbox, "close", lambda box: None)
+    monkeypatch.setattr(AgentSandbox, "_execute", execute)
+
+    result = DockerBaselineRunner("worker", profile=profile)(tmp_path)
+
+    assert transport_timeouts == [command_timeout + 10]
+    assert len(executions) == 1
+    command, timeout, limit = executions[0]
+    assert command[:3] == ["/usr/local/bin/python", "-I", "-c"]
+    assert ("from revertbench._attrs_baseline import run_native_attrs" in command[3]) == (
+        profile == PROFILE
+    )
+    assert timeout == command_timeout
+    assert limit == 65_536
+    assert result.status == "invalid_run"
+    assert result.reason == "baseline_timeout"
+    client.close.assert_called_once_with()
+
+
+def test_attrs_deadline_is_not_available_for_regular_commands(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Command limits must be finite and bounded"):
+        AgentSandbox("worker", tmp_path).exec(["/usr/local/bin/python", "-V"], timeout_seconds=150)
 
 
 def test_attrs_mock_pass_without_original_selection_is_invalid() -> None:

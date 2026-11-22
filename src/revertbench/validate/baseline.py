@@ -19,7 +19,7 @@ from revertbench import _attrs_baseline
 from revertbench.grade.backend import ExecutionBackend
 from revertbench.grade.policy import check_submission
 from revertbench.grade.rules import _eligible_failure, report_problem
-from revertbench.sandbox.agent import AgentSandbox
+from revertbench.sandbox.agent import AgentExecResult, AgentSandbox
 from revertbench.sandbox.worker import DockerRunner, SandboxError, SandboxLimits
 from revertbench.schema import ContentDigest, EvidenceModel
 
@@ -138,6 +138,12 @@ def baseline_command(profile: BaselineProfile) -> tuple[str, ...]:
     if profile == "unittest":
         return ("/usr/local/bin/python", "-m", "unittest", "-q")
     raise ValueError("unknown fixed baseline profile")
+
+
+def baseline_timeout_seconds(profile: BaselineProfile) -> int:
+    """Return the fixed command deadline for a registered upstream suite."""
+    baseline_command(profile)
+    return _attrs_baseline.TIMEOUT_SECONDS if profile == _attrs_baseline.PROFILE else 60
 
 
 # This trusted controller is executed by isolated Python inside the container.
@@ -586,6 +592,16 @@ def parse_baseline_output(
     return result.model_copy(update={"status": "passed"})
 
 
+def _run_baseline(box: AgentSandbox, profile: BaselineProfile) -> AgentExecResult:
+    timeout = baseline_timeout_seconds(profile)
+    script = _UNITTEST_SCRIPT if profile == "unittest" else _pytest_script(profile)
+    command = ["/usr/local/bin/python", "-I", "-c", script]
+    if profile == _attrs_baseline.PROFILE:
+        # Only the fixed installed-wheel suite needs more than the public command deadline.
+        return box._execute(command, timeout, 65_536)
+    return box.exec(command, timeout_seconds=timeout, output_limit_bytes=65_536)
+
+
 class DockerBaselineRunner:
     """Run each existing suite in a fresh bounded agent workspace with original fixtures."""
 
@@ -612,21 +628,10 @@ class DockerBaselineRunner:
             with ExitStack() as resources:
                 client = self.client
                 if client is None:
-                    client = docker.from_env(timeout=70)
+                    client = docker.from_env(timeout=baseline_timeout_seconds(self.profile) + 10)
                     resources.callback(client.close)
                 with AgentSandbox(self.image, tree, client=client, limits=self.limits) as box:
-                    execution = box.exec(
-                        [
-                            "/usr/local/bin/python",
-                            "-I",
-                            "-c",
-                            _UNITTEST_SCRIPT
-                            if self.profile == "unittest"
-                            else _pytest_script(self.profile),
-                        ],
-                        timeout_seconds=60,
-                        output_limit_bytes=65_536,
-                    )
+                    execution = _run_baseline(box, self.profile)
             if execution.status != "completed":
                 return BaselineResult(
                     status="invalid_run",

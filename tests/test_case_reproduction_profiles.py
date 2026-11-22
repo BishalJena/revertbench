@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -522,6 +523,7 @@ def test_attrs_scope_replays_wheel_and_yaml_typing_identity(
     scope = helper._upstream_scope(profile)
     assert scope["baseline_memory_bytes"] == 939_524_096
     assert scope["typing_yaml_passed"] == 85
+    assert scope["baseline_wall_time_seconds"] == 150
     assert scope["historical_wheels"]["base"]["version"] == "25.1.1.dev4"
     assert scope["historical_wheels"]["bad"]["version"] == "25.1.1.dev5"
     assert scope["historical_wheels"]["repaired"]["version"] == "25.1.1.dev5"
@@ -559,3 +561,33 @@ def test_attrs_scope_replays_wheel_and_yaml_typing_identity(
         invalid = suite | changed
         with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
             helper._matching_suite(invalid, invalid, **options)
+
+
+@pytest.mark.parametrize(
+    ("profile", "expected_timeout"),
+    [
+        ("attrs_field_transformer_default_behavior_v1", 1080),
+        ("babel_upstream_default_behavior_v1", 550),
+    ],
+)
+def test_full_reproduction_budget_for_exact_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str, expected_timeout: int
+) -> None:
+    helper = _helper(monkeypatch)
+    bundle, output = tmp_path / "case", tmp_path / "output"
+    _write(bundle, "case.json", {"global_suite_evidence": {"implementation_commit": "a" * 40}})
+    _write(bundle, "validation.json", {"baseline_profile": profile})
+    monkeypatch.setattr(helper, "read_publication", lambda case: {"manifest_version": "2"})
+    monkeypatch.setattr(helper, "_has_explicit_acceptance", lambda case: True)
+    monkeypatch.setattr(helper.shutil, "which", lambda name: "/test/uv")
+    monkeypatch.setattr(helper, "_export_grader", lambda root, commit, snapshot: None)
+
+    def run(command: list[str], *, cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+        assert timeout == expected_timeout
+        _write(output, "reproduction.json", {"status": "reproduced"})
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(helper, "_run", run)
+    assert helper.reproduce(bundle, output=output, cache=tmp_path / "cache") == {
+        "status": "reproduced"
+    }
