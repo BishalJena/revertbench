@@ -15,10 +15,15 @@ CASE_FILES = (
     "case.json",
     "validation.json",
     "reference.py",
+    "bad.diff",
     "repair.patch",
     "upstream-license.txt",
     "upstream-reference-header.txt",
 )
+REFERENCE_OUTCOMES = (("base", "pass"), ("bad", "fail"), ("repaired", "pass"))
+CONTROL_OUTCOMES = (("bad", "pass"), ("repaired", "pass"))
+# Display copy of the validator's assert_true probe source.
+CONTROL_SOURCE = "def test_cheat():\n    assert True\n"
 
 
 def read_regular(path: Path) -> bytes:
@@ -75,9 +80,10 @@ def run_outcome(
     return tuple(sorted(results))
 
 
-def summarize_runs(executions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    # validate_reference stores three runs per tree in base, bad, repaired order.
-    if len(executions) != 9:
+def summarize_runs(
+    executions: list[dict[str, Any]], expected: tuple[tuple[str, str], ...]
+) -> list[dict[str, Any]]:
+    if len(executions) != 3 * len(expected):
         raise ValueError("expected three recorded executions on each tree")
     expected_nodes = set(executions[0]["collected_node_ids"])
     expected_seeds = [execution["seed"] for execution in executions[:3]]
@@ -85,9 +91,7 @@ def summarize_runs(executions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raise ValueError("expected three distinct recorded seeds")
 
     summaries = []
-    for index, (role, expected_result) in enumerate(
-        (("base", "pass"), ("bad", "fail"), ("repaired", "pass"))
-    ):
+    for index, (role, expected_result) in enumerate(expected):
         group = executions[index * 3 : (index + 1) * 3]
         seeds = [execution["seed"] for execution in group]
         outcomes = {run_outcome(execution, role, expected_nodes) for execution in group}
@@ -111,6 +115,34 @@ def summarize_runs(executions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return summaries
+
+
+def summarize_control(probe: dict[str, Any]) -> dict[str, Any]:
+    grade = probe.get("grade")
+    if (
+        probe.get("status") != "passed"
+        or probe.get("reason") != "bad_did_not_fail"
+        or not isinstance(grade, dict)
+        or grade.get("status") != "rejected"
+        or type(grade.get("score")) is not int
+        or grade["score"] != 0
+        or grade.get("reason") != probe["reason"]
+    ):
+        raise ValueError("expected the rejected always-passing control grade")
+    # The paired grader records buggy-tree runs first, followed by the repaired tree.
+    try:
+        runs = summarize_runs(grade["executions"], CONTROL_OUTCOMES)
+    except ValueError as error:
+        raise ValueError(f"invalid control evidence: {error}") from error
+    return {
+        "source": CONTROL_SOURCE,
+        "score": grade["score"],
+        "reason": grade["reason"],
+        "runs": [
+            {"role": "base", "seeds": [], "result": "not_run", "exception": None},
+            *runs,
+        ],
+    }
 
 
 def pull_request(repository: str, evidence: dict[str, Any]) -> dict[str, Any]:
@@ -159,6 +191,12 @@ def read_case(case_dir: Path, copy: dict[str, str]) -> dict[str, Any]:
     for name, reported in (("reference.py", "reference_sha256"), ("repair.patch", "patch_sha256")):
         if report[reported] != hashlib.sha256(files[name]).hexdigest():
             raise ValueError(f"{case_id}: {name} differs from the validation report")
+    bad_diff = case["bad_diff"]
+    if (
+        bad_diff["path"] != "bad.diff"
+        or bad_diff["sha256"] != hashlib.sha256(files["bad.diff"]).hexdigest()
+    ):
+        raise ValueError(f"{case_id}: bad.diff differs from the approved case")
 
     repository = case["repo"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
@@ -172,6 +210,7 @@ def read_case(case_dir: Path, copy: dict[str, str]) -> dict[str, Any]:
         "repository": repository,
         **copy,
         "reference": files["reference.py"].decode("utf-8"),
+        "change": files["bad.diff"].decode("utf-8"),
         "repair": files["repair.patch"].decode("utf-8"),
         "license": files["upstream-license.txt"].decode("utf-8"),
         "notice": files["upstream-reference-header.txt"].decode("utf-8"),
@@ -179,7 +218,9 @@ def read_case(case_dir: Path, copy: dict[str, str]) -> dict[str, Any]:
         "fixed": pull_request(repository, case["fix_pr"]),
         "bundle_url": f"{REPOSITORY}/tree/main/cases/{case_id}",
         "validation_url": f"{REPOSITORY}/blob/main/cases/{case_id}/validation.json",
-        "runs": summarize_runs(reference["executions"]),
+        # Reference validation adds the base runs before the paired grader's evidence.
+        "runs": summarize_runs(reference["executions"], REFERENCE_OUTCOMES),
+        "control": summarize_control(report["probes"]["assert_true"]),
     }
 
 

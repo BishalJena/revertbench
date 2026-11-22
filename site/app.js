@@ -1,5 +1,6 @@
 const byId = (id) => document.getElementById(id);
 const stages = [...document.querySelectorAll("[data-role]")];
+const evidenceButtons = [...document.querySelectorAll("[data-view]")];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const projectNames = {
   "more-itertools/more-itertools": "more-itertools",
@@ -7,24 +8,49 @@ const projectNames = {
   "python-babel/babel": "Babel",
   "python-attrs/attrs": "attrs",
 };
+const outcomes = {
+  pass: { label: "Passed", mark: "✓" },
+  fail: { label: "Failed", mark: "×" },
+  not_run: { label: "Not run", mark: "–" },
+};
 
 let cases = [];
 let selectedCase;
-let projectFilter = "";
+let activeView;
+let activeRole;
 let replayTimer;
 
-function showStage(role) {
-  const run = selectedCase.runs.find((candidate) => candidate.role === role);
-  const passed = run.result === "pass";
+function isControl() {
+  return activeView === "control";
+}
 
+function currentRuns() {
+  return isControl() ? selectedCase.control.runs : selectedCase.runs;
+}
+
+function showStage(role) {
+  activeRole = role;
+  const run = currentRuns().find((candidate) => candidate.role === role);
   for (const stage of stages) {
     stage.setAttribute("aria-pressed", String(stage.dataset.role === role));
   }
 
-  byId("stage-result").dataset.result = run.result;
-  byId("result-label").textContent = passed ? "Test passed" : "Test failed · " + run.exception;
-  const repeated = "Same outcome in " + run.seeds.length + " recorded runs.";
-  byId("result-detail").textContent = passed ? selectedCase.expected + " " + repeated : repeated;
+  let label;
+  let detail;
+  if (run.result === "not_run") {
+    label = "No result for this version";
+    detail = "This control wasn’t run on the code before the change.";
+  } else if (run.result === "fail") {
+    label = "Test failed · " + run.exception;
+    detail = "Same failure in " + run.seeds.length + " recorded runs.";
+  } else {
+    label = "Test passed";
+    detail = isControl()
+      ? "Passed in all " + run.seeds.length + " recorded runs."
+      : selectedCase.expected + " Passed in all " + run.seeds.length + " recorded runs.";
+  }
+  byId("result-label").textContent = label;
+  byId("result-detail").textContent = detail;
 }
 
 function stopReplay() {
@@ -34,115 +60,149 @@ function stopReplay() {
 
 function replay() {
   stopReplay();
-  const runs = selectedCase.runs;
+  const recorded = currentRuns().filter((run) => run.result !== "not_run");
 
   function advance(index) {
-    showStage(runs[index].role);
+    showStage(recorded[index].role);
     const step = index + 1;
-    if (step === runs.length) {
+    if (step === recorded.length) {
       byId("replay-status").textContent = "Replay complete";
       return;
     }
-    byId("replay-status").textContent = "Showing " + step + " of " + runs.length;
-    replayTimer = window.setTimeout(() => advance(step), reducedMotion.matches ? 300 : 650);
+    byId("replay-status").textContent = "Showing " + step + " of " + recorded.length;
+    replayTimer = window.setTimeout(() => advance(step), reducedMotion.matches ? 300 : 900);
   }
 
   advance(0);
 }
 
-function renderCaseLinks() {
-  const links = cases
-    .filter((item) => !projectFilter || item.repository === projectFilter)
-    .map((item) => {
-      const row = document.createElement("li");
-      const link = document.createElement("a");
-      const project = document.createElement("span");
-      const title = document.createElement("strong");
-      const summary = document.createElement("span");
-      const arrow = document.createElement("span");
-
-      link.className = "case-link";
-      link.dataset.caseId = item.id;
-      if (item === selectedCase) {
-        link.setAttribute("aria-current", "true");
-      }
-      const destination = new URL(window.location.href);
-      destination.searchParams.set("case", item.id);
-      destination.hash = "demo";
-      link.href = destination.href;
-      link.addEventListener("click", (event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        if (destination.href !== window.location.href) {
-          history.pushState(null, "", destination.href);
-        }
-        showCase(item);
-        byId("demo").focus({ preventScroll: true });
-        byId("demo").scrollIntoView({ block: "start" });
-      });
-
-      project.className = "case-project";
-      project.textContent = projectNames[item.repository] ?? item.repository;
-      title.textContent = item.title;
-      summary.className = "case-summary";
-      summary.textContent = item.summary;
-      arrow.className = "case-arrow";
-      arrow.setAttribute("aria-hidden", "true");
-      arrow.textContent = "↑";
-      link.append(project, title, summary, arrow);
-      row.append(link);
-      return row;
-    });
-
-  byId("case-list").replaceChildren(...links);
+function diffClass(line) {
+  if (/^(diff --git|index |--- |\+\+\+ )/.test(line)) return "diff-meta";
+  if (line.startsWith("@@")) return "diff-hunk";
+  if (line.startsWith("+")) return "diff-add";
+  if (line.startsWith("-")) return "diff-remove";
+  return "";
 }
 
-function showCase(item) {
-  stopReplay();
-  selectedCase = item;
-  byId("case-repository").textContent = item.repository;
-  byId("case-title").textContent = item.title;
-  byId("case-summary").textContent = item.summary;
-  byId("reference-code").textContent = item.reference;
-  byId("repair-code").textContent = item.repair;
-  byId("upstream-notices").textContent = item.license + "\n" + item.notice;
-  byId("introducing-pr").href = item.introduced.url;
-  byId("fixing-pr").href = item.fixed.url;
-  byId("validation-report").href = item.validation_url;
-  byId("case-bundle").href = item.bundle_url;
-  byId("evidence").open = false;
-  byId("notices").open = false;
-  for (const stage of stages) {
-    const run = item.runs.find((candidate) => candidate.role === stage.dataset.role);
-    stage.dataset.result = run.result;
-    stage.querySelector(".stage-outcome").textContent = run.result === "pass" ? "Passed" : "Failed";
-  }
-  showStage("bad");
-  renderCaseLinks();
-}
-
-function renderFilters() {
-  const repositories = [...new Set(cases.map((item) => item.repository))];
-  const filters = ["", ...repositories].map((repository) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = repository ? (projectNames[repository] ?? repository) : "All projects";
-    button.setAttribute("aria-pressed", String(projectFilter === repository));
-    button.addEventListener("click", () => {
-      projectFilter = repository;
-      for (const filter of byId("case-filters").children) {
-        filter.setAttribute("aria-pressed", String(filter === button));
-      }
-      renderCaseLinks();
-    });
-    return button;
+function renderCode(source, isDiff) {
+  const lines = source.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  const highlighted = lines.map((line, index) => {
+    const span = document.createElement("span");
+    const highlight = isDiff ? diffClass(line) : "";
+    span.className = highlight ? "code-line " + highlight : "code-line";
+    span.textContent = line;
+    // Keep newline characters so copied code matches the visible lines.
+    if (index < lines.length - 1 || source.endsWith("\n")) span.append("\n");
+    return span;
   });
-  byId("case-filters").replaceChildren(...filters);
+  const code = byId("evidence-code");
+  code.replaceChildren(...highlighted);
+  code.parentElement.scrollTo(0, 0);
+}
+
+function showView(view, role = "bad") {
+  stopReplay();
+  activeView = view;
+  const item = selectedCase;
+  const evidence = {
+    change: ["Original change · PR #" + item.introduced.number, item.change, true],
+    reference: ["Historical reference test · Python", item.reference, false],
+    control: ["Always-passing control · Python", item.control.source, false],
+    repair: ["Production repair · PR #" + item.fixed.number, item.repair, true],
+  };
+  const [caption, source, isDiff] = evidence[view];
+
+  for (const button of evidenceButtons) {
+    button.setAttribute("aria-pressed", String(button.dataset.view === view));
+  }
+  byId("code-caption").textContent = caption;
+  renderCode(source, isDiff);
+
+  const control = isControl();
+  byId("results").dataset.mode = control ? "control" : "reference";
+  byId("test-kind").textContent = control
+    ? "Passing control · " + item.control.score + "/1"
+    : "Reference test · 1/1";
+  byId("verdict-title").textContent = control ? "Missed the bug" : "Caught the bug";
+  byId("verdict-detail").textContent = control
+    ? "It passed even when the code was broken."
+    : "It failed on the buggy code and passed after the fix.";
+
+  for (const stage of stages) {
+    const run = currentRuns().find((candidate) => candidate.role === stage.dataset.role);
+    const { label, mark } = outcomes[run.result];
+    stage.dataset.result = run.result;
+    stage.querySelector(".stage-outcome").textContent = label;
+    stage.querySelector(".stage-mark").textContent = mark;
+  }
+  showStage(role);
 }
 
 function caseFromLocation() {
   const requested = new URL(window.location.href).searchParams.get("case");
   return cases.find((item) => item.id === requested) ?? cases[0];
+}
+
+function caseUrl(item) {
+  const destination = new URL(window.location.href);
+  destination.searchParams.set("case", item.id);
+  destination.hash = "demo";
+  return destination.href;
+}
+
+function selectCase(item) {
+  const destination = caseUrl(item);
+  if (destination !== window.location.href) history.pushState(null, "", destination);
+  if (item !== selectedCase) showCase(item);
+}
+
+function renderCaseNavigation() {
+  const list = byId("case-list");
+  const picker = byId("case-select");
+
+  for (const item of cases) {
+    const row = document.createElement("li");
+    const link = document.createElement("a");
+    const project = document.createElement("small");
+    const title = document.createElement("strong");
+    const projectName = projectNames[item.repository] ?? item.repository;
+
+    link.className = "case-link";
+    link.dataset.caseId = item.id;
+    link.href = caseUrl(item);
+    link.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      selectCase(item);
+    });
+    project.textContent = projectName;
+    title.textContent = item.title;
+    link.append(project, title);
+    row.append(link);
+    list.append(row);
+
+    picker.add(new Option(item.title, item.id));
+  }
+}
+
+function showCase(item) {
+  selectedCase = item;
+  byId("case-repository").textContent = item.repository;
+  byId("case-title").textContent = item.title;
+  byId("case-summary").textContent = item.summary;
+  byId("upstream-notices").textContent = item.license + "\n" + item.notice;
+  byId("introducing-pr").href = item.introduced.url;
+  byId("fixing-pr").href = item.fixed.url;
+  byId("validation-report").href = item.validation_url;
+  byId("case-bundle").href = item.bundle_url;
+  byId("notices").open = false;
+  byId("case-select").value = item.id;
+  for (const link of document.querySelectorAll("[data-case-id]")) {
+    if (link.dataset.caseId === item.id) link.setAttribute("aria-current", "true");
+    else link.removeAttribute("aria-current");
+  }
+  showView("change");
 }
 
 async function load() {
@@ -152,14 +212,11 @@ async function load() {
 
   const data = await response.json();
   cases = data.cases;
+  renderCaseNavigation();
   showCase(caseFromLocation());
-  renderFilters();
   for (const target of document.querySelectorAll("[data-stat]")) {
     target.textContent = data.stats[target.dataset.stat];
   }
-
-  byId("case-controls").hidden = false;
-  byId("cases-fallback").hidden = true;
   byId("stats").hidden = false;
   byId("demo-body").hidden = false;
   byId("demo-loading").hidden = true;
@@ -171,7 +228,17 @@ async function load() {
       showStage(stage.dataset.role);
     });
   }
+  for (const button of evidenceButtons) {
+    button.addEventListener("click", () => {
+      const changesTest = isControl() !== (button.dataset.view === "control");
+      showView(button.dataset.view, changesTest ? "bad" : activeRole);
+    });
+  }
   byId("replay").addEventListener("click", replay);
+  byId("case-select").addEventListener("change", (event) => {
+    const item = cases.find((candidate) => candidate.id === event.target.value);
+    if (item) selectCase(item);
+  });
   window.addEventListener("popstate", () => {
     const item = caseFromLocation();
     if (item !== selectedCase) showCase(item);
