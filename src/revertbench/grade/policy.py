@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Never
 
-POLICY_VERSION = "6"
+POLICY_VERSION = "7"
 MAX_SOURCE_BYTES = 65_536
 MAX_AST_NODES = 3_000
 MAX_AST_DEPTH = 64
@@ -758,6 +758,15 @@ class _Submission:
             return
         if isinstance(node, ast.ImportFrom) and node.module == "typing":
             _reject("unsupported_import", "typing is supported only as an annotation module import")
+        if isinstance(node, ast.ImportFrom) and node.module == "io" and not node.level:
+            self.index.reject_stdlib_shadow("io")
+            for alias in node.names:
+                if alias.name != "BytesIO":
+                    _reject(
+                        "unsupported_import", "Only the literal BytesIO constructor is supported"
+                    )
+                self._declare(alias.asname or alias.name, _Symbol("bytes_io_constructor"))
+            return
         if isinstance(node, ast.Import):
             for alias in node.names:
                 module = self._module(alias.name)
@@ -1196,6 +1205,15 @@ class _Submission:
 
     def _call(self, node: ast.Call, env: dict[str, _Symbol]) -> _Symbol:
         symbol = self._expression(node.func, env)
+        if symbol.kind == "bytes_io_constructor":
+            if (
+                node.keywords
+                or len(node.args) != 1
+                or not isinstance(node.args[0], ast.Constant)
+                or not isinstance(node.args[0].value, bytes)
+            ):
+                _reject("unsupported_call", "BytesIO requires exactly one positional bytes literal")
+            return _Symbol("byte_buffer")
         arguments = (
             self._star_arguments(node, symbol, env)
             if any(isinstance(argument, ast.Starred) for argument in node.args)

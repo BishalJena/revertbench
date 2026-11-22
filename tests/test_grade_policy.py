@@ -64,7 +64,7 @@ def test_accepts_supported_behavioral_tests(bad_tree: Path, source: str) -> None
 
     assert result.allowed, result
     assert result.reason is None
-    assert POLICY_VERSION == "6"
+    assert POLICY_VERSION == "7"
 
 
 @pytest.mark.parametrize(

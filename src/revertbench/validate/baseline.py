@@ -7,6 +7,7 @@ import binascii
 import json
 import zlib
 from contextlib import ExitStack
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
 
@@ -29,7 +30,14 @@ BaselineProfile = Literal[
     "boltons_upstream_default_behavior_v1",
     "pydash_upstream_default_behavior_v1",
     "blinker_upstream_default_behavior_v1",
+    "babel_upstream_default_behavior_v1",
 ]
+_BABEL_PROFILE = "babel_upstream_default_behavior_v1"
+_BABEL_BASELINE_MEMORY_BYTES = 512 * 1024**2
+_BABEL_COLLECTION_SKIPS = {
+    "tests/interop/test_jinja2_interop.py": "jinja2",
+    "tests/messages/test_setuptools_frontend.py": "setuptools",
+}
 _PREFIX = b"REVERTBENCH_BASELINE="
 _ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
 _MAX_REPORT_BYTES = 2_097_152
@@ -83,6 +91,18 @@ _PYTEST_PROFILE_ARGS: dict[str, tuple[str, ...]] = {
         "asyncio_default_fixture_loop_scope=function",
         "tests",
     ),
+    _BABEL_PROFILE: (
+        "-q",
+        "--tb=short",
+        "-c",
+        "/workspace/repo/setup.cfg",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        ".",
+    ),
 }
 
 
@@ -117,11 +137,100 @@ policy_digest = hashlib.sha256((trusted_source / 'grade/policy.py').read_bytes()
 
 """
 
+_BABEL_SCRIPT = r"""
+import re
+from importlib import metadata
+
+exact_runtime_skips = {
+    'babel/numbers.py::babel.numbers.format_number': (
+        'call', 'all tests skipped by +SKIP option',
+    ),
+    'tests/test_localedata.py::test_reserved_locale_names': ('setup', 'windows-only test'),
+    'tests/test_localtime.py::test_issue_1092_with_pytz': ('call', 'pytz is not installed'),
+    **{
+        f'tests/test_support.py::TranslationsTestCase::{name}': ('setup', 'lgettext is deprecated')
+        for name in ('test_lpgettext', 'test_lnpgettext', 'test_ldpgettext', 'test_ldnpgettext')
+    },
+}
+pytz_fixture_nodes = {
+    'tests/test_date_intervals.py::test_format_interval_in_tz',
+    'tests/test_support.py::TestFormat::test_format_datetime',
+    'tests/test_support.py::TestFormat::test_format_time',
+    *{f'tests/test_dates.py::{name}' for name in (
+        'test_get_timezone_gmt', 'test_get_timezone_location', 'test_get_timezone_name_tzinfo',
+        'test_get_timezone_name_time_pytz', 'test_get_timezone_name_misc', 'test_format_datetime',
+        'test_format_time', 'test_format_skeleton',
+        'test_no_inherit_metazone_marker_never_in_output', 'test_no_inherit_metazone_formatting',
+    )},
+}
+
+def prepare_babel():
+    overlay = Path('/opt/revertbench/babel')
+    deps = overlay / 'deps'
+    data = overlay / 'data/babel'
+    checkout = Path(root)
+    package = checkout / 'babel'
+    source_locales = data / 'locale-data'
+    target_locales = package / 'locale-data'
+    directories = (overlay, deps, data.parent, data, source_locales,
+        checkout, package, target_locales)
+    if any(path.is_symlink() or not path.is_dir() for path in directories):
+        raise ValueError('Babel runtime directory mismatch')
+    config = checkout / 'setup.cfg'
+    if config.is_symlink() or not config.is_file():
+        raise ValueError('Babel native configuration missing')
+    distributions = sorted((item.metadata['Name'].lower().replace('_', '-'), item.version)
+        for item in metadata.distributions(path=[str(deps)]))
+    if distributions != [('freezegun', '1.5.1'), ('python-dateutil', '2.9.0.post0')]:
+        raise ValueError('Babel runtime dependency mismatch')
+    if {path.name for path in data.iterdir()} != {'global.dat', 'locale-data'}:
+        raise ValueError('Babel locale data layout mismatch')
+    locales = sorted(source_locales.iterdir())
+    if any(not re.fullmatch(r'[A-Za-z0-9_]+\.dat', path.name) for path in locales):
+        raise ValueError('Babel locale data filename mismatch')
+    if any(path.suffix == '.dat' for path in target_locales.iterdir()):
+        raise ValueError('Babel locale target already contains data')
+    manifest = hashlib.sha256()
+    copies = []
+    for source in [data / 'global.dat', *locales]:
+        relative = source.relative_to(data.parent)
+        target = checkout / relative
+        if source.is_symlink() or not source.is_file() or target.is_symlink() or target.exists():
+            raise ValueError('Babel locale file mismatch or collision')
+        content = source.read_bytes()
+        manifest.update(f'{relative.as_posix()} {hashlib.sha256(content).hexdigest()}\n'.encode())
+        copies.append((target, content))
+    if manifest.hexdigest() != '38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e':
+        raise ValueError('Babel locale data digest mismatch')
+    for target, content in copies:
+        with target.open('xb') as stream:
+            stream.write(content)
+    sys.path[:0] = [root, str(deps)]
+
+def babel_skip_reason(report):
+    description = report.longrepr
+    if isinstance(description, tuple) and len(description) == 3:
+        return str(description[2]).removeprefix('Skipped: ')
+    return ''
+
+def babel_runtime_skip_allowed(report):
+    reason = babel_skip_reason(report)
+    if report.nodeid in exact_runtime_skips:
+        return (report.when, reason) == exact_runtime_skips[report.nodeid]
+    node, bracket, params = report.nodeid.partition('[')
+    return (node in pytz_fixture_nodes and bracket and params.endswith(']')
+        and 'pytz.timezone' in params[:-1].split('-')
+        and report.when == 'setup' and reason == 'pytz not available')
+"""
+
 _BASELINE_SCRIPT = (
     _ENVIRONMENT_SCRIPT
     + r"""
 import pytest
 root = '/workspace/repo'
+profile = __FIXED_PROFILE__
+collection_skip_dependencies = __FIXED_BABEL_COLLECTION_SKIPS__
+__FIXED_BABEL_SCRIPT__
 class Evidence:
     def __init__(self):
         self.nodes = []
@@ -131,9 +240,10 @@ class Evidence:
         self.xpasses = set()
         self.errors = []
         self.deselected = 0
+        self.collection_skips = set()
     def pytest_collection_finish(self, session):
         self.nodes = [item.nodeid for item in session.items]
-        if __FIXED_PROFILE__ == 'blinker_upstream_default_behavior_v1':
+        if profile == 'blinker_upstream_default_behavior_v1':
             from importlib import metadata
             config = session.config
             allowed = config.pluginmanager.getplugin('pytest_asyncio.plugin')
@@ -150,6 +260,14 @@ class Evidence:
     def pytest_collectreport(self, report):
         if report.failed:
             self.errors.append(str(report.longrepr)[:2048])
+        elif collection_skip_dependencies and report.skipped:
+            dependency = collection_skip_dependencies.get(report.nodeid)
+            expected = f"could not import '{dependency}': No module named '{dependency}'"
+            if (dependency and babel_skip_reason(report) == expected
+                    and report.nodeid not in self.collection_skips):
+                self.collection_skips.add(report.nodeid)
+            else:
+                self.errors.append(f'unexpected Babel skip during collection: {report.nodeid}')
     def pytest_runtest_logreport(self, report):
         node = report.nodeid
         expected = hasattr(report, 'wasxfail')
@@ -161,22 +279,33 @@ class Evidence:
             self.xpasses.add(node)
         elif report.outcome == 'skipped':
             self.skips.add(node)
+            if collection_skip_dependencies and not babel_runtime_skip_allowed(report):
+                self.errors.append(f'unexpected Babel skip during {report.when}: {node}')
         elif report.when != 'call' and report.outcome == 'failed':
             self.errors.append(str(report.longrepr)[:2048])
 
 plugin = Evidence()
-sys.path[:0] = [root + '/src', root]
 command = __FIXED_COMMAND__
-code = int(pytest.main(command[3:], plugins=[plugin]))
+if collection_skip_dependencies:
+    try:
+        prepare_babel()
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        plugin.errors.append(f'Babel native runtime preparation failed: {error}')
+else:
+    sys.path[:0] = [root + '/src', root]
+code = 4 if plugin.errors else int(pytest.main(command[3:], plugins=[plugin]))
 passed = sum(value == 'passed' and node not in plugin.xpasses
     for node, value in plugin.calls.items())
 failed = sum(value == 'failed' for value in plugin.calls.values())
-payload = dict(profile=__FIXED_PROFILE__, command=command, collected=len(plugin.nodes),
+payload = dict(profile=profile, command=command, collected=len(plugin.nodes),
     passed=passed, failed=failed,
-    skipped=len(plugin.skips), xfailed=len(plugin.xfails), xpassed=len(plugin.xpasses),
+    skipped=len(plugin.skips) + len(plugin.collection_skips),
+    xfailed=len(plugin.xfails), xpassed=len(plugin.xpasses),
     errors=len(plugin.errors), details=plugin.errors, node_ids=plugin.nodes,
     deselected=plugin.deselected, environment_python=python_version,
     dependency_lock_sha256=lock_digest, grader_sha256=grader_digest, policy_sha256=policy_digest)
+if collection_skip_dependencies:
+    payload['extra_skip_node_ids'] = sorted(plugin.collection_skips)
 __FIXED_REPORT_OUTPUT__
 sys.exit(code)
 """
@@ -200,6 +329,11 @@ def _pytest_script(profile: BaselineProfile) -> str:
     return (
         _BASELINE_SCRIPT.replace("__FIXED_COMMAND__", repr(list(command)))
         .replace("__FIXED_PROFILE__", repr(profile))
+        .replace(
+            "__FIXED_BABEL_COLLECTION_SKIPS__",
+            repr(_BABEL_COLLECTION_SKIPS if profile == _BABEL_PROFILE else {}),
+        )
+        .replace("__FIXED_BABEL_SCRIPT__", _BABEL_SCRIPT if profile == _BABEL_PROFILE else "")
         .replace("__FIXED_REPORT_OUTPUT__", report)
     )
 
@@ -368,7 +502,13 @@ def parse_baseline_output(
         or any(not node or node in result.node_ids for node in result.extra_skip_node_ids)
         or (exit_code == 0 and result.failed)
     )
-    if result.profile != "unittest":
+    if result.profile == _BABEL_PROFILE:
+        inconsistent |= (
+            counted - len(result.extra_skip_node_ids) != result.collected
+            or result.extra_skip_node_ids != tuple(sorted(_BABEL_COLLECTION_SKIPS))
+            or bool(result.xfailed or result.xpassed)
+        )
+    elif result.profile != "unittest":
         inconsistent |= counted != result.collected or bool(result.extra_skip_node_ids)
     elif not (result.failed or result.errors or result.xpassed):
         inconsistent |= counted - len(result.extra_skip_node_ids) != result.collected
@@ -402,6 +542,9 @@ class DockerBaselineRunner:
         self.profile = profile
         self.image, self.client = image, client
         self.limits = limits or SandboxLimits()
+        if profile == _BABEL_PROFILE:
+            # The native all-locale suite and generated data exceed the default memory cap.
+            self.limits = replace(self.limits, memory_bytes=_BABEL_BASELINE_MEMORY_BYTES)
 
     def __call__(self, tree: Path) -> BaselineResult:
         try:

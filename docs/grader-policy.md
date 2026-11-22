@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 6
+# Behavioral-test submission policy, version 7
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,10 +6,24 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 6 intentionally supports a restricted Python test format. A rejected
+Version 7 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
+
+Version 7 additionally permits `from io import BytesIO`, with an optional alias,
+as an exact in-memory byte-buffer constructor. Each call must have exactly one
+positional bytes literal and no keywords or argument expansion. A local alias
+retains this capability only while it resolves to that same constructor. Named
+byte values, computed inputs, text strings and empty argument lists are excluded.
+The result is opaque to the submission: it can be passed to a public project API,
+but exposes no attributes or methods. Importing the `io` module, importing other
+`io` names, and constructing buffers at module level remain excluded. Root and
+`src` modules or packages named `io` are rejected. The ordinary submission size
+bound also limits literal buffer input. This capability supports tests that pass
+fixed in-memory source text to a parser; it grants no file access and does not
+prove what the project API does with the buffer. Existing accepted cases retain
+their pinned policy and implementation.
 
 Version 6 additionally permits one direct local counter callback in an ordinary
 test function. It has one positional parameter and a body consisting of exactly
@@ -125,7 +139,8 @@ are rejected. This supports public package APIs without admitting wildcard
 imports in the submission itself.
 
 The external modules admitted by this version are `pytest`, `math`, and
-restricted parts of `unittest` and `itertools`:
+restricted parts of `unittest`, `itertools` and the import-only `io.BytesIO`
+constructor described above:
 
 - `pytest.raises(ApprovedException, match="literal pattern")` is allowed as a
   context manager without an `as` target. It cannot expose an exception-info,

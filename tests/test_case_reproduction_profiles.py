@@ -25,6 +25,43 @@ def test_blinker_scope_identifies_the_native_pytest_suite(monkeypatch: pytest.Mo
     }
 
 
+def test_babel_scope_records_both_native_collection_skips(monkeypatch: pytest.MonkeyPatch) -> None:
+    helper = _helper(monkeypatch)
+    profile = "babel_upstream_default_behavior_v1"
+    assert helper._upstream_scope(profile)["locale_data"]["sha256"] == (
+        "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e"
+    )
+    command = ["/usr/local/bin/python", "-m", "pytest", "."]
+    result = {
+        "status": "passed",
+        "exit_code": 0,
+        "profile": profile,
+        "command": command,
+        "pids_limit": 64,
+        "collected": 1,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 2,
+        "xfailed": 0,
+        "xpassed": 0,
+        "deselected": 0,
+        "node_ids": ["babel/numbers.py::babel.numbers.format_decimal"],
+        "extra_skip_node_ids": [
+            "tests/interop/test_jinja2_interop.py",
+            "tests/messages/test_setuptools_frontend.py",
+        ],
+    }
+    options = dict(profile=profile, command=command, pids=64, identity={})
+    helper._matching_suite(result, result, **options)
+    unexpected = result | {"extra_skip_node_ids": ["tests/test_numbers.py", "tests/test_dates.py"]}
+    with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
+        helper._matching_suite(unexpected, unexpected, **options)
+    miscounted = result | {"skipped": 1}
+    with pytest.raises(helper.ReproductionError, match="differs from approved scope"):
+        helper._matching_suite(miscounted, miscounted, **options)
+
+
 def _write(root: Path, name: str, value: Any) -> dict[str, Any]:
     path = root / name
     path.parent.mkdir(parents=True, exist_ok=True)

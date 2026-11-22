@@ -11,6 +11,7 @@ submission's grader, fixtures, policy, resource limits or hidden reference.
 | `boltons_upstream_default_behavior_v1` | pytest package doctests in `boltons` and unit tests in `tests`. |
 | `pydash_upstream_default_behavior_v1` | pytest package doctests in `src/pydash` and unit tests in `tests`, excluding only `tests/pytest_mypy_testing`. |
 | `blinker_upstream_default_behavior_v1` | All pytest tests in `tests`, including async tests, with warnings treated as errors. |
+| `babel_upstream_default_behavior_v1` | Babel's default Linux suite from the repository root, including package doctests and locale-parametrized tests. |
 
 The Boltons and Pydash versioned profiles retain this fixed prefix:
 
@@ -60,8 +61,24 @@ build scripts. This is a compatible locked runtime, rather than a recreation of
 the historical pytest 8.1.2 / pytest-asyncio 0.23.6 dependency set. Lint, typing,
 documentation, package builds and the upstream Python matrix are separate checks.
 
+Babel's default `make test` runs `python -m pytest` at the repository root.
+The profile uses the historical `setup.cfg` and root `conftest.py` so collection
+includes source doctests and the native locale and timezone parametrization.
+The reporting command uses `-q --tb=short`, an isolated temporary directory,
+and disables pytest's persistent cache. [Historical Makefile and test command](https://github.com/python-babel/babel/blob/bef3a734fbdf1da4d1058d25a5eed785bec43a63/Makefile)
+
+The worker uses Babel 2.16.0's published locale data, which matches the native
+CLDR 45 importer output for all three source trees byte for byte. The pinned
+wheel supplies 1,045 data files. Historical Python code comes from each source
+tree. The profile checks the data digest before copying it into the baseline
+workspace and uses separately pinned Freezegun and python-dateutil wheels.
+The default profile records the optional Jinja and setuptools collection skips
+and the native runtime skips. Coverage thresholds, package builds and
+documentation builds are separate checks. [Pinned Babel release](https://pypi.org/project/Babel/2.16.0/)
+
 Original repository conftest support remains enabled for these trusted baselines.
-Ambient plugin discovery and repository command-line configuration remain disabled.
+Ambient plugin discovery remains disabled. Babel's fixed command uses its native
+configuration. The other profiles use the controlled pytest configuration.
 There is no arbitrary command, target, ignore-path or shell override. Check the
 historical repository's layout and test-selection contract before using a profile
 for a case; a recent upstream configuration is not evidence for every old commit.
@@ -74,9 +91,11 @@ collected node counts. A machine-validated versioned profile requires matching
 fixed commands and all three role reports. Injected backend mismatches remain
 pending infrastructure.
 
-`--baseline-pids-limit` still defaults to 64 and accepts 8 through 256, applying only
-to the trusted existing suite. Memory, CPU, wall time and output bounds remain
-unchanged. Scored submissions retain their original limits. The legacy profiles,
+`--baseline-pids-limit` defaults to 64 and accepts 8 through 256 for the trusted
+existing suite. Babel uses a fixed 512 MiB baseline memory cap. The original
+256 MiB cap hit memory pressure and the highest measured peak was 348 MiB.
+Other profiles use the default baseline memory cap. CPU, wall time and output
+bounds remain unchanged. Scored submissions retain their original limits. The legacy profiles,
 commands and published case bytes remain unchanged. New-profile publication also
 requires its versioned reproducibility evidence and review; a successful baseline
 alone is not case acceptance.
