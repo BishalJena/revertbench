@@ -71,6 +71,27 @@ over three repeats per snapshot. The complete upstream pytest suites pass 30, 26
 tests respectively. The version 2 publication includes structured suite repeat
 evidence, a pinned policy 6 worker, and a delegated case review.
 
+The seventh case is the [Babel translator-comment regression](babel-bef3a734fbdf-de44e185-e4a8ca4b/case.json).
+PR 1126 caused Babel to drop a translator comment before a multiline translation
+call. PR 1196 restored it. The complete original reference checks the line number,
+message and comment. It passes on the parent, fails the comment assertion on the
+introducing merge, and passes after the exact production repair across three
+repeats per revision. Each original upstream suite passed 6,042 tests, with 1,075
+runtime skips and two optional collection skips. The bundle pins a policy 7 worker,
+the verified CLDR 45 data, a structured suite repeat and a delegated case review.
+Fresh reproductions also preserve the native collection order. The comparison
+permits filesystem-dependent ordering within the upstream test function that
+parametrizes its rows from an unsorted glob, while requiring the same rows.
+
+The eighth case is the [Babel byte-string extraction regression](babel-8babd2413b6b-7b00bf9e-365e1118/case.json).
+PR 1083 made extraction try to include byte strings in the translation messages,
+and PR 1259 restored the behavior of ignoring them. The complete original test
+asserts that both text messages are retained. It passes on the parent, raises
+`TypeError` on the introducing revision, and passes after the exact production
+repair across three repeats per revision. Each original upstream suite passed
+5,983 tests, with 1,074 runtime skips and one optional collection skip. The bundle
+pins a policy 7 worker and the verified CLDR 44 data for this separate regression.
+
 Inspect the packet without executing its historical code on the host:
 
 ```bash

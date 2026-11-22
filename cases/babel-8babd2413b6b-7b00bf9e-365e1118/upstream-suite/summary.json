@@ -1,0 +1,72 @@
+{
+  "version": "1",
+  "evidence_kind": "structured_baseline_repeat",
+  "independent_instrumentation": false,
+  "case_id": "babel-8babd2413b6b-7b00bf9e-365e1118",
+  "status": "passed",
+  "profile": "babel_cldr44_default_behavior_v1",
+  "command": [
+    "/usr/local/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "-c",
+    "/workspace/repo/setup.cfg",
+    "--rootdir",
+    "/workspace/repo",
+    "--basetemp=/tmp/revertbench-baseline",
+    "-p",
+    "no:cacheprovider",
+    "."
+  ],
+  "pids_limit": 64,
+  "image": "sha256:801e4c4dccf95ffd9837cf0aa69d2ec7ae28642af0ce18b1777a3a48c759e0e8",
+  "source_hashes": {
+    "base": "a38132f9da9f5359e0915f014db05f59e30020d6fb507233262539e9497d3474",
+    "bad": "71f247addf775b70ba322554c5c10554163b1b2034c1cd4bb0a8d55665721901",
+    "historical_fix": "f615cb9819740c66f5bd2b81bc34768635cab242abb3504d263c9b46918aea70",
+    "repaired": "02fec153e8214189a577b8241729563cd470743951c394fab55dad0a0f4dc571"
+  },
+  "validation_report_sha256": "a7ce31cb38aa830f0205928f9bf2f34e090904121f1f485903dc75820a952289",
+  "scope": {
+    "behavior": "upstream_default_unit_and_package_doctests",
+    "excluded_checks": [
+      "coverage_quality_gate",
+      "documentation_build",
+      "package_build"
+    ],
+    "collection_skips": [
+      "tests/messages/test_setuptools_frontend.py"
+    ],
+    "baseline_memory_bytes": 536870912,
+    "locale_data": {
+      "release": "Babel 2.15.0",
+      "sha256": "1bcb4543e529f3ad7d26b1d5d6b596443b6c9429ce4488f5d22f0b0a8168a7d0"
+    }
+  },
+  "roles": {
+    "base": {
+      "path": "upstream-suite/base.json",
+      "sha256": "62f1984356c8acb01004a806ba0a89ed10e8392ea7ab0e189d72e68fdc88d269",
+      "bytes": 586479,
+      "source_sha256": "a38132f9da9f5359e0915f014db05f59e30020d6fb507233262539e9497d3474"
+    },
+    "bad": {
+      "path": "upstream-suite/bad.json",
+      "sha256": "da50869f698b8d1015687c10e4349336f3e41d55966342fb9f25e1ba429199f9",
+      "bytes": 584319,
+      "source_sha256": "71f247addf775b70ba322554c5c10554163b1b2034c1cd4bb0a8d55665721901"
+    },
+    "repaired": {
+      "path": "upstream-suite/repaired.json",
+      "sha256": "99492e72bd5ba2fda2d1b0d99808ce844b58a0c24c5af67bc6805f848ed9440a",
+      "bytes": 584319,
+      "source_sha256": "02fec153e8214189a577b8241729563cd470743951c394fab55dad0a0f4dc571"
+    }
+  },
+  "environment_python": "3.12.16",
+  "grader_sha256": "a91c56b3961a5d8c01e4573f0c4f05377853e9fb57fce38f8df52a6fc0b2ab6e",
+  "policy_sha256": "4a6c31143ff2644c48beeb4d84d0abbe36f2e098157a27b192986870bebcf956",
+  "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad"
+}

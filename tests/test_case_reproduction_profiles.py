@@ -449,3 +449,66 @@ def test_repeat_cannot_claim_passed_with_inconsistent_results(
             pids=256,
             identity=report,
         )
+
+
+def test_babel_reproduction_allows_only_native_glob_row_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    helper = _helper(monkeypatch)
+    profile = "babel_upstream_default_behavior_v1"
+    command = ["/usr/local/bin/python", "-m", "pytest", "."]
+    skips = ["tests/interop/test_jinja2_interop.py", "tests/messages/test_setuptools_frontend.py"]
+    prefix = "tests/messages/test_toml_config.py::test_bad_toml_test_case"
+    a, b = f"{prefix}[bad.a.toml]", f"{prefix}[bad.b.toml]"
+    before, after = (
+        "tests/messages/test_toml_config.py::test_mapping",
+        "tests/test_dates.py::test_a",
+    )
+    approved = {
+        "status": "passed",
+        "exit_code": 0,
+        "profile": profile,
+        "command": command,
+        "pids_limit": 64,
+        "collected": 4,
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": len(skips),
+        "xfailed": 0,
+        "xpassed": 0,
+        "deselected": 0,
+        "node_ids": [before, a, b, after],
+        "extra_skip_node_ids": skips,
+    }
+    options = dict(profile=profile, command=command, pids=64, identity={})
+    permuted = approved | {"node_ids": [before, b, a, after]}
+    helper._matching_suite(permuted, approved, fresh_run=True, **options)
+    assert permuted["node_ids"] == [before, b, a, after]
+    with pytest.raises(helper.ReproductionError):
+        helper._matching_suite(permuted, approved, **options)
+    for nodes in (
+        [before, a, a, after],
+        [after, b, a, before],
+        [b, a, before, after],
+        [before, a, f"{prefix}[bad.c.toml]", after],
+        [before, b, after, a],
+    ):
+        with pytest.raises(helper.ReproductionError):
+            helper._matching_suite(
+                approved | {"node_ids": nodes}, approved, fresh_run=True, **options
+            )
+    for other_profile in ("babel_cldr44_default_behavior_v1", PROFILES[0]):
+        other_skips = skips[1:] if other_profile.startswith("babel") else []
+        other = approved | {
+            "profile": other_profile,
+            "skipped": len(other_skips),
+            "extra_skip_node_ids": other_skips,
+        }
+        with pytest.raises(helper.ReproductionError):
+            helper._matching_suite(
+                other | {"node_ids": permuted["node_ids"]},
+                other,
+                fresh_run=True,
+                **(options | {"profile": other_profile}),
+            )

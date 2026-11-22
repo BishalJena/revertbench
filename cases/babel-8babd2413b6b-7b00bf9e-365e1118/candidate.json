@@ -1,0 +1,23 @@
+{
+  "bad_commit": "8babd2413b6b4eb99304f8f2ae10bbbca4a1fe7d",
+  "base_commit": "c382433305196afeb06d7577aece17e2b47a58b6",
+  "commit_url": "https://github.com/python-babel/babel/commit/7b00bf9e20420e64cc9eecd7f8c82d8c26a41351",
+  "committed_at": "2026-10-30T11:05:05Z",
+  "fix_commit": "7b00bf9e20420e64cc9eecd7f8c82d8c26a41351",
+  "fix_parent": "1208865ad8838f628f40acb6f292be28ea962fd7",
+  "license_path": "LICENSE",
+  "license_text": "Copyright (c) 2013-2026 by the Babel Team, see AUTHORS for more information.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions\nare met:\n\n 1. Redistributions of source code must retain the above copyright\n    notice, this list of conditions and the following disclaimer.\n 2. Redistributions in binary form must reproduce the above copyright\n    notice, this list of conditions and the following disclaimer in\n    the documentation and/or other materials provided with the\n    distribution.\n 3. Neither the name of the copyright holder nor the names of its\n    contributors may be used to endorse or promote products derived\n    from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS\n\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT\nLIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR\nA PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT\nHOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,\nSPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT\nLIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,\nDATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY\nTHEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n",
+  "modified_source_paths": [
+    "babel/messages/extract.py"
+  ],
+  "production_patch": "diff --git a/babel/messages/extract.py b/babel/messages/extract.py\nindex e37ffd0c..8bb816b3 100644\n--- a/babel/messages/extract.py\n+++ b/babel/messages/extract.py\n@@ -709,6 +709,9 @@ def _parse_python_string(value: str, encoding: str, future_flags: int) -> str |\n     if isinstance(code, ast.Expression):\n         body = code.body\n         if isinstance(body, ast.Constant):\n+            if isinstance(body.value, bytes):\n+                # TODO: we could raise an error or warning when this occurs\n+                return None  # byte strings are not translatable\n             return body.value\n         if isinstance(body, ast.JoinedStr):  # f-string\n             if all(isinstance(node, ast.Constant) for node in body.values):\n",
+  "reference_derivation": "standalone_function_dependency_closure",
+  "reference_header": "#\n# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team\n# All rights reserved.\n#\n# This software is licensed as described in the file LICENSE, which\n# you should have received as part of this distribution. The terms\n# are also available at https://github.com/python-babel/babel/blob/master/LICENSE.\n#\n# This software consists of voluntary contributions made by many\n# individuals. For the exact contribution history, see the revision\n# history and logs, available at https://github.com/python-babel/babel/commits/master/.",
+  "reference_node_id": "tests/messages/test_extract.py::test_extract_byte_string_does_not_crash",
+  "reference_path": "tests/messages/test_extract.py",
+  "reference_source": "from io import BytesIO\n\nfrom babel.messages import extract\n\ndef test_extract_byte_string_does_not_crash():\n    \"\"\"Byte strings like _(b'foo') should be skipped without crashing.\"\"\"\n    buf = BytesIO(b\"\"\"\\\n_(b'foo')\n_('hello')\n_(b\"bar\")\n_('world')\n\"\"\")\n    messages = list(extract.extract('python', buf, {'_': None}, [], {}))\n    assert len(messages) == 2\n    assert messages[0][1] == 'hello'\n    assert messages[1][1] == 'world'\n",
+  "repair_derivation": "historical_diff",
+  "repair_target": null,
+  "repo": "python-babel/babel",
+  "title": "Skip byte strings in extract_python instead of crashing (#1259)"
+}
