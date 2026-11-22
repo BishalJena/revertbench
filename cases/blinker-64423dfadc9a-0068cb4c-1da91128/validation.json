@@ -1,0 +1,4085 @@
+{
+  "report_version": "1",
+  "status": "machine_validated",
+  "case_id": "blinker-64423dfadc9a-0068cb4c-1da91128",
+  "reason": "all_machine_checks_passed",
+  "image": "sha256:60aaf59d8fb4c7b7562ac6e039008f2d9dbf86824cb225aa0445595a2e4f12ec",
+  "environment_python": "3.12.16",
+  "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+  "grader_sha256": "9d97f5c08e96044c35237288b7dab1002e2fa2de48fa7118b828bda3f2021b4a",
+  "policy_sha256": "4b34f7cc7b5f2a8c427ec2299eda1b716c711500993efeb52e5868c626f15219",
+  "grader_version": "0.0.1",
+  "policy_version": "6",
+  "validator_version": "1",
+  "baseline_profile": "blinker_upstream_default_behavior_v1",
+  "baseline_pids_limit": 64,
+  "baseline_command": [
+    "/usr/local/bin/python",
+    "-m",
+    "pytest",
+    "-v",
+    "--tb=short",
+    "-c",
+    "/opt/revertbench/pytest.ini",
+    "--rootdir",
+    "/workspace/repo",
+    "--basetemp=/tmp/revertbench-baseline",
+    "-p",
+    "no:cacheprovider",
+    "-p",
+    "pytest_asyncio.plugin",
+    "-o",
+    "filterwarnings=error",
+    "-o",
+    "asyncio_mode=auto",
+    "-o",
+    "asyncio_default_fixture_loop_scope=function",
+    "tests"
+  ],
+  "probe_scope": "case_specific",
+  "global_suite_evidence": "separate_ci_required",
+  "source_hashes": {
+    "base": "3d378050a30fe53416c7529bf89fc11b64436ef5bbc7ebcadd07e34f897d6752",
+    "bad": "f92d576cc4e15f01e44be9679da7f9418031a41cee957dc665f6ac614f1a46c0",
+    "historical_fix": "7ae677195d82e65b527102809a4a7d1ed94350bb9ca6ff931d45f80198c6283c",
+    "repaired": "bc7af3db735c06448e7ab5ac81393609e809137f5452c1769cc44055e77c3568"
+  },
+  "patch_sha256": "deaa55038aa49248f57cef3c4bb32a7a3e2eaaa28f1416d5a75cafebe8512c25",
+  "reference_sha256": "8cef1d33f7747997a1863dccd7d0c9f701e806050897c05ca60739f31066b1ea",
+  "repair_derivation_sha256": null,
+  "baseline_reports": {
+    "base": {
+      "status": "passed",
+      "profile": "blinker_upstream_default_behavior_v1",
+      "command": [
+        "/usr/local/bin/python",
+        "-m",
+        "pytest",
+        "-v",
+        "--tb=short",
+        "-c",
+        "/opt/revertbench/pytest.ini",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "pytest_asyncio.plugin",
+        "-o",
+        "filterwarnings=error",
+        "-o",
+        "asyncio_mode=auto",
+        "-o",
+        "asyncio_default_fixture_loop_scope=function",
+        "tests"
+      ],
+      "pids_limit": 64,
+      "collection_errors": [],
+      "extra_skip_node_ids": [],
+      "environment_python": "3.12.16",
+      "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+      "grader_sha256": "9d97f5c08e96044c35237288b7dab1002e2fa2de48fa7118b828bda3f2021b4a",
+      "policy_sha256": "4b34f7cc7b5f2a8c427ec2299eda1b716c711500993efeb52e5868c626f15219",
+      "reason": null,
+      "exit_code": 0,
+      "collected": 30,
+      "passed": 30,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0,
+      "deselected": 0,
+      "node_ids": [
+        "tests/test_context.py::test_temp_connection",
+        "tests/test_context.py::test_temp_connection_for_sender",
+        "tests/test_context.py::test_temp_connection_failure[Failure]",
+        "tests/test_context.py::test_temp_connection_failure[BaseFailure]",
+        "tests/test_saferef.py::TestSaferef::test_In",
+        "tests/test_saferef.py::TestSaferef::test_Representation",
+        "tests/test_saferef.py::TestSaferef::test_ShortCircuit",
+        "tests/test_saferef.py::TestSaferef::test_Valid",
+        "tests/test_signals.py::test_signal_signals_any_sender",
+        "tests/test_signals.py::test_signal_signals_strong_sender",
+        "tests/test_signals.py::test_signal_weak_receiver_vanishes",
+        "tests/test_signals.py::test_signal_signals_weak_sender",
+        "tests/test_signals.py::test_empty_bucket_growth",
+        "tests/test_signals.py::test_weak_namespace",
+        "tests/test_signals.py::test_namespace",
+        "tests/test_signals.py::test_weak_receiver",
+        "tests/test_signals.py::test_strong_receiver",
+        "tests/test_signals.py::test_async_receiver",
+        "tests/test_signals.py::test_instancemethod_receiver",
+        "tests/test_signals.py::test_filtered_receiver",
+        "tests/test_signals.py::test_filtered_receiver_weakref",
+        "tests/test_signals.py::test_decorated_receiver",
+        "tests/test_signals.py::test_no_double_send",
+        "tests/test_signals.py::test_has_receivers",
+        "tests/test_signals.py::test_instance_doc",
+        "tests/test_signals.py::test_named_blinker",
+        "tests/test_signals.py::test_mute_signal",
+        "tests/test_signals.py::test_int_sender",
+        "tests/test_utilities.py::test_symbols",
+        "tests/test_utilities.py::test_pickled_symbols"
+      ],
+      "details": [],
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python\nrootdir: /workspace/repo\nconfigfile: ../../opt/revertbench/pytest.ini\nasyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function\ncollecting ... collected 30 items\n\ntests/test_context.py::test_temp_connection PASSED                       [  3%]\ntests/test_context.py::test_temp_connection_for_sender PASSED            [  6%]\ntests/test_context.py::test_temp_connection_failure[Failure] PASSED      [ 10%]\ntests/test_context.py::test_temp_connection_failure[BaseFailure] PASSED  [ 13%]\ntests/test_saferef.py::TestSaferef::test_In PASSED                       [ 16%]\ntests/test_saferef.py::TestSaferef::test_Representation PASSED           [ 20%]\ntests/test_saferef.py::TestSaferef::test_ShortCircuit PASSED             [ 23%]\ntests/test_saferef.py::TestSaferef::test_Valid PASSED                    [ 26%]\ntests/test_signals.py::test_signal_signals_any_sender PASSED             [ 30%]\ntests/test_signals.py::test_signal_signals_strong_sender PASSED          [ 33%]\ntests/test_signals.py::test_signal_weak_receiver_vanishes PASSED         [ 36%]\ntests/test_signals.py::test_signal_signals_weak_sender PASSED            [ 40%]\ntests/test_signals.py::test_empty_bucket_growth PASSED                   [ 43%]\ntests/test_signals.py::test_weak_namespace PASSED                        [ 46%]\ntests/test_signals.py::test_namespace PASSED                             [ 50%]\ntests/test_signals.py::test_weak_receiver PASSED                         [ 53%]\ntests/test_signals.py::test_strong_receiver PASSED                       [ 56%]\ntests/test_signals.py::test_async_receiver PASSED                        [ 60%]\ntests/test_signals.py::test_instancemethod_receiver PASSED               [ 63%]\ntests/test_signals.py::test_filtered_receiver PASSED                     [ 66%]\ntests/test_signals.py::test_filtered_receiver_weakref PASSED             [ 70%]\ntests/test_signals.py::test_decorated_receiver PASSED                    [ 73%]\ntests/test_signals.py::test_no_double_send PASSED                        [ 76%]\ntests/test_signals.py::test_has_receivers PASSED                         [ 80%]\ntests/test_signals.py::test_instance_doc PASSED                          [ 83%]\ntests/test_signals.py::test_named_blinker PASSED                         [ 86%]\ntests/test_signals.py::test_mute_signal PASSED                           [ 90%]\ntests/test_signals.py::test_int_sender PASSED                            [ 93%]\ntests/test_utilities.py::test_symbols PASSED                             [ 96%]\ntests/test_utilities.py::test_pickled_symbols PASSED                     [100%]\n\n============================== 30 passed in 0.03s ==============================\n\nREVERTBENCH_BASELINE_ZLIB=eJydVUuP2zYQ/i86N5ZEvQ340gABem2KXhYLYUgOLcISKZCUd42i/70jyd5skkVl50KRw2++eXA08080Oqt0j9E+4r02J3TtNPrgEIZWooKpDy3HDs7auvacRr9Fwg4DGBntn6J48i7urYA+5trE4yV01hDk00ALndCH+XSel0+BH3xn3SIRtMR2DLHDM7rA0YguXhV22ugF76wNUrsZ+WLdyY8gkPCjXW45eAw4jIc4DON7muWGIsEZNtJi7F6A6JACPWuJ7iZfzbXgL0Zouxv76agX52cDlJKA7gWc0eboD+icdbe7q0Y7WIkHmIL98eKWN6Vfw+Sw7a0dWy/siAc1GRH0kqTZuo+e54T2PYqAlNIsIb/A+9teAT0N7WnrT3ocr/vXd/LXG572i5t+2UoMhKH90/OcAomtlvNpNRsvoQtrAr6G3XjZ7xfBnNBZavA7J+9Dt4oqxKNZU/yQInlKeXr6sn6ff1H9d3r4jyk8KHSoFoq/SPB1PV/5/jCPoP+kQkIKM8DPKfp/za9z9X/WTkw6PKL3N/Ra/qCgjwZ6/y0nq+Amb8FcPnyKLT368a05PqT6gnBqHQrU9Au2ZzDad+gfM7tw3GWUnj5cWj6JE4b26OxL6DY0Fm4DAy4NZAN8L+67oLdiXXN6J3rpIfeCtfEBjMABqfHKe7XW3oa/jl/Cp/rc0JMorINwvyFDrdNOvMelFjbAHfg33q1yu+WJ6MUdFSDb6yjcwA5TwKt004HwYX1PQfc6aHxfLpeB295v4kYtTjQD3vDPc8+nyXedJPM0MGdNpTdQr2qvo3kfZbuU7dIymtHj7JERFxpQgv6/DlhREiThoiwqEDxlGRMJ8lwmRSLqErDOgEkOSS1UylFmmEnVJE3OVC0koCi5hPnhjg4o1m+UjWwqVYikxqZM8lxkBcsqVte8ksDTJGHIFDFjXiuo0rTmNauJKlMsYSnPYR7Xttfk6htlzrNcVUJUvFAMapGzCgVjTYMSUl6lpSCiIkmaJkOFvGBY1GUtSlaqtGBpE/37H9bhRtU=\n",
+      "stderr": ""
+    },
+    "bad": {
+      "status": "passed",
+      "profile": "blinker_upstream_default_behavior_v1",
+      "command": [
+        "/usr/local/bin/python",
+        "-m",
+        "pytest",
+        "-v",
+        "--tb=short",
+        "-c",
+        "/opt/revertbench/pytest.ini",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "pytest_asyncio.plugin",
+        "-o",
+        "filterwarnings=error",
+        "-o",
+        "asyncio_mode=auto",
+        "-o",
+        "asyncio_default_fixture_loop_scope=function",
+        "tests"
+      ],
+      "pids_limit": 64,
+      "collection_errors": [],
+      "extra_skip_node_ids": [],
+      "environment_python": "3.12.16",
+      "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+      "grader_sha256": "9d97f5c08e96044c35237288b7dab1002e2fa2de48fa7118b828bda3f2021b4a",
+      "policy_sha256": "4b34f7cc7b5f2a8c427ec2299eda1b716c711500993efeb52e5868c626f15219",
+      "reason": null,
+      "exit_code": 0,
+      "collected": 26,
+      "passed": 26,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0,
+      "deselected": 0,
+      "node_ids": [
+        "tests/test_context.py::test_temp_connection",
+        "tests/test_context.py::test_temp_connection_for_sender",
+        "tests/test_context.py::test_temp_connection_failure[Failure]",
+        "tests/test_context.py::test_temp_connection_failure[BaseFailure]",
+        "tests/test_signals.py::test_signal_signals_any_sender",
+        "tests/test_signals.py::test_signal_signals_strong_sender",
+        "tests/test_signals.py::test_signal_weak_receiver_vanishes",
+        "tests/test_signals.py::test_signal_signals_weak_sender",
+        "tests/test_signals.py::test_empty_bucket_growth",
+        "tests/test_signals.py::test_weak_namespace",
+        "tests/test_signals.py::test_namespace",
+        "tests/test_signals.py::test_weak_receiver",
+        "tests/test_signals.py::test_strong_receiver",
+        "tests/test_signals.py::test_async_receiver",
+        "tests/test_signals.py::test_instancemethod_receiver",
+        "tests/test_signals.py::test_filtered_receiver",
+        "tests/test_signals.py::test_filtered_receiver_weakref",
+        "tests/test_signals.py::test_decorated_receiver",
+        "tests/test_signals.py::test_no_double_send",
+        "tests/test_signals.py::test_has_receivers",
+        "tests/test_signals.py::test_instance_doc",
+        "tests/test_signals.py::test_named_blinker",
+        "tests/test_signals.py::test_mute_signal",
+        "tests/test_signals.py::test_int_sender",
+        "tests/test_symbol.py::test_symbols",
+        "tests/test_symbol.py::test_pickled_symbols"
+      ],
+      "details": [],
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python\nrootdir: /workspace/repo\nconfigfile: ../../opt/revertbench/pytest.ini\nasyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function\ncollecting ... collected 26 items\n\ntests/test_context.py::test_temp_connection PASSED                       [  3%]\ntests/test_context.py::test_temp_connection_for_sender PASSED            [  7%]\ntests/test_context.py::test_temp_connection_failure[Failure] PASSED      [ 11%]\ntests/test_context.py::test_temp_connection_failure[BaseFailure] PASSED  [ 15%]\ntests/test_signals.py::test_signal_signals_any_sender PASSED             [ 19%]\ntests/test_signals.py::test_signal_signals_strong_sender PASSED          [ 23%]\ntests/test_signals.py::test_signal_weak_receiver_vanishes PASSED         [ 26%]\ntests/test_signals.py::test_signal_signals_weak_sender PASSED            [ 30%]\ntests/test_signals.py::test_empty_bucket_growth PASSED                   [ 34%]\ntests/test_signals.py::test_weak_namespace PASSED                        [ 38%]\ntests/test_signals.py::test_namespace PASSED                             [ 42%]\ntests/test_signals.py::test_weak_receiver PASSED                         [ 46%]\ntests/test_signals.py::test_strong_receiver PASSED                       [ 50%]\ntests/test_signals.py::test_async_receiver PASSED                        [ 53%]\ntests/test_signals.py::test_instancemethod_receiver PASSED               [ 57%]\ntests/test_signals.py::test_filtered_receiver PASSED                     [ 61%]\ntests/test_signals.py::test_filtered_receiver_weakref PASSED             [ 65%]\ntests/test_signals.py::test_decorated_receiver PASSED                    [ 69%]\ntests/test_signals.py::test_no_double_send PASSED                        [ 73%]\ntests/test_signals.py::test_has_receivers PASSED                         [ 76%]\ntests/test_signals.py::test_instance_doc PASSED                          [ 80%]\ntests/test_signals.py::test_named_blinker PASSED                         [ 84%]\ntests/test_signals.py::test_mute_signal PASSED                           [ 88%]\ntests/test_signals.py::test_int_sender PASSED                            [ 92%]\ntests/test_symbol.py::test_symbols PASSED                                [ 96%]\ntests/test_symbol.py::test_pickled_symbols PASSED                        [100%]\n\n============================== 26 passed in 0.03s ==============================\n\nREVERTBENCH_BASELINE_ZLIB=eJydVdtu2zAM/Rc/b7Et3wPkZQ/7iaIwJIqKhdiSIMlpg2H/PtpJuq4o4HQvMkUdHl5MUb8S563SIyb7RIzanND3swvRI596iYrPY+wFDvysre/PefItATtN3Mhk/5Skc/DpaIGPqdAmdZc4WEOQ7xMttMMQl915Wb5HcQiD9asGaEmti6nHM/oo0MCQXg122ugV762NUvsF+WL9KTgOSHhn11PBA0ac3CGNk3tPs55QJrjAHC3G7oHDgJToWUv0d/3VXc/DxYC2OzfOR70GvzigkkT0L9wbbY7hgN5bfz+7WfSTlXjgc7QfD+51U/o1zh770VrXB7AOD2o2EPVapMV7SJ6Xgo4jQkQqKaspLh7CXVacfg3J2bcknLRzN/n1nf71jid5DTOsosRIGJKfnpcSSOy1XHZXt+maOlgT8TXu3GW/XxVLQRetwX+CfAzdK+qQgOZa4i8ZUqRUp6ef1+/zf5r/oB//OUXQR8PH8Jfiqrjre24un0a+ZUf3xJrjl0xfkJ96j4CaOrY/c6PDgOFrbleOh5xSpeKlFzOcMPZHb1/isGGxchs+4XrfNsCP4v5JeivXa00fRK9X7lGwNiFyAzghzSn5qNV1FOD/49f0PaoNO4lgPY+POzI0aewsRlx7YQM88PDGu9Vu9zoRPTzQAbK/vRwb2GmOeNNuBhA/7+/LJOz4rlfW/cd0PoCchhMNyzfw8zIc6Ym4jdxlbJqzpqabkNze3rB9UuxytsvrZEG7JRYDF5rkQDdv4KyqCZIJqKuGg8hZwSBDUcqsyqCtObYFZ1LwrAWVC5QFFlJ1WVcy1YLkCLWQfPllR88py7+UnewaVUHWYldnZQlFxYqGta1oJBd5ljFkipixbBVv8rwVLWuJqlAsY7ko+fKu2VFTqG+UpShK1QA0olKMt1CyBoGxrkPJc9HkNRBRlWVdV6BCUTGs2rqFmtUqr1jeJb//AHGT9cs=\n",
+      "stderr": ""
+    },
+    "repaired": {
+      "status": "passed",
+      "profile": "blinker_upstream_default_behavior_v1",
+      "command": [
+        "/usr/local/bin/python",
+        "-m",
+        "pytest",
+        "-v",
+        "--tb=short",
+        "-c",
+        "/opt/revertbench/pytest.ini",
+        "--rootdir",
+        "/workspace/repo",
+        "--basetemp=/tmp/revertbench-baseline",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "pytest_asyncio.plugin",
+        "-o",
+        "filterwarnings=error",
+        "-o",
+        "asyncio_mode=auto",
+        "-o",
+        "asyncio_default_fixture_loop_scope=function",
+        "tests"
+      ],
+      "pids_limit": 64,
+      "collection_errors": [],
+      "extra_skip_node_ids": [],
+      "environment_python": "3.12.16",
+      "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+      "grader_sha256": "9d97f5c08e96044c35237288b7dab1002e2fa2de48fa7118b828bda3f2021b4a",
+      "policy_sha256": "4b34f7cc7b5f2a8c427ec2299eda1b716c711500993efeb52e5868c626f15219",
+      "reason": null,
+      "exit_code": 0,
+      "collected": 26,
+      "passed": 26,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0,
+      "deselected": 0,
+      "node_ids": [
+        "tests/test_context.py::test_temp_connection",
+        "tests/test_context.py::test_temp_connection_for_sender",
+        "tests/test_context.py::test_temp_connection_failure[Failure]",
+        "tests/test_context.py::test_temp_connection_failure[BaseFailure]",
+        "tests/test_signals.py::test_signal_signals_any_sender",
+        "tests/test_signals.py::test_signal_signals_strong_sender",
+        "tests/test_signals.py::test_signal_weak_receiver_vanishes",
+        "tests/test_signals.py::test_signal_signals_weak_sender",
+        "tests/test_signals.py::test_empty_bucket_growth",
+        "tests/test_signals.py::test_weak_namespace",
+        "tests/test_signals.py::test_namespace",
+        "tests/test_signals.py::test_weak_receiver",
+        "tests/test_signals.py::test_strong_receiver",
+        "tests/test_signals.py::test_async_receiver",
+        "tests/test_signals.py::test_instancemethod_receiver",
+        "tests/test_signals.py::test_filtered_receiver",
+        "tests/test_signals.py::test_filtered_receiver_weakref",
+        "tests/test_signals.py::test_decorated_receiver",
+        "tests/test_signals.py::test_no_double_send",
+        "tests/test_signals.py::test_has_receivers",
+        "tests/test_signals.py::test_instance_doc",
+        "tests/test_signals.py::test_named_blinker",
+        "tests/test_signals.py::test_mute_signal",
+        "tests/test_signals.py::test_int_sender",
+        "tests/test_symbol.py::test_symbols",
+        "tests/test_symbol.py::test_pickled_symbols"
+      ],
+      "details": [],
+      "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python\nrootdir: /workspace/repo\nconfigfile: ../../opt/revertbench/pytest.ini\nasyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function\ncollecting ... collected 26 items\n\ntests/test_context.py::test_temp_connection PASSED                       [  3%]\ntests/test_context.py::test_temp_connection_for_sender PASSED            [  7%]\ntests/test_context.py::test_temp_connection_failure[Failure] PASSED      [ 11%]\ntests/test_context.py::test_temp_connection_failure[BaseFailure] PASSED  [ 15%]\ntests/test_signals.py::test_signal_signals_any_sender PASSED             [ 19%]\ntests/test_signals.py::test_signal_signals_strong_sender PASSED          [ 23%]\ntests/test_signals.py::test_signal_weak_receiver_vanishes PASSED         [ 26%]\ntests/test_signals.py::test_signal_signals_weak_sender PASSED            [ 30%]\ntests/test_signals.py::test_empty_bucket_growth PASSED                   [ 34%]\ntests/test_signals.py::test_weak_namespace PASSED                        [ 38%]\ntests/test_signals.py::test_namespace PASSED                             [ 42%]\ntests/test_signals.py::test_weak_receiver PASSED                         [ 46%]\ntests/test_signals.py::test_strong_receiver PASSED                       [ 50%]\ntests/test_signals.py::test_async_receiver PASSED                        [ 53%]\ntests/test_signals.py::test_instancemethod_receiver PASSED               [ 57%]\ntests/test_signals.py::test_filtered_receiver PASSED                     [ 61%]\ntests/test_signals.py::test_filtered_receiver_weakref PASSED             [ 65%]\ntests/test_signals.py::test_decorated_receiver PASSED                    [ 69%]\ntests/test_signals.py::test_no_double_send PASSED                        [ 73%]\ntests/test_signals.py::test_has_receivers PASSED                         [ 76%]\ntests/test_signals.py::test_instance_doc PASSED                          [ 80%]\ntests/test_signals.py::test_named_blinker PASSED                         [ 84%]\ntests/test_signals.py::test_mute_signal PASSED                           [ 88%]\ntests/test_signals.py::test_int_sender PASSED                            [ 92%]\ntests/test_symbol.py::test_symbols PASSED                                [ 96%]\ntests/test_symbol.py::test_pickled_symbols PASSED                        [100%]\n\n============================== 26 passed in 0.03s ==============================\n\nREVERTBENCH_BASELINE_ZLIB=eJydVdtu2zAM/Rc/b7Et3wPkZQ/7iaIwJIqKhdiSIMlpg2H/PtpJuq4o4HQvMkUdHl5MUb8S563SIyb7RIzanND3swvRI596iYrPY+wFDvysre/PefItATtN3Mhk/5Skc/DpaIGPqdAmdZc4WEOQ7xMttMMQl915Wb5HcQiD9asGaEmti6nHM/oo0MCQXg122ugV762NUvsF+WL9KTgOSHhn11PBA0ac3CGNk3tPs55QJrjAHC3G7oHDgJToWUv0d/3VXc/DxYC2OzfOR70GvzigkkT0L9wbbY7hgN5bfz+7WfSTlXjgc7QfD+51U/o1zh770VrXB7AOD2o2EPVapMV7SJ6Xgo4jQkQqKaspLh7CXVacfg3J2bcknLRzN/n1nf71jid5DTOsosRIGJKfnpcSSOy1XHZXt+maOlgT8TXu3GW/XxVLQRetwX+CfAzdK+qQgOZa4i8ZUqRUp6ef1+/zf5r/oB//OUXQR8PH8Jfiqrjre24un0a+ZUf3xJrjl0xfkJ96j4CaOrY/c6PDgOFrbleOh5xSpeKlFzOcMPZHb1/isGGxchs+4XrfNsCP4v5JeivXa00fRK9X7lGwNiFyAzghzSn5qNV1FOD/49f0PaoNO4lgPY+POzI0aewsRlx7YQM88PDGu9Vu9zoRPTzQAbK/vRwb2GmOeNNuBhA/7+/LJOz4rlfW/cd0PoCchhMNyzfw8zIc6Ym4jdxlbJqzpqabkNze3rB9UuxytsvrZEG7JRYDF5rkQDdv4KyqCZIJqKuGg8hZwSBDUcqsyqCtObYFZ1LwrAWVC5QFFlJ1WVcy1YLkCLWQfPllR88py7+UnewaVUHWYldnZQlFxYqGta1oJBd5ljFkipixbBVv8rwVLWuJqlAsY7ko+fKu2VFTqG+UpShK1QA0olKMt1CyBoGxrkPJc9HkNRBRlWVdV6BCUTGs2rqFmtUqr1jeJb//AHGT9cs=\n",
+      "stderr": ""
+    }
+  },
+  "reference": {
+    "status": "passed",
+    "score": 1,
+    "reason": "passed",
+    "conditions": {
+      "submission_policy": true,
+      "fails_on_bad": true,
+      "passes_on_repair": true,
+      "changed_coverage": true,
+      "stable": true,
+      "base_passes": true
+    },
+    "executions": [
+      {
+        "status": "completed",
+        "seed": 11,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                56,
+                58,
+                60,
+                61,
+                63,
+                82,
+                83,
+                85,
+                86,
+                88,
+                96,
+                98,
+                100
+              ],
+              "src/blinker/base.py": [
+                99,
+                107,
+                109,
+                110,
+                111,
+                112,
+                114,
+                115,
+                117,
+                140,
+                143,
+                144,
+                145,
+                149,
+                152,
+                154,
+                155,
+                156,
+                157,
+                159,
+                161,
+                162,
+                164,
+                165,
+                171,
+                179,
+                187,
+                300,
+                303,
+                304,
+                305,
+                306,
+                310,
+                311,
+                312,
+                347,
+                359,
+                361,
+                366,
+                367,
+                390,
+                391,
+                392,
+                393,
+                396,
+                397,
+                398,
+                400,
+                401,
+                402,
+                405,
+                406,
+                432,
+                433,
+                434,
+                435,
+                436,
+                443
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 23,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                56,
+                58,
+                60,
+                61,
+                63,
+                82,
+                83,
+                85,
+                86,
+                88,
+                96,
+                98,
+                100
+              ],
+              "src/blinker/base.py": [
+                99,
+                107,
+                109,
+                110,
+                111,
+                112,
+                114,
+                115,
+                117,
+                140,
+                143,
+                144,
+                145,
+                149,
+                152,
+                154,
+                155,
+                156,
+                157,
+                159,
+                161,
+                162,
+                164,
+                165,
+                171,
+                179,
+                187,
+                300,
+                303,
+                304,
+                305,
+                306,
+                310,
+                311,
+                312,
+                347,
+                359,
+                361,
+                366,
+                367,
+                390,
+                391,
+                392,
+                393,
+                396,
+                397,
+                398,
+                400,
+                401,
+                402,
+                405,
+                406,
+                432,
+                433,
+                434,
+                435,
+                436,
+                443
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 37,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                56,
+                58,
+                60,
+                61,
+                63,
+                82,
+                83,
+                85,
+                86,
+                88,
+                96,
+                98,
+                100
+              ],
+              "src/blinker/base.py": [
+                99,
+                107,
+                109,
+                110,
+                111,
+                112,
+                114,
+                115,
+                117,
+                140,
+                143,
+                144,
+                145,
+                149,
+                152,
+                154,
+                155,
+                156,
+                157,
+                159,
+                161,
+                162,
+                164,
+                165,
+                171,
+                179,
+                187,
+                300,
+                303,
+                304,
+                305,
+                306,
+                310,
+                311,
+                312,
+                347,
+                359,
+                361,
+                366,
+                367,
+                390,
+                391,
+                392,
+                393,
+                396,
+                397,
+                398,
+                400,
+                401,
+                402,
+                405,
+                406,
+                432,
+                433,
+                434,
+                435,
+                436,
+                443
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 11,
+        "exit_code": 1,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "failed",
+              "exception_type": "AssertionError",
+              "traceback_paths": [
+                "external:runner.py",
+                "external:runner.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:_pytest_plugin.py",
+                "external:_execution.py",
+                "external:logging.py",
+                "external:_execution.py",
+                "external:capture.py",
+                "external:_execution.py",
+                "external:skipping.py",
+                "external:_execution.py",
+                "external:runner.py",
+                "external:python.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:python.py",
+                "tests/test_revertbench_submission.py"
+              ],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                42,
+                45,
+                49,
+                52
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                367,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                427,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 23,
+        "exit_code": 1,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "failed",
+              "exception_type": "AssertionError",
+              "traceback_paths": [
+                "external:runner.py",
+                "external:runner.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:_pytest_plugin.py",
+                "external:_execution.py",
+                "external:logging.py",
+                "external:_execution.py",
+                "external:capture.py",
+                "external:_execution.py",
+                "external:skipping.py",
+                "external:_execution.py",
+                "external:runner.py",
+                "external:python.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:python.py",
+                "tests/test_revertbench_submission.py"
+              ],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                42,
+                45,
+                49,
+                52
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                367,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                427,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 37,
+        "exit_code": 1,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "failed",
+              "exception_type": "AssertionError",
+              "traceback_paths": [
+                "external:runner.py",
+                "external:runner.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:_pytest_plugin.py",
+                "external:_execution.py",
+                "external:logging.py",
+                "external:_execution.py",
+                "external:capture.py",
+                "external:_execution.py",
+                "external:skipping.py",
+                "external:_execution.py",
+                "external:runner.py",
+                "external:python.py",
+                "external:_caller.py",
+                "external:_manager.py",
+                "external:_execution.py",
+                "external:_execution.py",
+                "external:python.py",
+                "tests/test_revertbench_submission.py"
+              ],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                42,
+                45,
+                49,
+                52
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                367,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                427,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.02s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 11,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                45,
+                50,
+                53,
+                56,
+                60,
+                63
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                412,
+                413,
+                414,
+                415,
+                417,
+                427,
+                428,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 23,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                45,
+                50,
+                53,
+                56,
+                60,
+                63
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                412,
+                413,
+                414,
+                415,
+                417,
+                427,
+                428,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      },
+      {
+        "status": "completed",
+        "seed": 37,
+        "exit_code": 0,
+        "collected_node_ids": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "execution_order": [
+          "tests/test_revertbench_submission.py::test_int_sender"
+        ],
+        "tests": [
+          {
+            "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+            "setup": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "call": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "teardown": {
+              "outcome": "passed",
+              "exception_type": null,
+              "traceback_paths": [],
+              "was_xfail": false
+            },
+            "covered_lines": {
+              "src/blinker/_utilities.py": [
+                45,
+                50,
+                53,
+                56,
+                60,
+                63
+              ],
+              "src/blinker/base.py": [
+                91,
+                100,
+                102,
+                103,
+                104,
+                105,
+                106,
+                126,
+                127,
+                129,
+                130,
+                131,
+                136,
+                137,
+                139,
+                141,
+                142,
+                143,
+                145,
+                146,
+                148,
+                158,
+                167,
+                279,
+                282,
+                284,
+                285,
+                291,
+                293,
+                295,
+                359,
+                362,
+                364,
+                365,
+                369,
+                370,
+                372,
+                375,
+                376,
+                378,
+                382,
+                412,
+                413,
+                414,
+                415,
+                417,
+                427,
+                428,
+                430,
+                436,
+                438,
+                444
+              ]
+            }
+          }
+        ],
+        "collection_errors": [],
+        "stdout": ".\n1 passed in 0.01s\n",
+        "stderr": "",
+        "truncated": false,
+        "reason": null
+      }
+    ],
+    "details": []
+  },
+  "probes": {
+    "fix_only": {
+      "status": "not_applicable",
+      "reason": "no_added_symbols",
+      "grade": null
+    },
+    "empty": {
+      "status": "passed",
+      "reason": "policy_rejected",
+      "grade": {
+        "status": "rejected",
+        "score": 0,
+        "reason": "policy_rejected",
+        "conditions": {
+          "submission_policy": false,
+          "fails_on_bad": false,
+          "passes_on_repair": false,
+          "changed_coverage": false,
+          "stable": false
+        },
+        "executions": [],
+        "details": [
+          "empty_submission",
+          "Submission must define at least one test function"
+        ]
+      }
+    },
+    "assert_true": {
+      "status": "passed",
+      "reason": "bad_did_not_fail",
+      "grade": {
+        "status": "rejected",
+        "score": 0,
+        "reason": "bad_did_not_fail",
+        "conditions": {
+          "submission_policy": true,
+          "fails_on_bad": false,
+          "passes_on_repair": false,
+          "changed_coverage": false,
+          "stable": true
+        },
+        "executions": [
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          }
+        ],
+        "details": []
+      }
+    },
+    "assert_false": {
+      "status": "passed",
+      "reason": "repair_did_not_pass",
+      "grade": {
+        "status": "rejected",
+        "score": 0,
+        "reason": "repair_did_not_pass",
+        "conditions": {
+          "submission_policy": true,
+          "fails_on_bad": true,
+          "passes_on_repair": false,
+          "changed_coverage": false,
+          "stable": true
+        },
+        "executions": [
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_cheat"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_cheat",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {}
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n__________________________________ test_cheat __________________________________\n\n    def test_cheat():\n>       assert False\nE       assert False\n\ntests/test_revertbench_submission.py:2: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_cheat - assert False\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          }
+        ],
+        "details": []
+      }
+    },
+    "import_error": {
+      "status": "passed",
+      "reason": "policy_rejected",
+      "grade": {
+        "status": "rejected",
+        "score": 0,
+        "reason": "policy_rejected",
+        "conditions": {
+          "submission_policy": false,
+          "fails_on_bad": false,
+          "passes_on_repair": false,
+          "changed_coverage": false,
+          "stable": false
+        },
+        "executions": [],
+        "details": [
+          "unresolved_symbol",
+          "No in-tree Python source for module: revertbench_nonexistent_target"
+        ]
+      }
+    },
+    "stability": {
+      "status": "passed",
+      "reason": "reference_three_seeds_identical",
+      "grade": {
+        "status": "passed",
+        "score": 1,
+        "reason": "passed",
+        "conditions": {
+          "submission_policy": true,
+          "fails_on_bad": true,
+          "passes_on_repair": true,
+          "changed_coverage": true,
+          "stable": true,
+          "base_passes": true
+        },
+        "executions": [
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.02s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          }
+        ],
+        "details": []
+      }
+    },
+    "config_tamper": {
+      "status": "passed",
+      "reason": "only_submission_transferred",
+      "grade": {
+        "status": "passed",
+        "score": 1,
+        "reason": "passed",
+        "conditions": {
+          "submission_policy": true,
+          "fails_on_bad": true,
+          "passes_on_repair": true,
+          "changed_coverage": true,
+          "stable": true,
+          "base_passes": true
+        },
+        "executions": [
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    56,
+                    58,
+                    60,
+                    61,
+                    63,
+                    82,
+                    83,
+                    85,
+                    86,
+                    88,
+                    96,
+                    98,
+                    100
+                  ],
+                  "src/blinker/base.py": [
+                    99,
+                    107,
+                    109,
+                    110,
+                    111,
+                    112,
+                    114,
+                    115,
+                    117,
+                    140,
+                    143,
+                    144,
+                    145,
+                    149,
+                    152,
+                    154,
+                    155,
+                    156,
+                    157,
+                    159,
+                    161,
+                    162,
+                    164,
+                    165,
+                    171,
+                    179,
+                    187,
+                    300,
+                    303,
+                    304,
+                    305,
+                    306,
+                    310,
+                    311,
+                    312,
+                    347,
+                    359,
+                    361,
+                    366,
+                    367,
+                    390,
+                    391,
+                    392,
+                    393,
+                    396,
+                    397,
+                    398,
+                    400,
+                    401,
+                    402,
+                    405,
+                    406,
+                    432,
+                    433,
+                    434,
+                    435,
+                    436,
+                    443
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.02s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 1,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "failed",
+                  "exception_type": "AssertionError",
+                  "traceback_paths": [
+                    "external:runner.py",
+                    "external:runner.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:_pytest_plugin.py",
+                    "external:_execution.py",
+                    "external:logging.py",
+                    "external:_execution.py",
+                    "external:capture.py",
+                    "external:_execution.py",
+                    "external:skipping.py",
+                    "external:_execution.py",
+                    "external:runner.py",
+                    "external:python.py",
+                    "external:_caller.py",
+                    "external:_manager.py",
+                    "external:_execution.py",
+                    "external:_execution.py",
+                    "external:python.py",
+                    "tests/test_revertbench_submission.py"
+                  ],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    42,
+                    45,
+                    49,
+                    52
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    367,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    427,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": "F\n=================================== FAILURES ===================================\n_______________________________ test_int_sender ________________________________\n\n    def test_int_sender() -> None:\n        count = 0\n    \n        def received(sender: t.Any) -> None:\n            nonlocal count\n            count += 1\n    \n        sig = blinker.Signal()\n        sig.connect(received, sender=123456789)\n        sig.send(123456789)  # Python compiler uses same instance for same literal value.\n        assert count == 1\n        sig.send(int(\"123456789\"))  # Force different instance with same value.\n>       assert count == 2\nE       assert 1 == 2\n\ntests/test_revertbench_submission.py:19: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_revertbench_submission.py::test_int_sender - assert 1 == 2\n1 failed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 11,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 23,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          },
+          {
+            "status": "completed",
+            "seed": 37,
+            "exit_code": 0,
+            "collected_node_ids": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "execution_order": [
+              "tests/test_revertbench_submission.py::test_int_sender"
+            ],
+            "tests": [
+              {
+                "node_id": "tests/test_revertbench_submission.py::test_int_sender",
+                "setup": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "call": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "teardown": {
+                  "outcome": "passed",
+                  "exception_type": null,
+                  "traceback_paths": [],
+                  "was_xfail": false
+                },
+                "covered_lines": {
+                  "src/blinker/_utilities.py": [
+                    45,
+                    50,
+                    53,
+                    56,
+                    60,
+                    63
+                  ],
+                  "src/blinker/base.py": [
+                    91,
+                    100,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    126,
+                    127,
+                    129,
+                    130,
+                    131,
+                    136,
+                    137,
+                    139,
+                    141,
+                    142,
+                    143,
+                    145,
+                    146,
+                    148,
+                    158,
+                    167,
+                    279,
+                    282,
+                    284,
+                    285,
+                    291,
+                    293,
+                    295,
+                    359,
+                    362,
+                    364,
+                    365,
+                    369,
+                    370,
+                    372,
+                    375,
+                    376,
+                    378,
+                    382,
+                    412,
+                    413,
+                    414,
+                    415,
+                    417,
+                    427,
+                    428,
+                    430,
+                    436,
+                    438,
+                    444
+                  ]
+                }
+              }
+            ],
+            "collection_errors": [],
+            "stdout": ".\n1 passed in 0.01s\n",
+            "stderr": "",
+            "truncated": false,
+            "reason": null
+          }
+        ],
+        "details": []
+      }
+    }
+  },
+  "human_review": "pending"
+}

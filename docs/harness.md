@@ -39,13 +39,16 @@ and budget exhaustion do not trigger this completion path. A run with no saved
 test still fails to submit. Declare the variant before collecting a cohort, use
 a new experiment identity, and report it separately from explicit-submit runs.
 
+Select a directory of accepted cases with one case per regression group. The run
+uses every case in that directory.
+
 ```bash
 uv run revertbench run cases \
   --model groq-120b \
-  --experiment-id five-case-pilot-1 \
-  --output runs/five-case-pilot-1 \
+  --experiment-id regression-pilot-1 \
+  --output runs/regression-pilot-1 \
   --budget-usd 0.25
-uv run revertbench report runs/five-case-pilot-1
+uv run revertbench report runs/regression-pilot-1
 ```
 
 Use the same arguments with `--resume` to resume an existing experiment. Keep the

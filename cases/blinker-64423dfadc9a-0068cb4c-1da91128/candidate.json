@@ -1,0 +1,23 @@
+{
+  "bad_commit": "64423dfadc9a35000b5399ca3d94a480ec7efe99",
+  "base_commit": "7e2c85ab3a3084fc72262fa62df8ab337477ea55",
+  "commit_url": "https://github.com/pallets-eco/blinker/commit/0068cb4ce6a8d63f6628ba0a02450b7bae5110e9",
+  "committed_at": "2024-04-28T09:56:28-07:00",
+  "fix_commit": "0068cb4ce6a8d63f6628ba0a02450b7bae5110e9",
+  "fix_parent": "3f9f1c9dd560588c118d5b5e23bce2e47f8fbf9d",
+  "license_path": "LICENSE.txt",
+  "license_text": "Copyright 2010 Jason Kirtland\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of this software and associated documentation files (the\n\"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to\npermit persons to whom the Software is furnished to do so, subject to\nthe following conditions:\n\nThe above copyright notice and this permission notice shall be included\nin all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS\nOR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.\nIN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,\nTORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE\nSOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n",
+  "modified_source_paths": [
+    "src/blinker/_utilities.py"
+  ],
+  "production_patch": "diff --git a/src/blinker/_utilities.py b/src/blinker/_utilities.py\nindex 784ba4e..c948b09 100644\n--- a/src/blinker/_utilities.py\n+++ b/src/blinker/_utilities.py\n@@ -39,9 +39,20 @@ class Symbol:\n \n \n def make_id(obj: object) -> t.Hashable:\n+    \"\"\"Get a stable identifier for a receiver or sender, to be used as a dict\n+    key or in a set.\n+    \"\"\"\n     if inspect.ismethod(obj):\n+        # The id of a bound method is not stable, but the id of the unbound\n+        # function and instance are.\n         return id(obj.__func__), id(obj.__self__)\n \n+    if isinstance(obj, (str, int)):\n+        # Instances with the same value always compare equal and have the same\n+        # hash, even if the id may change.\n+        return obj\n+\n+    # Assume other types are not hashable but will always be the same instance.\n     return id(obj)\n \n \n",
+  "reference_derivation": "standalone_function_dependency_closure",
+  "reference_header": "",
+  "reference_node_id": "tests/test_signals.py::test_int_sender",
+  "reference_path": "tests/test_signals.py",
+  "reference_source": "from __future__ import annotations\n\nimport typing as t\n\nimport blinker\n\ndef test_int_sender() -> None:\n    count = 0\n\n    def received(sender: t.Any) -> None:\n        nonlocal count\n        count += 1\n\n    sig = blinker.Signal()\n    sig.connect(received, sender=123456789)\n    sig.send(123456789)  # Python compiler uses same instance for same literal value.\n    assert count == 1\n    sig.send(int(\"123456789\"))  # Force different instance with same value.\n    assert count == 2\n",
+  "repair_derivation": "historical_diff",
+  "repair_target": null,
+  "repo": "pallets-eco/blinker",
+  "title": "Merge pull request #148 from pallets-eco/ident"
+}

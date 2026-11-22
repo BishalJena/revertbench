@@ -5,9 +5,9 @@ An RL environment and eval built from real engineering decisions that went wrong
 Each case is a pull request from open-source history that was merged, caused a regression, and was later fixed. The model plays the reviewer who should have caught it: given the repository and the PR, it writes a test that exposes the regression. A test passes only if it fails on the buggy code for the right reason and passes on a controlled repaired copy.
 
 Status: the differential grader, Docker sandbox and case pipeline are implemented.
-The [five accepted regression cases](cases/README.md) include their original
+The [six accepted regression cases](cases/README.md) include their original
 reference tests, controlled repairs, review provenance and pinned Docker
-reproduction evidence. One case has an owner review; four record delegated agent
+reproduction evidence. One case has an owner review. Five record delegated agent
 reviews. The budgeted hosted-model harness is implemented, with durable calls and
 case-specific pinned graders. No benchmark model results are claimed yet.
 

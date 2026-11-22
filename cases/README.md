@@ -61,6 +61,16 @@ Both cases record authorized agent reviews and pin their policy4 environment.
 Lifted `subTest` contexts retain one pytest node and propagate the first failing
 input; individual input rows are not reported as independently failing nodes.
 
+The sixth case is the [Blinker integer-sender regression](blinker-64423dfadc9a-0068cb4c-1da91128/case.json).
+PR 144 stopped matching distinct integer sender objects with equal values.
+PR 148 restored that behavior. The complete original test registers a callback,
+checks delivery for the original integer, then checks delivery for an equal
+integer constructed at runtime. The test passes on the parent, fails its second
+assertion on the introducing merge, and passes after the production-only repair
+over three repeats per snapshot. The complete upstream pytest suites pass 30, 26, and 26
+tests respectively. The version 2 publication includes structured suite repeat
+evidence, a pinned policy 6 worker, and a delegated case review.
+
 Inspect the packet without executing its historical code on the host:
 
 ```bash
@@ -80,9 +90,9 @@ Git, builds that worker against the recorded immutable official Python base, and
 runs the normal validator plus the declared official test command. It checks
 source, repair, reference, Python, lock, grader and policy identities. It writes
 the actual reproduction image ID separately from the original approved image ID
-and leaves the accepted bundle unchanged. The original validated image is amd64;
-the reproduction records its actual architecture rather than assuming the same
-platform or Docker image ID. Future cases use their own pinned
+and leaves the accepted bundle unchanged. The product-index case was validated
+on amd64, and the Blinker case on arm64. Each reproduction records its actual
+architecture and Docker image ID. Cases use their own pinned
 implementation and declared baseline profile. CI keeps full Git history and
 uploads the reproduction results.
 
