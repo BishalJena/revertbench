@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore real Python bugs and replay how RevertBench proves a test caught them.">
+  <meta name="theme-color" content="#f5f8fc">
+  <title>RevertBench | Can a test catch the bug?</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="wordmark" href="./" aria-label="RevertBench home">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        RevertBench
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#findings">The cases</a>
+        <a href="#method">How it works</a>
+        <a class="source-link" href="https://github.com/BishalJena/revertbench">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero" aria-labelledby="intro-title">
+      <div class="wrap hero-layout">
+        <div class="intro">
+          <h1 id="intro-title">Can a test catch the bug?</h1>
+          <p class="intro-deck">A change can break something that used to work. RevertBench uses real Python bugs to check whether a test written by AI would have caught the break.</p>
+          <a class="primary-link" href="#demo">Explore a real bug <span aria-hidden="true">↓</span></a>
+          <dl class="stats" id="stats" hidden>
+            <div><dt>Verified cases</dt><dd data-stat="case_count"></dd></div>
+            <div><dt>Open-source projects</dt><dd data-stat="repository_count"></dd></div>
+            <div><dt>Reference test runs</dt><dd data-stat="execution_count"></dd></div>
+          </dl>
+        </div>
+
+        <section class="demo" id="demo" tabindex="-1" aria-labelledby="demo-title">
+          <div class="demo-header">
+            <h2 id="demo-title">Follow the evidence</h2>
+            <span class="recorded">Recorded test results</span>
+          </div>
+          <div class="demo-loading" id="demo-loading">
+            <p id="load-message" role="status" hidden>Loading the recorded results…</p>
+            <a href="https://github.com/BishalJena/revertbench/blob/main/cases/README.md">Open the public case index</a>
+          </div>
+          <noscript>The public case index includes the test, repair, and validation report for every case.</noscript>
+          <div id="demo-body" hidden>
+            <div class="case-intro">
+              <p class="case-repository" id="case-repository"></p>
+              <h3 id="case-title"></h3>
+              <p id="case-summary"></p>
+            </div>
+            <div class="stages" role="group" aria-label="Select a revision">
+              <button class="stage" type="button" data-role="base" aria-pressed="false">
+                <span class="stage-name">Before the change</span>
+                <span class="stage-outcome"></span>
+              </button>
+              <button class="stage" type="button" data-role="bad" aria-pressed="true">
+                <span class="stage-name">Bug introduced</span>
+                <span class="stage-outcome"></span>
+              </button>
+              <button class="stage" type="button" data-role="repaired" aria-pressed="false">
+                <span class="stage-name">With the repair</span>
+                <span class="stage-outcome"></span>
+              </button>
+            </div>
+            <div class="stage-result" id="stage-result" role="status" aria-atomic="true">
+              <strong id="result-label"></strong>
+              <p id="result-detail"></p>
+            </div>
+            <div class="replay-controls">
+              <button class="replay" id="replay" type="button">
+                <span class="play-icon" aria-hidden="true"></span>Replay recorded test
+              </button>
+              <span id="replay-status" class="replay-status" role="status"></span>
+            </div>
+            <details class="evidence" id="evidence">
+              <summary>View test, repair and sources</summary>
+              <h4>Reference test as graded</h4>
+              <pre tabindex="0"><code id="reference-code"></code></pre>
+              <h4>Production repair</h4>
+              <pre tabindex="0"><code id="repair-code"></code></pre>
+              <ul class="evidence-links">
+                <li><a id="introducing-pr">Change that broke it</a></li>
+                <li><a id="fixing-pr">Upstream fix</a></li>
+                <li><a id="validation-report">Validation report</a></li>
+                <li><a id="case-bundle">Full case files</a></li>
+              </ul>
+              <details class="notices" id="notices">
+                <summary>Upstream license and notices</summary>
+                <pre tabindex="0" id="upstream-notices"></pre>
+              </details>
+            </details>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="wrap findings" id="findings" aria-labelledby="findings-title">
+      <div class="section-intro">
+        <h2 id="findings-title">The cases</h2>
+        <p>Each case starts with a real change that broke something. Pick one to see what happened and how the test proved it.</p>
+      </div>
+      <div id="case-controls" hidden>
+        <div class="filters" id="case-filters" role="group" aria-label="Filter by project"></div>
+        <ul class="case-list" id="case-list"></ul>
+      </div>
+      <p id="cases-fallback"><a href="https://github.com/BishalJena/revertbench/blob/main/cases/README.md">Browse the cases on GitHub</a></p>
+    </section>
+
+    <section class="method" id="method" aria-labelledby="method-title">
+      <div class="wrap method-layout">
+        <div class="section-intro">
+          <h2 id="method-title">How it works</h2>
+          <p>A passing test alone can miss a bug. The same test has to distinguish the broken code from the repaired code.</p>
+        </div>
+        <ol class="method-steps">
+          <li>
+            <h3>Start with a real bug</h3>
+            <p>Find a change that broke existing behavior and the later fix. Keep the code before the change, the buggy code, and the buggy code with the fix applied.</p>
+          </li>
+          <li>
+            <h3>Give the AI a reviewer’s job</h3>
+            <p>Show the model the proposed change and ask it to write a test. Keep the later fix and the maintainers’ test hidden from the model.</p>
+          </li>
+          <li>
+            <h3>Check what the test proves</h3>
+            <p>Run the submission in isolated Docker containers. It must fail on the buggy code for the expected reason, pass with the repair, and repeat those outcomes consistently.</p>
+          </li>
+        </ol>
+        <aside class="scope-note">
+          <strong>What the replay measures</strong>
+          <p>The site replays the maintainers’ reference tests. They show that each historical bug can be detected. Comparative model results are pending.</p>
+          <a href="https://github.com/BishalJena/revertbench/blob/main/docs/cases.md">Read the validation method</a>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>RevertBench</span>
+      <a href="https://github.com/BishalJena/revertbench">Source code on GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -24,6 +24,15 @@ Read the [submission policy](docs/grader-policy.md),
 
 ## Development
 
+Build and serve the portfolio demo locally with Python.
+
+```bash
+python3 scripts/build_site.py --output dist/site
+python3 -m http.server 8000 --bind 127.0.0.1 --directory dist/site
+```
+
+Open [the local preview](http://127.0.0.1:8000/) in a browser.
+
 Run from a full-history Git checkout with [uv](https://docs.astral.sh/uv/) and Docker.
 
 ```bash
