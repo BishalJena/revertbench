@@ -9,7 +9,7 @@ import zlib
 from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Final, Literal, Protocol
 
 import docker
 import requests
@@ -31,12 +31,28 @@ BaselineProfile = Literal[
     "pydash_upstream_default_behavior_v1",
     "blinker_upstream_default_behavior_v1",
     "babel_upstream_default_behavior_v1",
+    "babel_cldr44_default_behavior_v1",
 ]
-_BABEL_PROFILE = "babel_upstream_default_behavior_v1"
+_BABEL_PROFILE: Final = "babel_upstream_default_behavior_v1"
+_BABEL_CLDR44_PROFILE: Final = "babel_cldr44_default_behavior_v1"
 _BABEL_BASELINE_MEMORY_BYTES = 512 * 1024**2
-_BABEL_COLLECTION_SKIPS = {
-    "tests/interop/test_jinja2_interop.py": "jinja2",
-    "tests/messages/test_setuptools_frontend.py": "setuptools",
+_BABEL_DATA: dict[BaselineProfile, tuple[str, str]] = {
+    _BABEL_PROFILE: (
+        "data/babel",
+        "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e",
+    ),
+    _BABEL_CLDR44_PROFILE: (
+        "cldr44/data/babel",
+        "1bcb4543e529f3ad7d26b1d5d6b596443b6c9429ce4488f5d22f0b0a8168a7d0",
+    ),
+}
+_BABEL_SETUPTOOLS_SKIP = {"tests/messages/test_setuptools_frontend.py": "setuptools"}
+_BABEL_COLLECTION_SKIPS: dict[BaselineProfile, dict[str, str]] = {
+    _BABEL_PROFILE: {
+        "tests/interop/test_jinja2_interop.py": "jinja2",
+        **_BABEL_SETUPTOOLS_SKIP,
+    },
+    _BABEL_CLDR44_PROFILE: _BABEL_SETUPTOOLS_SKIP,
 }
 _PREFIX = b"REVERTBENCH_BASELINE="
 _ZLIB_PREFIX = b"REVERTBENCH_BASELINE_ZLIB="
@@ -91,17 +107,20 @@ _PYTEST_PROFILE_ARGS: dict[str, tuple[str, ...]] = {
         "asyncio_default_fixture_loop_scope=function",
         "tests",
     ),
-    _BABEL_PROFILE: (
-        "-q",
-        "--tb=short",
-        "-c",
-        "/workspace/repo/setup.cfg",
-        "--rootdir",
-        "/workspace/repo",
-        "--basetemp=/tmp/revertbench-baseline",
-        "-p",
-        "no:cacheprovider",
-        ".",
+    **dict.fromkeys(
+        _BABEL_DATA,
+        (
+            "-q",
+            "--tb=short",
+            "-c",
+            "/workspace/repo/setup.cfg",
+            "--rootdir",
+            "/workspace/repo",
+            "--basetemp=/tmp/revertbench-baseline",
+            "-p",
+            "no:cacheprovider",
+            ".",
+        ),
     ),
 }
 
@@ -146,12 +165,16 @@ exact_runtime_skips = {
         'call', 'all tests skipped by +SKIP option',
     ),
     'tests/test_localedata.py::test_reserved_locale_names': ('setup', 'windows-only test'),
-    'tests/test_localtime.py::test_issue_1092_with_pytz': ('call', 'pytz is not installed'),
     **{
         f'tests/test_support.py::TranslationsTestCase::{name}': ('setup', 'lgettext is deprecated')
         for name in ('test_lpgettext', 'test_lnpgettext', 'test_ldpgettext', 'test_ldnpgettext')
     },
 }
+if profile == 'babel_upstream_default_behavior_v1':
+    exact_runtime_skips['tests/test_localtime.py::test_issue_1092_with_pytz'] = (
+        'call', 'pytz is not installed',
+    )
+
 pytz_fixture_nodes = {
     'tests/test_date_intervals.py::test_format_interval_in_tz',
     'tests/test_support.py::TestFormat::test_format_datetime',
@@ -167,12 +190,15 @@ pytz_fixture_nodes = {
 def prepare_babel():
     overlay = Path('/opt/revertbench/babel')
     deps = overlay / 'deps'
-    data = overlay / 'data/babel'
+    path, data_digest = __FIXED_BABEL_DATA__
+    relative_data = Path(path)
+    data = overlay / relative_data
     checkout = Path(root)
     package = checkout / 'babel'
     source_locales = data / 'locale-data'
     target_locales = package / 'locale-data'
-    directories = (overlay, deps, data.parent, data, source_locales,
+    data_parents = (overlay / parent for parent in relative_data.parents)
+    directories = (*data_parents, deps, data, source_locales,
         checkout, package, target_locales)
     if any(path.is_symlink() or not path.is_dir() for path in directories):
         raise ValueError('Babel runtime directory mismatch')
@@ -200,7 +226,7 @@ def prepare_babel():
         content = source.read_bytes()
         manifest.update(f'{relative.as_posix()} {hashlib.sha256(content).hexdigest()}\n'.encode())
         copies.append((target, content))
-    if manifest.hexdigest() != '38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e':
+    if manifest.hexdigest() != data_digest:
         raise ValueError('Babel locale data digest mismatch')
     for target, content in copies:
         with target.open('xb') as stream:
@@ -331,9 +357,10 @@ def _pytest_script(profile: BaselineProfile) -> str:
         .replace("__FIXED_PROFILE__", repr(profile))
         .replace(
             "__FIXED_BABEL_COLLECTION_SKIPS__",
-            repr(_BABEL_COLLECTION_SKIPS if profile == _BABEL_PROFILE else {}),
+            repr(_BABEL_COLLECTION_SKIPS.get(profile, {})),
         )
-        .replace("__FIXED_BABEL_SCRIPT__", _BABEL_SCRIPT if profile == _BABEL_PROFILE else "")
+        .replace("__FIXED_BABEL_SCRIPT__", _BABEL_SCRIPT if profile in _BABEL_DATA else "")
+        .replace("__FIXED_BABEL_DATA__", repr(_BABEL_DATA.get(profile)))
         .replace("__FIXED_REPORT_OUTPUT__", report)
     )
 
@@ -502,10 +529,10 @@ def parse_baseline_output(
         or any(not node or node in result.node_ids for node in result.extra_skip_node_ids)
         or (exit_code == 0 and result.failed)
     )
-    if result.profile == _BABEL_PROFILE:
+    if result.profile in _BABEL_COLLECTION_SKIPS:
         inconsistent |= (
             counted - len(result.extra_skip_node_ids) != result.collected
-            or result.extra_skip_node_ids != tuple(sorted(_BABEL_COLLECTION_SKIPS))
+            or result.extra_skip_node_ids != tuple(sorted(_BABEL_COLLECTION_SKIPS[result.profile]))
             or bool(result.xfailed or result.xpassed)
         )
     elif result.profile != "unittest":
@@ -542,7 +569,7 @@ class DockerBaselineRunner:
         self.profile = profile
         self.image, self.client = image, client
         self.limits = limits or SandboxLimits()
-        if profile == _BABEL_PROFILE:
+        if profile in _BABEL_DATA:
             # The native all-locale suite and generated data exceed the default memory cap.
             self.limits = replace(self.limits, memory_bytes=_BABEL_BASELINE_MEMORY_BYTES)
 

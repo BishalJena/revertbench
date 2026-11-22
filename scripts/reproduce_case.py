@@ -92,13 +92,25 @@ def read_publication(case_dir: Path) -> dict[str, Any]:
 
 
 _ROLES = ("base", "bad", "repaired")
-_BABEL_PROFILE = "babel_upstream_default_behavior_v1"
-_BABEL_COLLECTION_SKIPS = (
-    "tests/interop/test_jinja2_interop.py",
-    "tests/messages/test_setuptools_frontend.py",
-)
+_BABEL_CLDR45_PROFILE = "babel_upstream_default_behavior_v1"
+_BABEL_CLDR44_PROFILE = "babel_cldr44_default_behavior_v1"
+_BABEL_SETUPTOOLS_SKIP = "tests/messages/test_setuptools_frontend.py"
+_BABEL_COLLECTION_SKIPS = {
+    _BABEL_CLDR45_PROFILE: ("tests/interop/test_jinja2_interop.py", _BABEL_SETUPTOOLS_SKIP),
+    _BABEL_CLDR44_PROFILE: (_BABEL_SETUPTOOLS_SKIP,),
+}
+_BABEL_LOCALE_DATA = {
+    _BABEL_CLDR45_PROFILE: {
+        "release": "Babel 2.16.0",
+        "sha256": "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e",
+    },
+    _BABEL_CLDR44_PROFILE: {
+        "release": "Babel 2.15.0",
+        "sha256": "1bcb4543e529f3ad7d26b1d5d6b596443b6c9429ce4488f5d22f0b0a8168a7d0",
+    },
+}
 _UPSTREAM_PROFILES = {
-    _BABEL_PROFILE,
+    *_BABEL_LOCALE_DATA,
     "blinker_upstream_default_behavior_v1",
     "boltons_upstream_default_behavior_v1",
     "pydash_upstream_default_behavior_v1",
@@ -127,16 +139,13 @@ _SUITE_FIELDS = (
 def _upstream_scope(profile: str) -> dict[str, Any]:
     if profile not in _UPSTREAM_PROFILES:
         raise ReproductionError("unsupported upstream suite profile")
-    if profile == _BABEL_PROFILE:
+    if profile in _BABEL_LOCALE_DATA:
         return {
             "behavior": "upstream_default_unit_and_package_doctests",
             "excluded_checks": ["coverage_quality_gate", "documentation_build", "package_build"],
-            "collection_skips": list(_BABEL_COLLECTION_SKIPS),
+            "collection_skips": list(_BABEL_COLLECTION_SKIPS[profile]),
             "baseline_memory_bytes": 536_870_912,
-            "locale_data": {
-                "release": "Babel 2.16.0",
-                "sha256": "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e",
-            },
+            "locale_data": _BABEL_LOCALE_DATA[profile].copy(),
         }
     if profile == "blinker_upstream_default_behavior_v1":
         return {
@@ -190,7 +199,7 @@ def _matching_suite(
     identity: dict[str, Any],
 ) -> None:
     nodes = result.get("node_ids")
-    collection_skips = _BABEL_COLLECTION_SKIPS if profile == _BABEL_PROFILE else ()
+    collection_skips = _BABEL_COLLECTION_SKIPS.get(profile, ())
     actual_skips = result.get("extra_skip_node_ids", [])
     counts: list[Any] = [
         result.get(key) for key in ("passed", "failed", "errors", "skipped", "xfailed", "xpassed")

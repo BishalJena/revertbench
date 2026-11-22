@@ -28,6 +28,8 @@ BOLTONS = "boltons_upstream_default_behavior_v1"
 PYDASH = "pydash_upstream_default_behavior_v1"
 BLINKER = "blinker_upstream_default_behavior_v1"
 BABEL: Final = "babel_upstream_default_behavior_v1"
+BABEL_CLDR44: Final = "babel_cldr44_default_behavior_v1"
+BABEL_CLDR44_DATA_SHA256 = "1bcb4543e529f3ad7d26b1d5d6b596443b6c9429ce4488f5d22f0b0a8168a7d0"
 BABEL_DATA_SHA256 = "38c999568bebecfc77cb41875776beb97382dd55b3133aaaac73f6dd98c6cf5e"
 BABEL_COLLECTION_SKIPS = (
     "tests/interop/test_jinja2_interop.py",
@@ -105,8 +107,9 @@ def test_blinker_command_preserves_native_async_and_warning_contract() -> None:
     )
 
 
-def test_babel_command_preserves_native_root_collection() -> None:
-    assert baseline_command(BABEL) == (
+@pytest.mark.parametrize("profile", (BABEL, BABEL_CLDR44))
+def test_babel_command_preserves_native_root_collection(profile: BaselineProfile) -> None:
+    assert baseline_command(profile) == (
         "/usr/local/bin/python",
         "-m",
         "pytest",
@@ -123,34 +126,42 @@ def test_babel_command_preserves_native_root_collection() -> None:
     )
 
 
-def test_babel_fixes_native_baseline_memory_and_preserves_other_runner_limits() -> None:
+@pytest.mark.parametrize("profile", (BABEL, BABEL_CLDR44))
+def test_babel_fixes_native_baseline_memory_and_preserves_other_runner_limits(
+    profile: BaselineProfile,
+) -> None:
     image = "sha256:" + "a" * 64
     limits = SandboxLimits(pids=96, cpus=2.0)
     legacy = DockerBaselineRunner(image, limits=limits)
-    babel = DockerBaselineRunner(image, limits=limits, profile=BABEL)
+    babel = DockerBaselineRunner(image, limits=limits, profile=profile)
     assert legacy.limits == limits
     assert babel.limits == SandboxLimits(memory_bytes=512 * 1024**2, pids=96, cpus=2.0)
-    assert DockerBaselineRunner(image, profile=BABEL).limits == SandboxLimits(
+    assert DockerBaselineRunner(image, profile=profile).limits == SandboxLimits(
         memory_bytes=512 * 1024**2
     )
 
 
 @pytest.mark.parametrize(
-    "extras,skipped,status",
+    "profile,extras,skipped,status",
     [
-        (BABEL_COLLECTION_SKIPS, 2, "passed"),
-        (BABEL_COLLECTION_SKIPS, 3, "invalid_run"),
-        (BABEL_COLLECTION_SKIPS[:1], 1, "invalid_run"),
-        ((BABEL_COLLECTION_SKIPS[0],) * 2, 2, "invalid_run"),
-        ((*BABEL_COLLECTION_SKIPS, "tests/test_other.py"), 3, "invalid_run"),
+        (BABEL, BABEL_COLLECTION_SKIPS, 2, "passed"),
+        (BABEL, BABEL_COLLECTION_SKIPS, 3, "invalid_run"),
+        (BABEL, BABEL_COLLECTION_SKIPS[1:], 1, "invalid_run"),
+        (BABEL, (BABEL_COLLECTION_SKIPS[0],) * 2, 2, "invalid_run"),
+        (BABEL, (*BABEL_COLLECTION_SKIPS, "tests/test_other.py"), 3, "invalid_run"),
+        (BABEL_CLDR44, BABEL_COLLECTION_SKIPS[1:], 1, "passed"),
+        (BABEL_CLDR44, BABEL_COLLECTION_SKIPS[1:], 0, "invalid_run"),
+        (BABEL_CLDR44, BABEL_COLLECTION_SKIPS, 2, "invalid_run"),
+        (BABEL_CLDR44, BABEL_COLLECTION_SKIPS[:1], 1, "invalid_run"),
+        (BABEL_CLDR44, (), 0, "invalid_run"),
     ],
 )
-def test_babel_report_accepts_only_the_two_native_collection_skips(
-    extras: tuple[str, ...], skipped: int, status: str
+def test_babel_report_accepts_only_the_profiles_native_collection_skips(
+    profile: BaselineProfile, extras: tuple[str, ...], skipped: int, status: str
 ) -> None:
     data = {
-        "profile": BABEL,
-        "command": baseline_command(BABEL),
+        "profile": profile,
+        "command": baseline_command(profile),
         "collected": 1,
         "passed": 1,
         "skipped": skipped,
@@ -159,7 +170,7 @@ def test_babel_report_accepts_only_the_two_native_collection_skips(
     }
     packed = base64.b64encode(zlib.compress(json.dumps(data).encode()))
     result = parse_baseline_output(
-        b"REVERTBENCH_BASELINE_ZLIB=" + packed, b"", 0, expected_profile=BABEL
+        b"REVERTBENCH_BASELINE_ZLIB=" + packed, b"", 0, expected_profile=profile
     )
     assert result.status == status
 
@@ -218,15 +229,17 @@ def _babel_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
 
 
 def _run_babel_fixture(
-    tmp_path: Path, repo: Path, overlay: Path, data_digest: str
+    tmp_path: Path, repo: Path, overlay: Path, data_digest: str, profile: BaselineProfile = BABEL
 ) -> subprocess.CompletedProcess[bytes]:
     trusted = tmp_path / "trusted"
     (trusted / "src/revertbench/grade").mkdir(parents=True)
     (trusted / "src/revertbench/grade/policy.py").touch()
     (trusted / "uv.lock").touch()
     script = (
-        _pytest_script(BABEL)
-        .replace(BABEL_DATA_SHA256, data_digest)
+        _pytest_script(profile)
+        .replace(
+            BABEL_CLDR44_DATA_SHA256 if profile == BABEL_CLDR44 else BABEL_DATA_SHA256, data_digest
+        )
         .replace("/opt/revertbench/babel", str(overlay))
         .replace("/opt/revertbench", str(trusted))
         .replace("/workspace/repo", str(repo))
@@ -257,20 +270,58 @@ def test_babel_prepares_frozen_data_and_keeps_native_doctests_and_skips(tmp_path
     assert result.extra_skip_node_ids == BABEL_COLLECTION_SKIPS
 
 
-def _parse_babel_fixture(run: subprocess.CompletedProcess[bytes]) -> BaselineResult:
+def _parse_babel_fixture(
+    run: subprocess.CompletedProcess[bytes], profile: BaselineProfile = BABEL
+) -> BaselineResult:
     packed = next(
         line.split(b"=", 1)[1]
         for line in run.stdout.splitlines()
         if line.startswith(b"REVERTBENCH_BASELINE_ZLIB=")
     )
     payload = json.loads(zlib.decompress(base64.b64decode(packed)))
-    payload["command"] = baseline_command(BABEL)
+    payload["command"] = baseline_command(profile)
     return parse_baseline_output(
         b"REVERTBENCH_BASELINE=" + json.dumps(payload).encode(),
         run.stderr,
         run.returncode,
-        expected_profile=BABEL,
+        expected_profile=profile,
     )
+
+
+@pytest.mark.parametrize("data_variant", ("cldr44", "cldr45_only", "cldr44_symlink"))
+def test_babel_cldr44_uses_only_its_release_data(tmp_path: Path, data_variant: str) -> None:
+    repo, overlay, digest = _babel_fixture(tmp_path)
+    (repo / BABEL_COLLECTION_SKIPS[0]).unlink()
+    if data_variant != "cldr45_only":
+        (overlay / "cldr44").mkdir()
+        (overlay / "data").rename(overlay / "cldr44/data")
+        if data_variant == "cldr44_symlink":
+            (overlay / "cldr44").rename(overlay / "alternate")
+            (overlay / "cldr44").symlink_to(overlay / "alternate", target_is_directory=True)
+        (overlay / "data").mkdir()  # Poison the other release's directory.
+    run = _run_babel_fixture(tmp_path, repo, overlay, digest, BABEL_CLDR44)
+    result = _parse_babel_fixture(run, BABEL_CLDR44)
+    if data_variant == "cldr44":
+        assert result.status == "passed", result.model_dump_json()
+        assert result.collected == 3 and result.passed == result.skipped == 2
+        assert result.extra_skip_node_ids == BABEL_COLLECTION_SKIPS[1:]
+    else:
+        assert result.status == "invalid_run"
+        assert not (repo / "babel/global.dat").exists()
+
+
+def test_babel_cldr44_rejects_a_later_runtime_skip(tmp_path: Path) -> None:
+    repo, overlay, digest = _babel_fixture(tmp_path)
+    (repo / BABEL_COLLECTION_SKIPS[0]).unlink()
+    (overlay / "cldr44").mkdir()
+    (overlay / "data").rename(overlay / "cldr44/data")
+    (repo / "tests/test_localtime.py").write_text(
+        "import pytest\ndef test_issue_1092_with_pytz(): pytest.skip('pytz is not installed')\n"
+    )
+    run = _run_babel_fixture(tmp_path, repo, overlay, digest, BABEL_CLDR44)
+    result = _parse_babel_fixture(run, BABEL_CLDR44)
+    assert result.status == "invalid_run"
+    assert any("unexpected Babel skip" in detail for detail in result.details)
 
 
 @pytest.mark.parametrize(
@@ -352,7 +403,7 @@ def test_new_pytest_profiles_preserve_large_node_vectors_and_reject_count_errors
     )
 
 
-@pytest.mark.parametrize("profile", (*PROFILES, BABEL))
+@pytest.mark.parametrize("profile", (*PROFILES, BABEL, BABEL_CLDR44))
 def test_cli_selects_only_fixed_upstream_profile(
     profile: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
