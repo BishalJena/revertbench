@@ -10,6 +10,15 @@
   <a href="cases/README.md"><img alt="9 accepted cases" src="https://img.shields.io/badge/accepted%20cases-9-2ea44f"></a>
 </p>
 
+<p align="center">
+  <a href="docs/media/revertbench-explainer.mp4"><img alt="Watch the 70-second RevertBench explainer" src="docs/media/explainer-poster.jpg" width="820"></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/revertbench-explainer.mp4"><strong>Watch the 70-second explainer</strong></a> ·
+  <a href="docs/media/revertbench-demo.mp4">60-second technical walkthrough</a>
+</p>
+
 RevertBench is a benchmark built from real bugs in open-source Python projects.
 Each case is a pull request that was merged with its tests passing, broke
 something, and was fixed later. A model gets the buggy code and the pull
