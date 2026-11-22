@@ -1,4 +1,4 @@
-# Behavioral-test submission policy, version 5
+# Behavioral-test submission policy, version 6
 
 `revertbench.grade.policy.check_submission(source, bad_tree)` performs static
 admission checks before a test can be graded. It returns a frozen `PolicyResult`
@@ -6,10 +6,37 @@ with `allowed`, an optional `reason`, and diagnostic `details`. It never imports
 the submission or the target project. Policy rejection is distinct from an
 executed test failing to reproduce a regression.
 
-Version 5 intentionally supports a restricted Python test format. A rejected
+Version 6 intentionally supports a restricted Python test format. A rejected
 construct is not necessarily malicious; it may simply need a capability outside
 this version. Cases whose reference tests require unsupported capabilities are
 ineligible until the policy and its tests are deliberately extended.
+
+Version 6 additionally permits one direct local counter callback in an ordinary
+test function. It has one positional parameter and a body consisting of exactly
+`nonlocal counter` followed by `counter += 1`. The counter must already be a local
+integer literal binding, rather than a module value, parameter, call result or
+alias of another name. This certificate is checked at the callback declaration;
+it is not a proof that later rebinding or dynamic project behavior preserves the
+counter's integer type. Boolean literals do not qualify. The callback cannot have
+decorators, defaults, variadic/keyword-only parameters, other statements or
+deeper definitions, and cannot itself be called as a submission helper. It can
+be passed to a statically resolved project API. This supports a callback counting
+observed deliveries without admitting a general closure or `nonlocal` grammar.
+
+Function return annotations may be absent or the literal `None`. The callback's
+parameter may also have an exact `alias.Any` annotation, where `alias` is an
+unrebound `import typing` module binding. This import is annotation-only: it
+grants no runtime expression, attribute, constructor or cast access. Source-tree
+`typing` shadows, other typing import forms and arbitrary annotation expressions
+are excluded. An optional initial `from __future__ import annotations` is the
+only admitted future feature. Extraction retains this original flag when needed
+by the selected annotated dependency closure, and preserves the entire original
+function, including nested scope, annotations, comments and assertions. Existing
+unannotated reference output is unchanged. Annotations grant no parameter types
+or runtime permissions; the callback argument is not available for other
+operations in the restricted counter-only body. The checker does not execute the
+callback or infer how often a dynamic project API will invoke it. Existing cases
+retain their original pinned policy and implementation.
 
 Version 5 additionally excludes the repository-root `test.py` suite from project
 API resolution. Direct imports, aliases and statically resolved transitive or
