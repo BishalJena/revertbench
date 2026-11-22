@@ -19,6 +19,7 @@ import shutil
 import signal
 import subprocess
 import tarfile
+from itertools import groupby
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -95,6 +96,7 @@ _ROLES = ("base", "bad", "repaired")
 _BABEL_CLDR45_PROFILE = "babel_upstream_default_behavior_v1"
 _BABEL_CLDR44_PROFILE = "babel_cldr44_default_behavior_v1"
 _BABEL_SETUPTOOLS_SKIP = "tests/messages/test_setuptools_frontend.py"
+_BABEL_GLOB_NODE_PREFIX = "tests/messages/test_toml_config.py::test_bad_toml_test_case[bad."
 _BABEL_COLLECTION_SKIPS = {
     _BABEL_CLDR45_PROFILE: ("tests/interop/test_jinja2_interop.py", _BABEL_SETUPTOOLS_SKIP),
     _BABEL_CLDR44_PROFILE: (_BABEL_SETUPTOOLS_SKIP,),
@@ -130,7 +132,6 @@ _SUITE_FIELDS = (
     "xfailed",
     "xpassed",
     "deselected",
-    "node_ids",
     "collection_errors",
     "extra_skip_node_ids",
 )
@@ -189,6 +190,17 @@ def _v2_allowlist(case_dir: Path, manifest: dict[str, Any], case: dict[str, Any]
     _upstream_evidence(case_dir, case, report)
 
 
+def _babel_glob_order(nodes: list[str]) -> list[str]:
+    """Order rows from the native unsorted Path.glob within their original group."""
+    return [
+        node
+        for is_glob_row, group in groupby(
+            nodes, key=lambda item: item.startswith(_BABEL_GLOB_NODE_PREFIX)
+        )
+        for node in (sorted(group) if is_glob_row else group)
+    ]
+
+
 def _matching_suite(
     result: dict[str, Any],
     approved: dict[str, Any],
@@ -197,8 +209,10 @@ def _matching_suite(
     command: list[str],
     pids: int,
     identity: dict[str, Any],
+    fresh_run: bool = False,
 ) -> None:
     nodes = result.get("node_ids")
+    approved_nodes = approved.get("node_ids")
     collection_skips = _BABEL_COLLECTION_SKIPS.get(profile, ())
     actual_skips = result.get("extra_skip_node_ids", [])
     counts: list[Any] = [
@@ -227,6 +241,16 @@ def _matching_suite(
         or any(node in nodes for node in collection_skips)
         or result.get("collected") != len(nodes)
         or result.get("deselected") != 0
+    ):
+        raise ReproductionError("upstream suite result differs from approved scope or identities")
+    if nodes == approved_nodes:
+        return
+    if not (
+        fresh_run
+        and profile == _BABEL_CLDR45_PROFILE
+        and isinstance(approved_nodes, list)
+        and all(isinstance(node, str) for node in approved_nodes)
+        and _babel_glob_order(nodes) == _babel_glob_order(approved_nodes)
     ):
         raise ReproductionError("upstream suite result differs from approved scope or identities")
 
@@ -334,6 +358,7 @@ def _upstream_repeat(
             command=command,
             pids=pids,
             identity=report,
+            fresh_run=True,
         )
         results[role] = result
         (output / f"upstream-suite/{role}.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -353,6 +378,7 @@ def _check_fresh_upstream(fresh: dict[str, Any], approved: dict[str, Any]) -> No
             command=command,
             pids=pids,
             identity=approved,
+            fresh_run=True,
         )
 
 
