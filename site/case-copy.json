@@ -1,0 +1,47 @@
+{
+  "more-itertools-71b76842d32c-5a1d64d1-be44ad73": {
+    "title": "Searching an iterator",
+    "summary": "An iterator hands over items one at a time and may not know how many remain. A change asked an iterator for its length, so finding a combination crashed.",
+    "expected": "Find the combination at position 12, even when the inputs arrive one item at a time."
+  },
+  "more-itertools-111d6deb8080-bf3b6673-5b49ad9c": {
+    "title": "Splitting a sequence with the default rule",
+    "summary": "Without a custom rule, partitioning should fall back to Python’s true-or-false check. An optimization tried to call the missing rule and crashed.",
+    "expected": "Put 0 into the false group and 1 and 2 into the true group."
+  },
+  "more-itertools-6a6d1364d8dc-1ea82a71-6988667e": {
+    "title": "Requesting chunks of size zero",
+    "summary": "A change made a request for zero-sized chunks raise an error whenever the input contained items.",
+    "expected": "Return no chunks and leave the input iterator untouched."
+  },
+  "more-itertools-2b91cdc175c0-17fd95a0-7f36cfaf": {
+    "title": "Reordering items that cannot be sorted together",
+    "summary": "An algorithm started sorting its input as a first step. It crashed when the list contained values that Python cannot order together.",
+    "expected": "Return each distinct ordering of the inputs, including mixtures of values like numbers and text."
+  },
+  "more-itertools-f9cdcb990dbb-f42daddf-9f00df42": {
+    "title": "Comparing very large ranges",
+    "summary": "A change made equality ask Python for the length of an enormous range. The count exceeded the platform’s supported length and raised an overflow error.",
+    "expected": "Compare the ranges correctly even when their lengths exceed the platform limit."
+  },
+  "blinker-64423dfadc9a-0068cb4c-1da91128": {
+    "title": "Recognizing an equal sender ID",
+    "summary": "A signal stopped reaching its listener when the sender ID was created separately, even though it had the same integer value.",
+    "expected": "Deliver both signals to the receiver subscribed to that integer ID."
+  },
+  "babel-bef3a734fbdf-de44e185-e4a8ca4b": {
+    "title": "Keeping the translator’s context",
+    "summary": "A translator’s note disappeared when the translation call just below it spanned multiple lines. The message reached translators without its context.",
+    "expected": "Extract the message with its source line and the associated translator comment."
+  },
+  "babel-8babd2413b6b-7b00bf9e-365e1118": {
+    "title": "Extracting text alongside byte strings",
+    "summary": "The translation extractor started treating byte strings like ordinary text. It crashed before it could return the text around them.",
+    "expected": "Keep both text messages and skip the byte string."
+  },
+  "attrs-e048efcb3954-3b0378dd-1156ca14": {
+    "title": "Keeping fields from a generator",
+    "summary": "A field transformer returned its fields one at a time. A new order check read through them first, leaving no fields when the class was built.",
+    "expected": "Build the class with the field named x supplied by the transformer."
+  }
+}
