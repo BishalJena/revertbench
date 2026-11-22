@@ -1,0 +1,23 @@
+{
+  "bad_commit": "e048efcb395443608d184a149c0adbca166cb833",
+  "base_commit": "75723b7720952ac0a4c7d3e277b6714ba55ded18",
+  "commit_url": "https://github.com/python-attrs/attrs/commit/3b0378dd66d33ebddb52be85b8c4aac6a914b1a2",
+  "committed_at": "2025-03-13T06:01:18Z",
+  "fix_commit": "3b0378dd66d33ebddb52be85b8c4aac6a914b1a2",
+  "fix_parent": "19943b775d40c018e844f2cb1728442f58112a3b",
+  "license_path": "LICENSE",
+  "license_text": "The MIT License (MIT)\n\nCopyright (c) 2015 Hynek Schlawack and the attrs contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+  "modified_source_paths": [
+    "src/attr/_make.py"
+  ],
+  "production_patch": "diff --git a/src/attr/_make.py b/src/attr/_make.py\nindex 7439dc2a..e84d9792 100644\n--- a/src/attr/_make.py\n+++ b/src/attr/_make.py\n@@ -448,7 +448,7 @@ def _transform_attrs(\n     attrs = base_attrs + own_attrs\n \n     if field_transformer is not None:\n-        attrs = field_transformer(cls, attrs)\n+        attrs = tuple(field_transformer(cls, attrs))\n \n     # Check attr order after executing the field_transformer.\n     # Mandatory vs non-mandatory attr order only matters when they are part of\n",
+  "reference_derivation": "plain_pytest_method_dependency_closure_v1",
+  "reference_header": "# SPDX-License-Identifier: MIT",
+  "reference_node_id": "tests/test_hooks.py::TestTransformHook::test_hook_generator",
+  "reference_path": "tests/test_hooks.py",
+  "reference_source": "from __future__ import annotations\n\nimport attr\n\nclass TestTransformHook:\n    \"\"\"\n    Tests for `attrs(tranform_value_serializer=func)`\n    \"\"\"\n    def test_hook_generator(self):\n        \"\"\"\n        Ensure that `attrs.fields` are correctly recorded when field_transformer is a generator\n\n        Regression test for #1417\n        \"\"\"\n\n        def hook(cls, attribs):\n            yield from attribs\n\n        @attr.s(auto_attribs=True, field_transformer=hook)\n        class Base:\n            x: int\n\n        assert [\"x\"] == [a.name for a in attr.fields(Base)]\n",
+  "repair_derivation": "historical_diff",
+  "repair_target": null,
+  "repo": "python-attrs/attrs",
+  "title": "Cope with `field_transformer` being a generator (#1417)"
+}

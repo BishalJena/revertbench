@@ -119,3 +119,15 @@ uploads the reproduction results.
 
 The historical Python reference is intentionally excluded from automated
 formatting: changing its spelling would change the approved source digest.
+
+The ninth case covers the
+[attrs generator field-transformer regression](attrs-e048efcb3954-3b0378dd-1156ca14/case.json).
+PR 1401 moved field-order checks ahead of later field processing and consumed
+a generator returned by the transformer. PR 1417 materialized its output once.
+The complete historical test checks that the generated class retains its field.
+It passes on the parent, fails with `AssertionError` on the introducing merge,
+and passes after the exact production repair across three repeats. Native suites
+pass 1,422 / 1,425 / 1,425 tests, including 85 YAML typing checks per revision.
+Each native run records the exact installed wheel, seven historical skips and
+one expected failure. The separate repeat matches the same wheel and test
+identities. The bundle records the delegated agent decision and pinned CI.

@@ -1,0 +1,182 @@
+{
+  "schema_version": "2",
+  "id": "attrs-e048efcb3954-3b0378dd-1156ca14",
+  "repo": "python-attrs/attrs",
+  "base_commit": "75723b7720952ac0a4c7d3e277b6714ba55ded18",
+  "bad_commit": "e048efcb395443608d184a149c0adbca166cb833",
+  "fix_commit": "3b0378dd66d33ebddb52be85b8c4aac6a914b1a2",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "f0ca624684dbc0129d9415ccd98cd12afff71744c83d786e31dcaf32bd6f49b7",
+    "repaired_tree_sha256": "fb57875fc382ec621241ad5bfebe21d9eef035607938610788cfc738c49429a8"
+  },
+  "repair_derivation": null,
+  "changed_lines": {
+    "src/attr/_make.py": [
+      452,
+      453
+    ]
+  },
+  "source_hashes": {
+    "base": "eaa955c06d387e4e446c6cc19188487109f284d2ef1d9841df5cb147d143b796",
+    "bad": "a209c6922a364e021fb1556304eaf3c4777a4a332e492e87116f7c3a2959abf8",
+    "historical_fix": "33ded95876a8c8f22fa13c0b7457c86efd84c9b1393af6e4b136c72172393e9e",
+    "repaired": "fb57875fc382ec621241ad5bfebe21d9eef035607938610788cfc738c49429a8"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44985236669",
+    "implementation_commit": "e72a9836b9834a05dca4c03d77da9adb70c696de",
+    "applies_to_image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
+    "grader_sha256": "ed4a3ca5f2f5035ad31cdc269c431f43fcc7992bb5e7f5a10f461a451578d0aa",
+    "policy_sha256": "d88a7edf790274f126b3fa32590673d0f1cf9aafab40440be0d74d763b905059",
+    "observed_at": "2026-11-22T04:39:52.627740Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "python-attrs/attrs:e048efcb395443608d184a149c0adbca166cb833",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1401,
+    "title": "Perform attr order checks after field transformer.",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-attrs/attrs/pull/1401",
+    "published_at": "2025-01-31T23:19:58Z",
+    "merged_at": "2025-02-09T07:31:05Z",
+    "observed_at": "2026-11-22T04:29:51.050465Z",
+    "updated_at": "2025-02-21T10:20:47Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "e048efcb395443608d184a149c0adbca166cb833"
+  },
+  "fix_pr": {
+    "number": 1417,
+    "title": "Cope with `field_transformer` being a generator",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-attrs/attrs/pull/1417",
+    "published_at": "2025-03-12T16:48:42Z",
+    "merged_at": "2025-03-13T06:03:23Z",
+    "observed_at": "2026-11-22T04:29:51.050465Z",
+    "updated_at": "2025-03-13T10:29:56Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "3b0378dd66d33ebddb52be85b8c4aac6a914b1a2"
+  },
+  "reference_test": {
+    "path": "tests/test_hooks.py",
+    "node_ids": [
+      "tests/test_hooks.py::TestTransformHook::test_hook_generator"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "effadd2b17610bd1c4aea463a5378ab550b28fe3778051ecc42299cbfe2ab5cd"
+  },
+  "changed_files": [
+    "src/attr/_make.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2025-03-13T06:01:18Z",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/python-attrs/attrs/pull/1401",
+      "published_at": "2025-01-31T23:19:58Z",
+      "observed_at": "2026-11-22T04:29:51.050465Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/python-attrs/attrs/pull/1417",
+      "published_at": "2025-03-12T16:48:42Z",
+      "observed_at": "2026-11-22T04:29:51.050465Z"
+    },
+    {
+      "artifact": "regression_issue",
+      "url": "https://github.com/python-attrs/attrs/issues/1416",
+      "published_at": "2025-03-12T16:01:02Z",
+      "observed_at": "2026-11-22T04:29:51.050465Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+    "install": [],
+    "test_cmd": [
+      "/opt/revertbench/attrs/runtime/bin/python",
+      "-m",
+      "pytest",
+      "-n",
+      "1",
+      "-c",
+      "/workspace/repo/pyproject.toml",
+      "-q",
+      "--tb=short",
+      "--basetemp=/tmp/revertbench-attrs-pytest",
+      "-p",
+      "no:cacheprovider",
+      "-p",
+      "xdist.plugin",
+      "-p",
+      "xdist.looponfail",
+      "-p",
+      "_hypothesis_pytestplugin",
+      "-p",
+      "pytest_mypy_plugins.collect",
+      "-p",
+      "revertbench._attrs_baseline"
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "8",
+    "grader_sha256": "ed4a3ca5f2f5035ad31cdc269c431f43fcc7992bb5e7f5a10f461a451578d0aa",
+    "policy_sha256": "d88a7edf790274f126b3fa32590673d0f1cf9aafab40440be0d74d763b905059",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "agent:regression-orchestrator",
+    "authorization_note": "The repository owner delegated routine case review and resulting actions to the orchestrator on 2026-11-21.",
+    "notes": "Reviewed the full-mirror patch with the exact historical source and unchanged hunk, the complete original reference, the fresh nine-run pass/fail/pass result, the three native suite roles and the separate verifier repeat over the same source and wheel identities. The exact implementation passed the global CI and sandbox gates.",
+    "reviewed_at": "2026-11-22T04:43:54.979625Z",
+    "validation_report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
+    "case_inputs_sha256": "958df91aa4bc1ef39322d31dd2359fedc77165067a1db13ce39543e24e70c826"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "agent:regression-orchestrator",
+      "authorization_note": "The repository owner delegated routine case review and resulting actions to the orchestrator on 2026-11-21.",
+      "notes": "Reviewed the full-mirror patch with the exact historical source and unchanged hunk, the complete original reference, the fresh nine-run pass/fail/pass result, the three native suite roles and the separate verifier repeat over the same source and wheel identities. The exact implementation passed the global CI and sandbox gates.",
+      "reviewed_at": "2026-11-22T04:43:54.979625Z",
+      "validation_report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
+      "case_inputs_sha256": "958df91aa4bc1ef39322d31dd2359fedc77165067a1db13ce39543e24e70c826"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "258bc93ca463f34cdf657c7ea98d01cb3e4c053cf027089c7bd9364356918910"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "1f9395870e0c2731893119f0ed5dd222a4e564285df3b4df16ff5d50e2515ca3"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "a7542d80b56ae51d34f13cff069aa56b73f6749c6a360b70ac4a39a5bce6317a"
+  },
+  "notes": "The complete upstream method checks that a generator field transformer retains the annotated field. PR 1401 reused the generator after consumption. The exact production repair materializes the generator once before reuse. The reference passes on the parent, fails with AssertionError on introduced code, and passes on the repair, across three seeds. The native suites pass 1,422 / 1,425 / 1,425 tests, with seven skips and one expected failure per role. All 85 historical YAML typing tests pass per role, and the separate repeat verifies the role wheel bytes and collected node order. Suite repeat summary SHA-256 7b5b3714d84dab748c23ac211f8bb206c511545d800c13a650988f4028b97e3f. The earlier public issue is recorded alongside exact PR associations and timestamps."
+}

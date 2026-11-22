@@ -1,0 +1,95 @@
+{
+  "version": "1",
+  "evidence_kind": "structured_baseline_repeat",
+  "independent_instrumentation": false,
+  "case_id": "attrs-e048efcb3954-3b0378dd-1156ca14",
+  "status": "passed",
+  "profile": "attrs_field_transformer_default_behavior_v1",
+  "command": [
+    "/opt/revertbench/attrs/runtime/bin/python",
+    "-m",
+    "pytest",
+    "-n",
+    "1",
+    "-c",
+    "/workspace/repo/pyproject.toml",
+    "-q",
+    "--tb=short",
+    "--basetemp=/tmp/revertbench-attrs-pytest",
+    "-p",
+    "no:cacheprovider",
+    "-p",
+    "xdist.plugin",
+    "-p",
+    "xdist.looponfail",
+    "-p",
+    "_hypothesis_pytestplugin",
+    "-p",
+    "pytest_mypy_plugins.collect",
+    "-p",
+    "revertbench._attrs_baseline"
+  ],
+  "pids_limit": 64,
+  "image": "sha256:d813057af2196a160ad7782edc737cc7b0917501c80e0008d67725a854ed1f50",
+  "source_hashes": {
+    "base": "eaa955c06d387e4e446c6cc19188487109f284d2ef1d9841df5cb147d143b796",
+    "bad": "a209c6922a364e021fb1556304eaf3c4777a4a332e492e87116f7c3a2959abf8",
+    "historical_fix": "33ded95876a8c8f22fa13c0b7457c86efd84c9b1393af6e4b136c72172393e9e",
+    "repaired": "fb57875fc382ec621241ad5bfebe21d9eef035607938610788cfc738c49429a8"
+  },
+  "validation_report_sha256": "494c07463a956d93d78fce100782db7c4e2c63e95084c0ae7bccae6161d0e7b1",
+  "scope": {
+    "behavior": "upstream_default_py312_tests",
+    "xdist_workers": 1,
+    "typing_yaml_passed": 85,
+    "baseline_memory_bytes": 939524096,
+    "historical_wheels": {
+      "base": {
+        "version": "25.1.1.dev4",
+        "sha256": "c78ec64ca32c04d72e49bc627a98156c909cc5dcb7ebb366ba069259c2b9c375"
+      },
+      "bad": {
+        "version": "25.1.1.dev5",
+        "sha256": "024d5006d63dcc412f622d281d558512e7189c85e2e241dce40d57d045adbe7f"
+      },
+      "repaired": {
+        "version": "25.1.1.dev5",
+        "sha256": "d66f4f8da86013cbe8a536fd07102a4e02ee60266b6957f424c6febc90fcff99"
+      }
+    },
+    "requirements_sha256": {
+      "build": "ebe7970ca36ebfcefd408f0d276a8b83d06bf6aae19f46d5fb1213ed011fbcdf",
+      "runtime": "7ce0524c54260655734a4168f02cae5c54da1efc9d3e5660c3807ccc60b7830e"
+    },
+    "excluded_checks": [
+      "coverage_quality_gate",
+      "documentation_build",
+      "lint",
+      "standalone_type_checking"
+    ]
+  },
+  "roles": {
+    "base": {
+      "path": "upstream-suite/base.json",
+      "sha256": "50c1c1f690276fdb33d09178b1fc38011b9f80f60d4287fd1c1aa199aabfcc90",
+      "bytes": 132568,
+      "source_sha256": "eaa955c06d387e4e446c6cc19188487109f284d2ef1d9841df5cb147d143b796"
+    },
+    "bad": {
+      "path": "upstream-suite/bad.json",
+      "sha256": "73859151e8bde81627964bdd4d6302936b3708c12a168de138bfdaad31a44402",
+      "bytes": 132859,
+      "source_sha256": "a209c6922a364e021fb1556304eaf3c4777a4a332e492e87116f7c3a2959abf8"
+    },
+    "repaired": {
+      "path": "upstream-suite/repaired.json",
+      "sha256": "7e0fab9e7732162954a493c0064335e6f5f0474f41aece01e4989220fef64993",
+      "bytes": 132859,
+      "source_sha256": "fb57875fc382ec621241ad5bfebe21d9eef035607938610788cfc738c49429a8"
+    }
+  },
+  "environment_python": "3.12.16",
+  "grader_sha256": "ed4a3ca5f2f5035ad31cdc269c431f43fcc7992bb5e7f5a10f461a451578d0aa",
+  "policy_sha256": "d88a7edf790274f126b3fa32590673d0f1cf9aafab40440be0d74d763b905059",
+  "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad"
+}
