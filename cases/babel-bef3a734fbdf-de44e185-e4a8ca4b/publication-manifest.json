@@ -1,0 +1,65 @@
+{
+  "manifest_version": "2",
+  "case_id": "babel-bef3a734fbdf-de44e185-e4a8ca4b",
+  "build": {
+    "base_image": "python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df",
+    "original_worker_image": "sha256:1b5ca7f5fd3f619e664b6fa45f3b81c7fdcaebea8498718adfb5211b2ff3501e",
+    "validated_architecture": "arm64",
+    "verification": "Compared the approved worker layer prefix to the pinned official Python base.",
+    "reproduction": "Build the pinned grader and dependency lock. Record the reproduced image and architecture."
+  },
+  "files": {
+    "bad.diff": {
+      "sha256": "520007242ff942038203cc4a9b8d94788af76306b8078917ce3aebd985362357",
+      "bytes": 4076
+    },
+    "candidate.json": {
+      "sha256": "a8e1c44cc541c9e19e3b622b90e8b9a25cf69689b618e29aafb729401d5ebc1d",
+      "bytes": 7404
+    },
+    "case.json": {
+      "sha256": "b5169005e6038654c1ef083448e7961520288c9ed45fe98b9c5134adb04c1d28",
+      "bytes": 8379
+    },
+    "historical_fix.diff": {
+      "sha256": "af1d5cbb7afbe511b14bead5c792811789c872c404a3c0676c4ad26104b0d63d",
+      "bytes": 5065
+    },
+    "reference.py": {
+      "sha256": "329b2a649c7734eaad0a2b63ed1d8c1be63a927a21526161994a846bd47aa665",
+      "bytes": 584
+    },
+    "repair.patch": {
+      "sha256": "a9bb784d3323cee2892e1b421910a241c407f65dc27b8b48a84d2a6b3c07cf5c",
+      "bytes": 3623
+    },
+    "upstream-license.txt": {
+      "sha256": "7801a84fe811279cb350bdb4fb18f94c36b18ef813fa6aac043b6c6d39484d0d",
+      "bytes": 1531
+    },
+    "upstream-reference-header.txt": {
+      "sha256": "7b7f5c9799e9eca72fa6b94238860503bc51e91e8a00ef4d5560b40f6e9752ac",
+      "bytes": 537
+    },
+    "upstream-suite/bad.json": {
+      "sha256": "c81fdd9449056c4755ba18fa4bcf07d1afff8c3908a875295045eb5d923b70b6",
+      "bytes": 591391
+    },
+    "upstream-suite/base.json": {
+      "sha256": "6499539c236ae7b328c2b4c363f70a383db05506ef7f9f7c86caff3edb652baa",
+      "bytes": 591391
+    },
+    "upstream-suite/repaired.json": {
+      "sha256": "757a43058101ab1b74b0bbfbe8493d6a3d9a8dc454c439fb2c23d95a2e4fa056",
+      "bytes": 591391
+    },
+    "upstream-suite/summary.json": {
+      "sha256": "404d532223674ac2d5e62aff16f88ad65fce3c8a87c0b71e771b6a48680b3a07",
+      "bytes": 2683
+    },
+    "validation.json": {
+      "sha256": "96edca3635395334cdf7b2c2f30f8506e05bdc61f41431eb6e14870b24d48719",
+      "bytes": 2044654
+    }
+  }
+}

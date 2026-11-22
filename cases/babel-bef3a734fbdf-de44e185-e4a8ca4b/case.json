@@ -1,0 +1,178 @@
+{
+  "schema_version": "2",
+  "id": "babel-bef3a734fbdf-de44e185-e4a8ca4b",
+  "repo": "python-babel/babel",
+  "base_commit": "ea84d9d5f0bd2859f3281e4dac812ae05d33f466",
+  "bad_commit": "bef3a734fbdf1da4d1058d25a5eed785bec43a63",
+  "fix_commit": "de44e18528ab246e94c8d1bb10b9057113f30104",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "a9bb784d3323cee2892e1b421910a241c407f65dc27b8b48a84d2a6b3c07cf5c",
+    "repaired_tree_sha256": "472c2fae4ce90e1cb5d963021df7ea8950a8494ab38885c260a6da395ca2bff4"
+  },
+  "repair_derivation": null,
+  "changed_lines": {
+    "babel/messages/extract.py": [
+      36,
+      582,
+      583,
+      589,
+      590,
+      615,
+      616
+    ]
+  },
+  "source_hashes": {
+    "base": "3d5363c645474f4d62d38350070242f587502ca9a6a6950c290e433d92a3c815",
+    "bad": "abf43c7571a770eaab594e63ae73d3a2a4cdd450efc1a602b050e22c5957169b",
+    "historical_fix": "34d2ef93d886021d9d03ca485062655a077177c2c61678378241789fcc4c1136",
+    "repaired": "472c2fae4ce90e1cb5d963021df7ea8950a8494ab38885c260a6da395ca2bff4"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44980774797",
+    "implementation_commit": "dc7607c8d7bf0ae58454c3f37dac871230d26bd2",
+    "applies_to_image": "sha256:1b5ca7f5fd3f619e664b6fa45f3b81c7fdcaebea8498718adfb5211b2ff3501e",
+    "grader_sha256": "443fadda8294109cc20c5c8a907a0860526abb5d0f70a637e4e7b28961dbeb02",
+    "policy_sha256": "4a6c31143ff2644c48beeb4d84d0abbe36f2e098157a27b192986870bebcf956",
+    "observed_at": "2026-11-22T03:53:03.493166Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "python-babel/babel:bef3a734fbdf1da4d1058d25a5eed785bec43a63",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1126,
+    "title": "Fix extracted lineno with nested calls",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-babel/babel/pull/1126",
+    "published_at": "2024-09-18T13:27:54Z",
+    "merged_at": "2024-10-19T12:17:36Z",
+    "observed_at": "2026-11-22T03:23:07.161680Z",
+    "updated_at": "2024-10-19T12:23:53Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "bef3a734fbdf1da4d1058d25a5eed785bec43a63"
+  },
+  "fix_pr": {
+    "number": 1196,
+    "title": "Keep translator comments next to the translation function call",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-babel/babel/pull/1196",
+    "published_at": "2025-03-04T17:35:04Z",
+    "merged_at": "2025-06-24T11:53:27Z",
+    "observed_at": "2026-11-22T03:23:07.161680Z",
+    "updated_at": "2026-04-20T05:56:06Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "de44e18528ab246e94c8d1bb10b9057113f30104"
+  },
+  "reference_test": {
+    "path": "tests/messages/test_extract.py",
+    "node_ids": [
+      "tests/messages/test_extract.py::test_issue_1195"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "329b2a649c7734eaad0a2b63ed1d8c1be63a927a21526161994a846bd47aa665"
+  },
+  "changed_files": [
+    "babel/messages/extract.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2025-06-24T14:53:27+03:00",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/python-babel/babel/pull/1126",
+      "published_at": "2024-09-18T13:27:54Z",
+      "observed_at": "2026-11-22T03:23:07.161680Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/python-babel/babel/pull/1196",
+      "published_at": "2025-03-04T17:35:04Z",
+      "observed_at": "2026-11-22T03:23:07.161680Z"
+    },
+    {
+      "artifact": "issue",
+      "url": "https://github.com/python-babel/babel/issues/1195",
+      "published_at": "2025-03-04T16:43:45Z",
+      "observed_at": "2026-11-22T03:23:07.161680Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:1b5ca7f5fd3f619e664b6fa45f3b81c7fdcaebea8498718adfb5211b2ff3501e",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--tb=short",
+      "-c",
+      "/workspace/repo/setup.cfg",
+      "--rootdir",
+      "/workspace/repo",
+      "--basetemp=/tmp/revertbench-baseline",
+      "-p",
+      "no:cacheprovider",
+      "."
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "96edca3635395334cdf7b2c2f30f8506e05bdc61f41431eb6e14870b24d48719",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "7",
+    "grader_sha256": "443fadda8294109cc20c5c8a907a0860526abb5d0f70a637e4e7b28961dbeb02",
+    "policy_sha256": "4a6c31143ff2644c48beeb4d84d0abbe36f2e098157a27b192986870bebcf956",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "agent:regression-orchestrator",
+    "authorization_note": "The project owner delegated review and case decisions to the orchestrator.",
+    "notes": "Verified the exact upstream merge associations, first-parent lineage and the unchanged three-assertion reference. The historical production-only patch produces the expected translator comment. The full original reference passes before the PR and after repair across all three seeds. Each bad call reaches its own changed lines and fails the comment assertion. Both upstream suite rounds match all collected identities. All applicable machine checks and the pinned implementation CI passed.",
+    "reviewed_at": "2026-11-22T03:53:29.699340Z",
+    "validation_report_sha256": "96edca3635395334cdf7b2c2f30f8506e05bdc61f41431eb6e14870b24d48719",
+    "case_inputs_sha256": "9e368b1eb24720334806e6dc04ebafccaf6bcb2c162cc69605aaa620a27a480e"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "agent:regression-orchestrator",
+      "authorization_note": "The project owner delegated review and case decisions to the orchestrator.",
+      "notes": "Verified the exact upstream merge associations, first-parent lineage and the unchanged three-assertion reference. The historical production-only patch produces the expected translator comment. The full original reference passes before the PR and after repair across all three seeds. Each bad call reaches its own changed lines and fails the comment assertion. Both upstream suite rounds match all collected identities. All applicable machine checks and the pinned implementation CI passed.",
+      "reviewed_at": "2026-11-22T03:53:29.699340Z",
+      "validation_report_sha256": "96edca3635395334cdf7b2c2f30f8506e05bdc61f41431eb6e14870b24d48719",
+      "case_inputs_sha256": "9e368b1eb24720334806e6dc04ebafccaf6bcb2c162cc69605aaa620a27a480e"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "520007242ff942038203cc4a9b8d94788af76306b8078917ce3aebd985362357"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "af1d5cbb7afbe511b14bead5c792811789c872c404a3c0676c4ad26104b0d63d"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "a8e1c44cc541c9e19e3b622b90e8b9a25cf69689b618e29aafb729401d5ebc1d"
+  },
+  "notes": "The complete original reference extracts a multiline translation call from in-memory Python source. It checks the allowed line numbers, the message string, and the translator comment. PR 1126 loses the comment. The exact production-only historical repair from PR 1196 restores it. Across seeds 11, 23, and 37 the reference passes on the prior parent, fails the comment assertion on the introducing merge, and passes on the controlled repair. Each bad call reaches introduced lines 582, 583, and 615 in babel/messages/extract.py. The default native root suites each pass 6,042 tests, with 1,075 runtime skips and two optional collection skips. The separate structured baseline repeat matches every collected node identity. Its summary SHA-256 is 404d532223674ac2d5e62aff16f88ad65fce3c8a87c0b71e771b6a48680b3a07. PR descriptions are omitted. Exact observed PR timestamps and merge associations are retained."
+}

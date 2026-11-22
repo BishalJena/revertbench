@@ -1,0 +1,168 @@
+{
+  "schema_version": "2",
+  "id": "babel-8babd2413b6b-7b00bf9e-365e1118",
+  "repo": "python-babel/babel",
+  "base_commit": "c382433305196afeb06d7577aece17e2b47a58b6",
+  "bad_commit": "8babd2413b6b4eb99304f8f2ae10bbbca4a1fe7d",
+  "fix_commit": "7b00bf9e20420e64cc9eecd7f8c82d8c26a41351",
+  "repair": {
+    "patch_path": "repair.patch",
+    "patch_sha256": "1cd1734af7b53c80c1a509ba381ae957b6d6568e820e58b15ec2f34ed3b85aa6",
+    "repaired_tree_sha256": "02fec153e8214189a577b8241729563cd470743951c394fab55dad0a0f4dc571"
+  },
+  "repair_derivation": null,
+  "changed_lines": {
+    "babel/messages/extract.py": [
+      643,
+      644,
+      647
+    ]
+  },
+  "source_hashes": {
+    "base": "a38132f9da9f5359e0915f014db05f59e30020d6fb507233262539e9497d3474",
+    "bad": "71f247addf775b70ba322554c5c10554163b1b2034c1cd4bb0a8d55665721901",
+    "historical_fix": "f615cb9819740c66f5bd2b81bc34768635cab242abb3504d263c9b46918aea70",
+    "repaired": "02fec153e8214189a577b8241729563cd470743951c394fab55dad0a0f4dc571"
+  },
+  "global_suite_evidence": {
+    "ci_url": "https://github.com/BishalJena/revertbench/actions/runs/44981327063",
+    "implementation_commit": "1daee2401a76f8f5cc083081794bc59e836c7acc",
+    "applies_to_image": "sha256:801e4c4dccf95ffd9837cf0aa69d2ec7ae28642af0ce18b1777a3a48c759e0e8",
+    "grader_sha256": "a91c56b3961a5d8c01e4573f0c4f05377853e9fb57fce38f8df52a6fc0b2ab6e",
+    "policy_sha256": "4a6c31143ff2644c48beeb4d84d0abbe36f2e098157a27b192986870bebcf956",
+    "observed_at": "2026-11-22T03:54:18.030454Z",
+    "checks_status": "passed",
+    "sandbox_status": "passed"
+  },
+  "regression_group_id": "python-babel/babel:8babd2413b6b4eb99304f8f2ae10bbbca4a1fe7d",
+  "dataset_split": "unassigned",
+  "eligibility": "eligible",
+  "lineage_verified": true,
+  "bad_pr": {
+    "number": 1083,
+    "title": "Replace deprecated `ast.Str` with `ast.Constant`",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-babel/babel/pull/1083",
+    "published_at": "2024-05-12T10:30:41Z",
+    "merged_at": "2024-05-13T13:40:32Z",
+    "observed_at": "2026-11-22T03:22:02.222018Z",
+    "updated_at": "2024-05-13T13:51:39Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "8babd2413b6b4eb99304f8f2ae10bbbca4a1fe7d"
+  },
+  "fix_pr": {
+    "number": 1259,
+    "title": "Skip byte strings in extract_python instead of crashing",
+    "body": "",
+    "diff": null,
+    "url": "https://github.com/python-babel/babel/pull/1259",
+    "published_at": "2026-02-22T00:48:19Z",
+    "merged_at": "2026-10-30T11:05:06Z",
+    "observed_at": "2026-11-22T03:22:02.217399Z",
+    "updated_at": "2026-10-30T11:06:29Z",
+    "body_snapshot": "unknown",
+    "association_verified": true,
+    "associated_commit": "7b00bf9e20420e64cc9eecd7f8c82d8c26a41351"
+  },
+  "reference_test": {
+    "path": "tests/messages/test_extract.py",
+    "node_ids": [
+      "tests/messages/test_extract.py::test_extract_byte_string_does_not_crash"
+    ],
+    "source_artifact": "reference.py",
+    "source_sha256": "61f801de03957b40c5a7eb68dd796b0bf3054a2365ee53f5d8029f418db8828d"
+  },
+  "changed_files": [
+    "babel/messages/extract.py"
+  ],
+  "changed_symbols": [],
+  "fixed_at": "2026-10-30T11:05:05Z",
+  "publication_evidence": [
+    {
+      "artifact": "bad_pr",
+      "url": "https://github.com/python-babel/babel/pull/1083",
+      "published_at": "2024-05-12T10:30:41Z",
+      "observed_at": "2026-11-22T03:22:02.222018Z"
+    },
+    {
+      "artifact": "fix_pr",
+      "url": "https://github.com/python-babel/babel/pull/1259",
+      "published_at": "2026-02-22T00:48:19Z",
+      "observed_at": "2026-11-22T03:22:02.217399Z"
+    }
+  ],
+  "env": {
+    "image": "sha256:801e4c4dccf95ffd9837cf0aa69d2ec7ae28642af0ce18b1777a3a48c759e0e8",
+    "python": "3.12.16",
+    "dependency_lock_sha256": "0bc657acb1232c0eb4d050c86ae83a2dba08cf1bed3e3df90942f8cdaec6bdad",
+    "install": [],
+    "test_cmd": [
+      "/usr/local/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--tb=short",
+      "-c",
+      "/workspace/repo/setup.cfg",
+      "--rootdir",
+      "/workspace/repo",
+      "--basetemp=/tmp/revertbench-baseline",
+      "-p",
+      "no:cacheprovider",
+      "."
+    ]
+  },
+  "validation": {
+    "status": "accepted",
+    "report": "validation.json",
+    "report_sha256": "a7ce31cb38aa830f0205928f9bf2f34e090904121f1f485903dc75820a952289",
+    "machine_passed": true,
+    "reason": "all_machine_checks_passed",
+    "grader_version": "0.0.1",
+    "policy_version": "7",
+    "grader_sha256": "a91c56b3961a5d8c01e4573f0c4f05377853e9fb57fce38f8df52a6fc0b2ab6e",
+    "policy_sha256": "4a6c31143ff2644c48beeb4d84d0abbe36f2e098157a27b192986870bebcf956",
+    "validator_version": "1"
+  },
+  "human_review": null,
+  "review_history": [],
+  "agent_review": {
+    "review_version": "1",
+    "reviewer_kind": "agent",
+    "decision": "accept",
+    "reviewer": "agent:regression-orchestrator",
+    "authorization_note": "The project owner delegated review and case decisions to the orchestrator.",
+    "notes": "Verified the two upstream merge associations and exact parent. The complete original reference checks that two ordinary text messages are kept and byte-string calls are ignored. The introducing revision raises TypeError after the changed production lines execute. Parent and production-only repair pass all three repeats. Native suite repeats match all collected nodes. All applicable machine checks and exact implementation CI passed.",
+    "reviewed_at": "2026-11-22T03:54:18.211772Z",
+    "validation_report_sha256": "a7ce31cb38aa830f0205928f9bf2f34e090904121f1f485903dc75820a952289",
+    "case_inputs_sha256": "3ae255c95079ffcfbf97f70aaa97ab4d645fefaab4729cfab5d4b00bfda6d699"
+  },
+  "agent_review_history": [
+    {
+      "review_version": "1",
+      "reviewer_kind": "agent",
+      "decision": "accept",
+      "reviewer": "agent:regression-orchestrator",
+      "authorization_note": "The project owner delegated review and case decisions to the orchestrator.",
+      "notes": "Verified the two upstream merge associations and exact parent. The complete original reference checks that two ordinary text messages are kept and byte-string calls are ignored. The introducing revision raises TypeError after the changed production lines execute. Parent and production-only repair pass all three repeats. Native suite repeats match all collected nodes. All applicable machine checks and exact implementation CI passed.",
+      "reviewed_at": "2026-11-22T03:54:18.211772Z",
+      "validation_report_sha256": "a7ce31cb38aa830f0205928f9bf2f34e090904121f1f485903dc75820a952289",
+      "case_inputs_sha256": "3ae255c95079ffcfbf97f70aaa97ab4d645fefaab4729cfab5d4b00bfda6d699"
+    }
+  ],
+  "bad_diff": {
+    "path": "bad.diff",
+    "sha256": "d8b1bf24d74c7e8bacacdda46de5c9ce654d4989b774bff22d39411a8f209e80"
+  },
+  "historical_fix_diff": {
+    "path": "historical_fix.diff",
+    "sha256": "352b12b4a8ce5374cd671dbcbc1a8773953ca21a0e48b1c73b70d7e26ba22d67"
+  },
+  "candidate_artifact": {
+    "path": "candidate.json",
+    "sha256": "0430d135926dd5a8add76c6534ce515448ec26690ab60bca2a32631f886bfa1e"
+  },
+  "notes": "The complete original reference extracts translation messages from in-memory Python source. It checks that exactly two text strings are retained and verifies both values. PR 1083 started including byte strings in the message buffer, where they caused a TypeError. The exact production-only historical repair from PR 1259 skips those byte strings. Across seeds 11, 23, and 37 the reference passes on the immediate parent, fails on the introducing revision with TypeError, and passes on the controlled repair. All three bad calls reach introduced lines 643 and 644 in babel/messages/extract.py. Each native upstream suite passes 5,983 tests, with 1,074 runtime skips and one optional collection skip. The separate structured baseline repeat matches all collected node identities. Its summary SHA-256 is b86d5616ea0884884d78b7e0310984e9e53db292a6d82b7a5154e504fdba0156. PR descriptions are omitted. Exact observed PR timestamps and merge associations are retained."
+}
