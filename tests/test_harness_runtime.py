@@ -72,8 +72,9 @@ def test_each_published_case_dispatches_to_its_original_snapshot(
 
     monkeypatch.setattr(PinnedRuntime, "_launch", launch)
     monkeypatch.setattr(PinnedRuntime, "_exchange", exchange)
-    fingerprints = set()
+    assert cases
     for index, path in enumerate(cases):
+        case = json.loads(path.read_text())
         with PinnedRuntime(
             path.parent,
             cache=tmp_path / "cache",
@@ -81,10 +82,15 @@ def test_each_published_case_dispatches_to_its_original_snapshot(
             episode_id=f"episode-{index}",
         ) as runtime:
             metadata = runtime.prepare()
-            fingerprints.add(metadata["grader_sha256"])
-            assert set(metadata["safe_task"]) == {"episode_id", "bad_pr_title", "bad_diff"}
-    assert len(set(launched)) == 4
-    assert len(fingerprints) == 4
+            assert launched == [case["global_suite_evidence"]["implementation_commit"]]
+            assert metadata["grader_sha256"] == case["validation"]["grader_sha256"]
+            assert metadata["policy_sha256"] == case["validation"]["policy_sha256"]
+            assert metadata["safe_task"] == {
+                "episode_id": f"episode-{index}",
+                "bad_pr_title": case["bad_pr"]["title"],
+                "bad_diff": "public diff",
+            }
+        launched.clear()
 
 
 @pytest.mark.parametrize("score", [True, 1.0, [], "1"])

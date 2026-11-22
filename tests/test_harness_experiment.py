@@ -26,9 +26,13 @@ class ExperimentRuntime(FakeRuntime):
         return {"submitted": True} if name == "submit" else {"ok": True}
 
 
-def test_fake_five_case_experiment_resume_and_independent_ids(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("case_count", [5, 6])
+def test_fake_experiment_resume_and_independent_ids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case_count: int
 ) -> None:
+    case_root = Path(__file__).resolve().parents[1] / "cases"
+    case_dirs = [path.parent for path in sorted(case_root.glob("*/case.json"))][:case_count]
+    assert len(case_dirs) == case_count
     config = model_config()
     monkeypatch.setattr(experiment, "load_model", lambda path, alias: config)
     clients: list[FakeClient] = []
@@ -37,7 +41,7 @@ def test_fake_five_case_experiment_resume_and_independent_ids(
         client = FakeClient(
             [
                 answer
-                for _ in range(5)
+                for _ in range(case_count)
                 for answer in (
                     response("write_test", {"content": "def test_ok():\n    assert True\n"}),
                     response("submit"),
@@ -49,24 +53,23 @@ def test_fake_five_case_experiment_resume_and_independent_ids(
 
     monkeypatch.setattr(experiment, "ProviderClient", client_factory)
     monkeypatch.setattr(experiment, "PinnedRuntime", ExperimentRuntime)
-    cases = sorted((Path(__file__).resolve().parents[1] / "cases").glob("*/case.json"))
     common: dict[str, Any] = {
-        "case_dirs": [path.parent for path in cases],
+        "case_dirs": case_dirs,
         "config_path": tmp_path / "unused.toml",
         "model_id": "test",
         "cache": tmp_path / "cache",
         "budget_usd": 0.25,
     }
     first = experiment.run_experiment(**common, output=tmp_path / "first", experiment_id="first")
-    assert first["metrics"]["planned_samples"] == first["metrics"]["model_passes"] == 5
-    assert len(clients[0].calls) == 10
+    assert first["metrics"]["planned_samples"] == first["metrics"]["model_passes"] == case_count
+    assert len(clients[0].calls) == 2 * case_count
     resumed = experiment.run_experiment(
         **common, output=tmp_path / "first", experiment_id="first", resume=True
     )
-    assert resumed["metrics"]["physical_model_calls"] == 10
+    assert resumed["metrics"]["physical_model_calls"] == 2 * case_count
     assert not clients[1].calls
     second = experiment.run_experiment(**common, output=tmp_path / "second", experiment_id="second")
-    assert len(clients[2].calls) == 10
+    assert len(clients[2].calls) == 2 * case_count
     assert {row["sample_id"] for row in first["episodes"]}.isdisjoint(
         row["sample_id"] for row in second["episodes"]
     )

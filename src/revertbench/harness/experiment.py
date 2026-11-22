@@ -83,8 +83,8 @@ def _code_identity() -> dict[str, Any]:
 
 
 def _case_inputs(case_dirs: list[Path]) -> list[dict[str, Any]]:
-    if not case_dirs or len(case_dirs) > 5:
-        raise ValueError("M4 requires one to five accepted cases")
+    if not case_dirs:
+        raise ValueError("Experiments require at least one accepted case")
     rows = []
     for directory in case_dirs:
         path = directory / "case.json"
