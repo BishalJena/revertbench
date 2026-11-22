@@ -12,6 +12,9 @@ const versionNames = {
 };
 
 const byId = (id) => document.getElementById(id);
+const views = new Map([...document.querySelectorAll("[data-view]")].map((view) => [view.id, view]));
+const viewLinks = [...document.querySelectorAll("[data-view-link]")];
+const caseList = byId("case-list");
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -88,56 +91,86 @@ function caseDetails(item) {
   return details;
 }
 
-function caseUrl(id) {
+function viewUrl(viewId, caseId) {
   const url = new URL(window.location.href);
-  if (id) url.searchParams.set("case", id);
+  url.hash = viewId;
+  if (caseId) url.searchParams.set("case", caseId);
   else url.searchParams.delete("case");
-  url.hash = "cases";
   return url;
+}
+
+function renderRoute() {
+  const url = new URL(window.location.href);
+  const caseId = url.searchParams.get("case");
+  const viewId = url.hash.slice(1);
+  // Older case links use #demo, and links without a fragment also share the case query.
+  const caseRoute = caseId !== null && (viewId === "demo" || !views.has(viewId));
+  const activeView = views.get(caseRoute ? "cases" : viewId) ?? views.get("demo");
+
+  for (const view of views.values()) view.hidden = view !== activeView;
+  for (const link of viewLinks) {
+    const destination = link.hash.slice(1);
+    link.href = viewUrl(destination).href;
+    if (destination === activeView?.id) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
+  for (const details of caseList.children) {
+    details.open = activeView?.id === "cases" && details.dataset.caseId === caseId;
+  }
+  return activeView;
+}
+
+function navigate(viewId, caseId) {
+  const url = viewUrl(viewId, caseId);
+  if (url.href !== window.location.href) history.pushState(null, "", url);
+  return renderRoute();
+}
+
+function ordinaryClick(event) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
+function focusView(view) {
+  view?.querySelector("h1, h2")?.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+}
+
+function setUpNavigation() {
+  for (const link of viewLinks) {
+    link.addEventListener("click", (event) => {
+      if (!ordinaryClick(event)) return;
+      event.preventDefault();
+      focusView(navigate(link.hash.slice(1)));
+    });
+  }
+  document.querySelector(".skip-link")?.addEventListener("click", (event) => {
+    if (!ordinaryClick(event)) return;
+    event.preventDefault();
+    focusView(renderRoute());
+  });
+  window.addEventListener("popstate", renderRoute);
+  window.addEventListener("hashchange", renderRoute);
+  renderRoute();
 }
 
 function setUpCaseList(items, exampleLink) {
   const detailsById = new Map(items.map((item) => [item.id, caseDetails(item)]));
-  let active = null;
-
-  function openCase(details) {
-    const previous = active;
-    active = details;
-    if (previous && previous !== details) previous.open = false;
-    if (details) details.open = true;
-  }
-
-  function selectCase(details) {
-    openCase(details);
-    const url = caseUrl(details?.dataset.caseId);
-    if (url.href !== window.location.href) history.pushState(null, "", url);
-  }
-
-  function readLocation() {
-    const id = new URLSearchParams(window.location.search).get("case");
-    const details = detailsById.get(id) ?? null;
-    openCase(details);
-    return details;
-  }
-
   for (const details of detailsById.values()) {
     details.querySelector("summary").addEventListener("click", (event) => {
       event.preventDefault();
-      selectCase(details.open ? null : details);
+      navigate("cases", details.open ? null : details.dataset.caseId);
     });
   }
-  byId("case-list").replaceChildren(...detailsById.values());
-  readLocation()?.scrollIntoView({ block: "start" });
-  window.addEventListener("popstate", readLocation);
+  caseList.replaceChildren(...detailsById.values());
+  renderRoute();
+  caseList.querySelector("[open]")?.scrollIntoView({ block: "start" });
 
-  exampleLink.href = caseUrl(exampleId).href;
+  exampleLink.href = viewUrl("cases", exampleId).href;
   exampleLink.addEventListener("click", (event) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-      return;
-    }
+    if (!ordinaryClick(event)) return;
     event.preventDefault();
     const details = detailsById.get(exampleId);
-    selectCase(details);
+    navigate("cases", exampleId);
     details.querySelector("summary").focus({ preventScroll: true });
     details.scrollIntoView({ block: "start" });
   });
@@ -179,6 +212,7 @@ async function load() {
   byId("case-fallback").hidden = true;
 }
 
+setUpNavigation();
 load().catch(() => {
   byId("case-load-status").textContent = "The recorded results could not load.";
   byId("show-results").textContent = "Results unavailable";

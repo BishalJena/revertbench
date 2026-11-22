@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="See how RevertBench checks whether AI-written tests catch real software bugs.">
-  <meta name="theme-color" content="#fbfcff">
+  <meta name="theme-color" content="#ffffff">
   <title>RevertBench | Can AI write a test that catches a real bug?</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
@@ -12,35 +12,34 @@
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
-  <header class="page-header">
-    <div class="wrap header-inner">
-      <a class="wordmark" href="./">
-        <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        RevertBench
-      </a>
-      <a class="repo-link" href="https://github.com/BishalJena/revertbench">GitHub <span aria-hidden="true">↗</span></a>
-    </div>
-  </header>
 
-  <main class="wrap" id="content">
-    <div class="intro">
-      <h1>Can AI write a test that catches a real bug?</h1>
-      <p>RevertBench measures this using real software bugs and their fixes.</p>
-    </div>
+  <aside class="sidebar">
+    <a class="wordmark" href="./">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      RevertBench
+    </a>
+    <nav class="navigation" aria-label="Portfolio">
+      <a href="#demo" data-view-link="demo">Try an example</a>
+      <a href="#method" data-view-link="method">How it works</a>
+      <a href="#cases" data-view-link="cases">Nine cases</a>
+    </nav>
+    <a class="repo-link" href="https://github.com/BishalJena/revertbench">GitHub <span aria-hidden="true">↗</span></a>
+  </aside>
 
-    <section class="story" id="demo" aria-labelledby="story-heading">
-      <div class="story-start">
+  <main id="content" tabindex="-1">
+    <section class="panel" id="demo" data-view aria-labelledby="intro-title">
+      <h1 id="intro-title" tabindex="-1">Can AI write a test that catches a real bug?</h1>
+      <p class="lead">RevertBench checks AI-written tests against real bugs.</p>
+
+      <article class="story" aria-labelledby="story-heading">
         <div class="story-copy">
           <h2 id="story-heading">A translator’s note went missing.</h2>
           <p>Babel prepares text for translation. An update kept the text but dropped its note.</p>
-        </div>
-        <div class="story-action">
           <button type="button" id="show-results" aria-expanded="false" aria-controls="example-results" disabled>See the test results</button>
         </div>
-
         <div class="story-panel">
           <div class="translation-output" id="translation-output">
-            <div class="output-heading">What Babel returned</div>
+            <p class="output-heading">What Babel returned</p>
             <dl>
               <div><dt>Text to translate</dt><dd class="kept">Kept</dd></div>
               <div><dt>Note for the translator</dt><dd class="missing">Missing</dd></div>
@@ -70,18 +69,32 @@
             <a class="text-link" id="example-case-link" href="#cases">Explore the Babel case</a>
           </div>
         </div>
-      </div>
+      </article>
     </section>
 
-    <section class="method reading" id="method" aria-labelledby="method-heading">
-      <h2 id="method-heading">How RevertBench scores a test</h2>
-      <p>An AI model gets the original code change and writes a test. RevertBench runs that test several times with and without the fix. To earn credit, the test has to run the changed code, fail with the bug, and pass with the fix.</p>
+    <section class="panel" id="method" data-view aria-labelledby="method-heading">
+      <h2 class="panel-title" id="method-heading" tabindex="-1">How it works</h2>
+      <p class="lead">RevertBench checks whether a test can tell buggy code from fixed code.</p>
+      <ol class="method-steps">
+        <li>
+          <h3>Start with a real bug</h3>
+          <p>Find an update that broke something and the later fix. Confirm that a historical test catches the bug and passes with the fix.</p>
+        </li>
+        <li>
+          <h3>Ask the AI to write a test</h3>
+          <p>Give the AI the original code change. Hold back the fix and the historical test.</p>
+        </li>
+        <li>
+          <h3>Run the same test on both versions</h3>
+          <p>To earn credit, the test must reach the changed code, fail because of the bug, and pass with the fix across repeated runs.</p>
+        </li>
+      </ol>
       <a class="text-link" href="https://github.com/BishalJena/revertbench/blob/main/docs/cases.md">Read the validation method</a>
     </section>
 
-    <section class="library reading" id="cases" aria-labelledby="cases-heading">
-      <h2 id="cases-heading">Nine real bugs</h2>
-      <p>Across four Python projects, each bug was caught by a reference test and confirmed in repeated runs. Comparative AI model results are pending.</p>
+    <section class="panel" id="cases" data-view aria-labelledby="cases-heading">
+      <h2 class="panel-title" id="cases-heading" tabindex="-1">Nine real bugs</h2>
+      <p class="lead">Each case comes from an open-source Python project and includes a test that caught the bug in repeated runs. Comparative AI model results are pending.</p>
       <div id="case-list"></div>
       <div class="case-fallback" id="case-fallback">
         <p id="case-load-status" role="status">Detailed results are available in the public case files.</p>
@@ -89,10 +102,5 @@
       </div>
     </section>
   </main>
-
-  <footer class="wrap page-footer">
-    <span>RevertBench</span>
-    <a href="https://github.com/BishalJena/revertbench">Source code on GitHub <span aria-hidden="true">↗</span></a>
-  </footer>
 </body>
 </html>
